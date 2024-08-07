@@ -1,0 +1,6 @@
+data/fmnist
+data/kmnist
+data/mnist
+models/__pycache__
+utils/__pycache__
+
