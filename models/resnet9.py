@@ -46,7 +46,6 @@ class BasicModel(nn.Module):
     # also validation needs to have decorator @torch.no_grad()
     
     def fit(self, nEpochs, model, lossFunction, lr, train_load, val_load, history, device, wd = 0, gd = None):
-    # def fit(self, nEpochs, model, lossFunction, train_load, val_load, history, gd = None):
         '''
         nEpochs:      number of epochs for training
         model:        architecure of network
@@ -74,7 +73,7 @@ class BasicModel(nn.Module):
                 batch = batch.to(device)
                 labels = labels.to(device)
                 # Generate predictions
-                pred = model(batch)
+                pred, _ = model(batch)
                 # Calculate loss
                 loss = lossFunction(pred, labels)
                 tLoss.append(loss.detach().item())
@@ -104,7 +103,7 @@ class BasicModel(nn.Module):
             for batch, labels in val_load:
                 batch = batch.to(device)
                 labels = labels.to(device)
-                pred = model(batch)
+                pred, _ = model(batch)
                 with torch.no_grad():
                     loss = lossFunction(pred, labels)
                 vLoss.append(loss.detach().item())
@@ -120,6 +119,66 @@ class BasicModel(nn.Module):
 
             self.progressBar(i + 1, nEpochs, prefix = 'Progress: ', suffix = suffixArray, length = 40, fill = '#')
             currentHistory = [meanTL, meanTA, meanVL, meanVA]
+            history.append(currentHistory)
+        
+        print('\n')
+        return model, history 
+    
+    def fit_full_train(self, nEpochs, model, lossFunction, lr, train_load, history, device, wd = 0, gd = None):
+    # def fit(self, nEpochs, model, lossFunction, train_load, val_load, history, gd = None):
+        '''
+        nEpochs:      number of epochs for training
+        model:        architecure of network
+        lossFunction: loss function
+        lr:           learning rate
+        wd:           weight decay
+        gd:           gradient clipping
+        train_load:   loader for train data
+        history:      history of the statistics of previous batches
+        device:       CPU or GPU
+        '''
+
+        # Define optimization
+        opt = torch.optim.Adam(model.parameters(), lr = lr, weight_decay=wd)
+        # opt = torch.optim.Adam(model.parameters(), lr=5e-4, betas=(0.9, 0.999))
+        sched = torch.optim.lr_scheduler.OneCycleLR(opt, lr, epochs=nEpochs, steps_per_epoch=len(train_load))
+        for i in range(nEpochs):
+            # Training
+            model.train()
+            # Define lists to store training loss and accuracy
+            tLoss = []
+            tAcc = list()
+            for batch, labels in train_load:
+                batch = batch.to(device)
+                labels = labels.to(device)
+                # Generate predictions
+                pred, _ = model(batch)
+                # Calculate loss
+                loss = lossFunction(pred, labels)
+                tLoss.append(loss.detach().item())
+                # Calculate gradients
+                loss.backward()
+                if gd:
+                    nn.utils.clip_grad_value_(model.parameters(), gd)
+                # Update parameters
+                opt.step()
+                sched.step()
+                # Reset gradiensts
+                opt.zero_grad()
+                # Check train accuracy
+                a = self.accuracy(pred, labels)
+                tAcc.append(a.item())
+
+                del batch, labels, pred, loss
+            # Training stats
+            meanTA = sum(tAcc) / len(tAcc)
+            meanTL = sum(tLoss) / len(tLoss)
+
+            # Make progress bar
+            suffixArray = ' ' + 'Training loss: ' + f'{meanTL:.2f} ' + 'Training accuracy: ' + f'{meanTA:.2f} ' 
+
+            self.progressBar(i + 1, nEpochs, prefix = 'Progress: ', suffix = suffixArray, length = 40, fill = '#')
+            currentHistory = [meanTL, meanTA]
             history.append(currentHistory)
         
         print('\n')
@@ -144,7 +203,10 @@ class ResNet9Model(BasicModel):
         self.block4 = self.convBlock2(256, 512)
         self.resBlock2 = nn.Sequential(self.convBlock1(512, 512), self.convBlock1(512, 512))
 
-        self.classifier = self.flatLayer(numberOfClasses)
+        # self.classifier = self.flatLayer(numberOfClasses)
+        self.mpool = nn.MaxPool2d(3)
+        self.flat = nn.Flatten()
+        self.fc = nn.Linear(512, numberOfClasses)
 
     def convBlock1(self, input, output):
         layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=3, padding=1),
@@ -161,21 +223,57 @@ class ResNet9Model(BasicModel):
     
     def flatLayer(self, numOfClasses):
         layers = [
-            # nn.AdaptiveMaxPool2d(1),      
-                  nn.MaxPool2d(3),  #32 za 256
+                  nn.AdaptiveMaxPool2d(1),      
+                #   nn.MaxPool2d(3),  #32 za 256
                   nn.Flatten(),
                   nn.Linear(512, numOfClasses)]
         return nn.Sequential(*layers)
     
     def forward(self, x):
-        out = self.block1(x)
-        out = self.block2(out)
-        out = self.resBlock1(out) + out 
-        out = self.block3(out)
-        out = self.block4(out)
-        out = self.resBlock2(out) + out
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.resBlock1(x) + x 
+        x = self.block3(x)
+        x = self.block4(x)
+        x = self.resBlock2(x) + x
+        x = self.mpool(x)
+        f = self.flat(x)
+        p = self.fc(f)
+        return p, f
 
-        out = self.classifier(out)
-        return out
+# class FeatureExtractorConv(nn.Module):
+#     '''
+#     Feature extraction for convolutional ResNet9 network
+#     '''
 
+#     def __init__(self, network):
+#         super().__init__()
+#         self.network = network 
+#         del self.network.fc
 
+#     def forward(self, x):
+#         z = self.network(x)
+#         return z
+    
+# class ClassifierConv(nn.Module):
+#     '''
+#     Classifier based on features from convolutional ResNet9
+#     '''
+#     def __init__(self, numberOfClasses):
+#         super().__init__()
+#         self.fc = nn.Linear(512, numberOfClasses)
+
+#     def forward(self, x):
+#         return self.fc(x)
+
+# # Combine feature extractor and classifier
+# class CustomResNetConv(nn.Module):
+#     def __init__(self, num_classes, network):
+#         super(CustomResNetConv, self).__init__()
+#         self.feature_extractor = FeatureExtractorConv(network)
+#         self.custom_classifier = ClassifierConv(num_classes)
+#     def forward(self, x):
+#         x = self.feature_extractor(x)
+#         y = self.custom_classifier(x)
+#         return (x, y)
+    

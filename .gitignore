@@ -1,6 +1,13 @@
 data/fmnist
 data/kmnist
 data/mnist
+data/cifar10
+data/svhn
 models/__pycache__
 utils/__pycache__
+features/case_01
+features/case_02
+features/case_03
+features/case_04
+
 
