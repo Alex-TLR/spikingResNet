@@ -3,8 +3,9 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
 import torch
-
+import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve
 
 '''
 Utility functions
@@ -91,6 +92,41 @@ class Utils():
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
         return device 
     
+
+    @staticmethod
+    def find_threshold(test_Y, test_dist, positive_label, drop = True): 
+        '''
+        Find threshold values input values
+
+        Inputs:
+            test_Y:         an array with train labels
+            test_dist:      an array of test features distances 
+            positive_label: set if 1 is positive label, or 0 is positive label
+
+        Outputs:
+            th_tpr80:       threshold for which TPR is 80 percent
+            th_tpr95:       threshold for which TPR is 95 percent
+        '''
+
+        _, tpr, thresholds = roc_curve(test_Y, test_dist, pos_label = positive_label, drop_intermediate = drop)
+
+        # Plot ROC curve
+        # plt.figure()
+        # plt.plot(fpr, tpr, marker='o', linestyle='-', color='b')
+        # plt.xlabel('False Positive Rate')
+        # plt.ylabel('True Positive Rate')
+        # plt.title('ROC Curve')
+        # plt.grid(True)
+        # plt.show()
+
+        dtpr80 = np.absolute(tpr-0.8)
+        th_tpr80 = thresholds[dtpr80.argmin()]
+
+        dtpr95 = np.absolute(tpr-0.95)
+        th_tpr95 = thresholds[dtpr95.argmin()]
+
+        return th_tpr80, th_tpr95
+
 
     @staticmethod
     def plot_train_val_stats(history):

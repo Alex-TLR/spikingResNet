@@ -1,6 +1,6 @@
 ''' 
 Author: Aleksej Avramovic
-Last update: 20/07/2024
+Last update: 21/08/2024
 
 The first step towards Out of Distribution detection
 
@@ -240,40 +240,3 @@ class ResNet9Model(BasicModel):
         f = self.flat(x)
         p = self.fc(f)
         return p, f
-
-# class FeatureExtractorConv(nn.Module):
-#     '''
-#     Feature extraction for convolutional ResNet9 network
-#     '''
-
-#     def __init__(self, network):
-#         super().__init__()
-#         self.network = network 
-#         del self.network.fc
-
-#     def forward(self, x):
-#         z = self.network(x)
-#         return z
-    
-# class ClassifierConv(nn.Module):
-#     '''
-#     Classifier based on features from convolutional ResNet9
-#     '''
-#     def __init__(self, numberOfClasses):
-#         super().__init__()
-#         self.fc = nn.Linear(512, numberOfClasses)
-
-#     def forward(self, x):
-#         return self.fc(x)
-
-# # Combine feature extractor and classifier
-# class CustomResNetConv(nn.Module):
-#     def __init__(self, num_classes, network):
-#         super(CustomResNetConv, self).__init__()
-#         self.feature_extractor = FeatureExtractorConv(network)
-#         self.custom_classifier = ClassifierConv(num_classes)
-#     def forward(self, x):
-#         x = self.feature_extractor(x)
-#         y = self.custom_classifier(x)
-#         return (x, y)
-    

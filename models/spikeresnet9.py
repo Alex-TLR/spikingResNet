@@ -22,6 +22,8 @@ from torchsummary import summary
 import snntorch as snn
 from snntorch import utils
 import snntorch.functional as SF
+from snntorch import spikegen
+
 
 # Utility functions
 ###################
@@ -57,8 +59,28 @@ class BasicModel(nn.Module):
         spk_trace = []
         utils.reset(model)
 
+        # Spiking Data
+        # spike_data = spikegen.rate(data=data, num_steps=numSteps)
+        # TODO check the dimension of spike_data
+        print(data.size())
+
         for _ in range(numSteps):
             spk_out, _, mem_out = model(data)
+            spk_trace.append(spk_out)
+            mem_trace.append(mem_out)
+
+        spk_trace = torch.stack(spk_trace)
+        mem_trace = torch.stack(mem_trace)
+
+        return spk_trace, mem_trace
+    
+    def FP_new(self, model, numSteps, data):
+        mem_trace = []
+        spk_trace = []
+        utils.reset(model)
+        spike_data = spikegen.rate(data, num_steps=numSteps)
+        for i in range(numSteps):
+            spk_out, _, mem_out = model(spike_data[i])
             spk_trace.append(spk_out)
             mem_trace.append(mem_out)
 
@@ -305,92 +327,8 @@ class SpikeResNet9Model(BasicModel):
         cur7 = self.fc7(spk7)
         spk_out, mem7 = self.lifOut(cur7, mem7)
 
-        return spk7, spk_out, mem7
+        return spk_out, spk7, mem7
     
     # spk7 512-D spikes
     # spk_out 10-D spikes
     # mem7 10-D memebrane voltage
-
-
-# class FeatureExtractor(nn.Module):
-#     '''
-#     For custom SpikeResNet9Model only
-#     '''
-#     def __init__(self, network, beta, threshold):
-#         super().__init__()
-#         self.network = network
-#         del self.network.lifOut
-#         del self.network.fc7
-#         self.network.lifOut = snn.Leaky(beta=beta, threshold=threshold, output=True)
-
-#     def forward(self, x):
-#         # Initialize hidden states and outputs at t=0
-#         mem1 = self.network.lif1.init_leaky()
-#         mem2 = self.network.lif2.init_leaky()
-#         mem3_1 = self.network.r3_lif1.init_leaky()
-#         mem3_2 = self.network.r3_lif2.init_leaky()
-#         mem4 = self.network.lif4.init_leaky()
-#         mem5 = self.network.lif5.init_leaky()
-#         mem6_1 = self.network.r6_lif1.init_leaky()
-#         mem6_2 = self.network.r6_lif2.init_leaky()
-#         mem7 = self.network.lifOut.init_leaky()
-
-#         cur1 = self.network.block1(x)
-#         spk1, mem1 = self.network.lif1(cur1, mem1)
-#         cur2 = self.network.block2(spk1)
-#         spk2, mem2 = self.network.lif2(cur2, mem2)
-#         spk2_2 = self.network.maxp2(spk2) # used for residual
-
-#         cur3_1 = self.network.resBlock3_1(spk2_2)
-#         spk3_1, mem3_1 = self.network.r3_lif1(cur3_1, mem3_1)
-#         cur3_2 = self.network.resBlock3_2(spk3_1)
-#         spk3_2, mem3_2 = self.network.r3_lif1(cur3_2, mem3_2)
-#         spk_r1 = spk3_2 + spk2_2
-        
-#         cur4 = self.network.block4(spk_r1)
-#         spk4, mem4 = self.network.lif4(cur4, mem4)
-#         spk4_2 = self.network.maxp4(spk4) 
-
-#         cur5 = self.network.block5(spk4_2)
-#         spk5, mem5 = self.network.lif5(cur5, mem5)
-#         spk5_2 = self.network.maxp5(spk5) # used for residual 
-
-#         cur6_1 = self.network.resBlock6_1(spk5_2)
-#         spk6_1, mem6_1 = self.network.r6_lif1(cur6_1, mem6_1)
-#         cur6_2 = self.network.resBlock6_2(spk6_1)
-#         spk6_2, mem6_2 = self.network.r6_lif1(cur6_2, mem6_2)
-#         spk_r2 = spk6_2 + spk5_2
-
-#         spk7 = self.network.amax7(spk_r2)
-#         spk7 = self.network.flat(spk7)
-
-#         out, mem7 = self.network.lifOut(spk7, mem7)
-
-#         return out
-    
-# class CustomClassifier(nn.Module):
-#     '''
-#     For custom SpikeResNet9Model only
-#     '''
-#     def __init__(self, numberOfClasses, beta, threshold):
-#         super().__init__()
-#         self.fc = nn.Linear(512, numberOfClasses)
-#         self.lif = snn.Leaky(beta=beta, threshold = threshold, reset_mechanism='none', output=True)
-
-#     def forward(self, x):
-#         mem = self.lif.init_leaky()
-#         cur = self.fc(x)
-#         out, mem = self.lif(cur, mem)
-#         return mem
-
-# # Combine feature extractor and classifier
-# class CustomResNet(nn.Module):
-#     def __init__(self, num_classes, network, beta, threshold):
-#         super(CustomResNet, self).__init__()
-#         self.feature_extractor = FeatureExtractor(network, beta, threshold)
-#         self.classifier = CustomClassifier(num_classes, beta, threshold)
-#     def forward(self, x):
-#         x = self.feature_extractor(x)
-#         y = self.classifier(x)
-#         return (x, y)
-
