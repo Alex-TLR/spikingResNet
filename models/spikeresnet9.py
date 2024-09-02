@@ -1,24 +1,22 @@
 ''' 
 Author: Aleksej Avramovic
-Last update: 23/07/2024
+Last update: 27/08/2024
 
-The first step towards Out of Distribution detection
+The first step towards spiking In Distribution / Out of Distribution detection
 
-Spiking Resnet9 for MNIST
+SpikeResNet9Model: Spiking-Resnet9 for MNIST, from the scratch
 '''
 
+# TODO: make identity mapping
+# TODO: make generic Resenet model
+
 import torch 
-import torchvision.transforms as transforms
-from torchvision.datasets import MNIST, CIFAR10
 import numpy as np 
-from torch.utils.data import DataLoader
-from torchvision import datasets
 import torch.nn as nn
 import sys
 sys.path.append('../')
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
-from torchsummary import summary
 import snntorch as snn
 from snntorch import utils
 import snntorch.functional as SF
@@ -59,11 +57,6 @@ class BasicModel(nn.Module):
         spk_trace = []
         utils.reset(model)
 
-        # Spiking Data
-        # spike_data = spikegen.rate(data=data, num_steps=numSteps)
-        # TODO check the dimension of spike_data
-        print(data.size())
-
         for _ in range(numSteps):
             spk_out, _, mem_out = model(data)
             spk_trace.append(spk_out)
@@ -74,10 +67,11 @@ class BasicModel(nn.Module):
 
         return spk_trace, mem_trace
     
-    def FP_new(self, model, numSteps, data):
+    def forward_pass_rate(self, model, numSteps, data):
         mem_trace = []
         spk_trace = []
         utils.reset(model)
+
         spike_data = spikegen.rate(data, num_steps=numSteps)
         for i in range(numSteps):
             spk_out, _, mem_out = model(spike_data[i])
@@ -89,7 +83,8 @@ class BasicModel(nn.Module):
 
         return spk_trace, mem_trace
     
-    def accuracyS(self, model, numSteps, data, labels, device):
+    def accuracy_spike(self, model, numSteps, data, labels, device):
+
         with torch.no_grad():
             model.eval()
             data = data.to(device)
@@ -100,7 +95,7 @@ class BasicModel(nn.Module):
 
         return acc/total
 
-    def fitS(self, model, nEpochs, opt, lossF, train_load, val_load, nSteps, device):
+    def fit_spike(self, model, nEpochs, opt, lossF, train_load, val_load, nSteps, device):
         '''
         nEpochs:      number of epochs for training
         opt:          optimizer
@@ -117,10 +112,7 @@ class BasicModel(nn.Module):
             # Define lists to store training loss and accuracy
             tLoss = []
             tAcc = list()
-            # b_ = 0
             for batch, labels in train_load:
-                # print("Training batch number ", b_)
-                # b_ += 1
                 batch = batch.to(device)
                 labels = labels.to(device)
                 model.train()
@@ -136,13 +128,11 @@ class BasicModel(nn.Module):
                 # Update opt
                 opt.step()
                 # Check train accuracy
-                a = self.accuracyS(model, nSteps, batch, labels, device)
+                a = self.accuracy_spike(model, nSteps, batch, labels, device)
                 tAcc.append(a.item())
 
                 del batch, labels
 
-                # if b_ == 100:
-                #     break
             # Training stats
             meanTA = sum(tAcc) / len(tAcc)
             meanTL = sum(tLoss) / len(tLoss)
@@ -152,22 +142,18 @@ class BasicModel(nn.Module):
             vLoss = []
             vAcc = list()
             model.eval()
-            # v_ = 0
             for batch, labels in val_load:
-                # print("Validation batch number ", v_)
-                # v_ += 1
                 batch = batch.to(device)
                 labels = labels.to(device)
                 spikes, _ = self.forward_pass(model, nSteps, batch)
                 with torch.no_grad():
                     loss = lossF(spikes, labels)
                 vLoss.append(loss.detach().item())
-                a = self.accuracyS(model, nSteps, batch, labels, device)
+                a = self.accuracy_spike(model, nSteps, batch, labels, device)
                 vAcc.append(a.item())  
 
                 del batch, labels 
-                # if v_ == 30:
-                #     break
+
             # Validation stats
             meanVA = sum(vAcc) / len(vAcc)
             meanVL = sum(vLoss) / len(vLoss)            
@@ -183,7 +169,7 @@ class BasicModel(nn.Module):
         print('\n')
         return history
     
-    def fitS_train(self, model, nEpochs, opt, lossF, train_load, nSteps, device):
+    def fit_spike_full_train(self, model, nEpochs, opt, lossF, train_load, nSteps, device):
         '''
         nEpochs:      number of epochs for training
         opt:          optimizer
@@ -199,10 +185,7 @@ class BasicModel(nn.Module):
             # Define lists to store training loss and accuracy
             tLoss = []
             tAcc = list()
-            # b_ = 0
             for batch, labels in train_load:
-                # print("Training batch number ", b_)
-                # b_ += 1
                 batch = batch.to(device)
                 labels = labels.to(device)
                 model.train()
@@ -218,13 +201,11 @@ class BasicModel(nn.Module):
                 # Update opt
                 opt.step()
                 # Check train accuracy
-                a = self.accuracyS(model, nSteps, batch, labels, device)
+                a = self.accuracy_spike(model, nSteps, batch, labels, device)
                 tAcc.append(a.item())
 
                 del batch, labels
 
-                # if b_ == 100:
-                #     break
             # Training stats
             meanTA = sum(tAcc) / len(tAcc)
             meanTL = sum(tLoss) / len(tLoss)           
@@ -249,16 +230,16 @@ class SpikeResNet9Model(BasicModel):
         super().__init__(numberOfClasses)
 
         self.block1 = self.convBlock1(numberOfChannels, 64)         # 64x28x28
-        self.lif1 = snn.Leaky(beta=beta, threshold=threshold)                            # 64x28x28
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold)       # 64x28x28
 
         self.block2 = self.convBlock1(64, 128)                      # 128x28x28
-        self.lif2 = snn.Leaky(beta=beta, threshold=threshold)                            # 128x28x28
+        self.lif2 = snn.Leaky(beta=beta, threshold=threshold)       # 128x28x28
         self.maxp2 = nn.MaxPool2d(2)                                # 128x14x14
 
         self.resBlock3_1 = self.convBlock1(128, 128)
         self.r3_lif1 = snn.Leaky(beta=beta, threshold=threshold)
         self.resBlock3_2 = self.convBlock1(128, 128)
-        self.r3_lif2 = snn.Leaky(beta=beta, threshold=threshold)                         # 128x14x14
+        self.r3_lif2 = snn.Leaky(beta=beta, threshold=threshold)    # 128x14x14
         
         self.block4 = self.convBlock1(128, 256)                     # 256x14x14
         self.lif4 = snn.Leaky(beta=beta, threshold=threshold)
@@ -271,7 +252,7 @@ class SpikeResNet9Model(BasicModel):
         self.resBlock6_1 = self.convBlock1(512, 512)
         self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold)
         self.resBlock6_2 = self.convBlock1(512, 512)
-        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold)                         # 512x3x3
+        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold)    # 512x3x3
 
         self.amax7 = nn.AdaptiveMaxPool2d(1)
         self.flat = nn.Flatten()

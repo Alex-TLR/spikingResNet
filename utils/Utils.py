@@ -1,5 +1,5 @@
 from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
 import torch
@@ -15,7 +15,6 @@ class Utils():
 
     def __init__(self, name):
         pass
-
 
     @staticmethod
     def load_data(database_name):
@@ -72,6 +71,69 @@ class Utils():
 
         return dataset_train, dataset_test
     
+
+    @staticmethod
+    def get_image_size(dataset, name):
+        '''
+        dataset:        loaded dataset
+        name:           database name 
+        '''
+
+        if name == 'SVHN':
+            train_tensor = dataset.data[0]
+            imageSize = train_tensor.shape
+        else:
+            train_tensor, _ = dataset[0]
+            imageSize = train_tensor.size()
+        print(f'Image size: {imageSize[0]}, {imageSize[1]}, {imageSize[2]}')
+
+        return None
+    
+
+    @staticmethod
+    def data_loader(dataset_train, dataset_test, batchSize, dataset_name, fullTrain=False):
+        '''
+        Define data loaders
+        '''
+        if (fullTrain == False):
+            print("Define training/validation split ...")
+            dataSize = len(dataset_train)
+            tSize = int(0.8 * dataSize)
+            vSize = dataSize - tSize
+
+            train_data, val_data = random_split(dataset_train, [tSize, vSize])
+            test_data = dataset_test
+            if dataset_name == 'SVHN':
+                train_data = SVHNDataset(data=train_data.dataset.data, labels=train_data.dataset.labels)
+                val_data = SVHNDataset(data=val_data.dataset.data, labels=val_data.dataset.labels)
+                test_data = SVHNDataset(data=test_data.data, labels=test_data.labels)
+
+            print("Train data length ", len(train_data))
+            print("Valid data length ", len(val_data))
+            print("Test data length ", len(test_data))
+            train_loader = DataLoader(train_data, batchSize, shuffle=True)
+            val_loader = DataLoader(val_data, batchSize)
+            test_loader = DataLoader(test_data, batchSize)
+
+            return train_loader, val_loader, test_loader
+
+        else:
+            train_data = dataset_train
+            test_data = dataset_test
+            print("Train data length ", len(train_data))
+            print("Test data length ", len(test_data))
+            if dataset_name == 'SVHN':
+                train_data = SVHNDataset(data=dataset_train.data, labels=dataset_train.labels)
+                test_data = SVHNDataset(data=dataset_test.data, labels=dataset_test.labels)
+                train_loader = DataLoader(train_data, batchSize, shuffle=True)
+                test_loader = DataLoader(test_data, batchSize)
+            else:
+                train_loader = DataLoader(train_data, batchSize, shuffle=True)
+                test_loader = DataLoader(test_data, batchSize)
+
+            return train_loader, test_loader
+
+  
 
     @staticmethod
     def showBatch(inputData):
@@ -134,4 +196,25 @@ class Utils():
         Plot history
         '''
         pass 
+
+
+class SVHNDataset(Dataset):
+
+    def __init__(self, data, labels, transform=None):
+        self.data = torch.tensor(data, dtype=torch.float32)  
+        self.labels = torch.tensor(labels, dtype=torch.long)  
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        image = self.data[idx]
+        label = self.labels[idx]
+        
+        # Apply transformation if any
+        if self.transform:
+            image = self.transform(image)
+        
+        return image, label
     

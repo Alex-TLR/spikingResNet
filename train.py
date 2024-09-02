@@ -1,62 +1,45 @@
-from utils.Utils import Utils
+from utils.Utils import Utils, SVHNDataset
 from metrics.Metrics import Metrics
 from torch.utils.data import random_split
-import torch.nn.functional as f 
 import torch.nn as nn
 import torch
 import matplotlib.pyplot as plt
 from torchsummary import summary
-from torch.utils.data import DataLoader
-from models.resnet9 import ResNet9Model #, CustomResNetConv
-from models.spikeresnet9 import SpikeResNet9Model #, FeatureExtractor, CustomClassifier, CustomResNet
+from torch.utils.data import DataLoader, Dataset
+from models.resnet9 import ResNet9Model 
+from models.spikeresnet9 import SpikeResNet9Model 
 import snntorch.functional as SF
 import numpy as np
 from snntorch import utils
-from sklearn.metrics import roc_curve
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import average_precision_score, precision_recall_curve, auc
-from sklearn.metrics import roc_auc_score
-import math
-from scipy.spatial import distance
-from sklearn.neighbors import KNeighborsClassifier
 import time 
+from snntorch import spikegen
+from test import test_with_output
 
-def training(dataSet, modelType, fullTrain=False):
+
+def training(dataSet, modelType, case='00', fullTrain=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
+    case:           case needs to contain the details of the case scenario
     fullTrain:      define if training is done on complete training set or train/valid split is used
     '''
 
-    torch.manual_seed(42)
-
+    # Load datase
     dataset_train, dataset_test = Utils.load_data(dataSet)
 
-    # Get the image size
-    print("Get image size ...")
-    train_tensor, train_label = dataset_train[0]
-    imageSize = train_tensor.size()
-    print(f'Image size: {imageSize[0]}, {imageSize[1]}, {imageSize[2]}')
-    inputSize = imageSize[0] * imageSize[1] * imageSize[2]
+    # Get image size
+    Utils.get_image_size(dataset_train, dataSet)
 
+    # Define batch size
+    batchSize = 32
+    
     if (fullTrain == False):
-        print("Define training/validation split ...")
-        dataSize = len(dataset_train)
-        tSize = int(0.8 * dataSize)
-        vSize = dataSize - tSize
-
-        train_data, val_data = random_split(dataset_train, [tSize, vSize])
-        test_data = dataset_test
-        print("Train data length ", len(train_data))
-        print("Valid data length ", len(val_data))
-        print("Test data length ", len(test_data))
-
+        train_loader, val_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, False)
     else:
-        train_data = dataset_train
-        test_data = dataset_test
-        print("Train data length ", len(train_data))
-        print("Test data length ", len(test_data))
+        train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
 
+        
+    # Get the device
     device = Utils.get_device()
 
     # Define training parameters
@@ -69,17 +52,15 @@ def training(dataSet, modelType, fullTrain=False):
         # Number of channels
         numberOfChannels = 3
 
-        # Batch size
-        batchSize = 64
-
         # Learning rate (KEY)
         lr = [0.0001]
 
-        # Gradient clipping
+        # Gradient clipping 
+
         gClip = 0.1
 
         # Number of epochs
-        numberOfEpochs = [10]
+        numberOfEpochs = [20]
 
         # Weight decay
         wDecay = 0.0001
@@ -98,14 +79,6 @@ def training(dataSet, modelType, fullTrain=False):
         # Keeps accuracy and loss for both training and validation in each epoch
         H = []
 
-        if (fullTrain == True):
-            train_loader = DataLoader(train_data, batchSize, shuffle=True)
-            test_loader = DataLoader(test_data, batchSize)
-        else:
-            train_loader = DataLoader(train_data, batchSize, shuffle=True)
-            val_loader = DataLoader(val_data, batchSize)
-            test_loader = DataLoader(test_data, batchSize)
-
         # Training
         ##########
 
@@ -113,11 +86,12 @@ def training(dataSet, modelType, fullTrain=False):
             lrCurrent = lr[i]
             nEpochs = numberOfEpochs[i]
             if (fullTrain == False):
-                model, H = model.fit(nEpochs, model, lossFunction, lrCurrent, train_loader, val_loader, H, device, wd=wDecay, gd=gClip)
+                model, H = model.fit_conv(nEpochs, model, lossFunction, lrCurrent, train_loader, val_loader, H, device, wd=wDecay, gd=gClip)
             elif (fullTrain == True):
-                model, H = model.fit_full_train(nEpochs, model, lossFunction, lrCurrent, train_loader, H, device, wd=wDecay, gd=gClip)
+                model, H = model.fit_conv_full_train(nEpochs, model, lossFunction, lrCurrent, train_loader, H, device, wd=wDecay, gd=gClip)
         print("\n")
 
+        case = case 
         weightPath = 'weights/conv/resnet9_weights_' + dataSet + '.pth'
         torch.save(model.state_dict(), weightPath)
 
@@ -161,9 +135,6 @@ def training(dataSet, modelType, fullTrain=False):
         # Number of epochs
         numberOfEpochs = 10
 
-        # Batch size
-        batchSize = 16
-
         # Keeps accuracy and loss for both training and validation in each epoch
         H = []
 
@@ -183,17 +154,9 @@ def training(dataSet, modelType, fullTrain=False):
         # Loss function
         loss_fn = SF.ce_rate_loss()
 
-        if (fullTrain == True):
-            train_loader = DataLoader(train_data, batchSize, shuffle=True)
-            test_loader = DataLoader(test_data, batchSize)
-        else:
-            train_loader = DataLoader(train_data, batchSize, shuffle=True)
-            val_loader = DataLoader(val_data, batchSize)
-            test_loader = DataLoader(test_data, batchSize)
-
         # Training
         if (fullTrain == True):
-            H = model.fitS_train(model, numberOfEpochs, optimizer, loss_fn, train_loader, numberOfSteps, device)
+            H = model.fit_spike_full_train(model, numberOfEpochs, optimizer, loss_fn, train_loader, numberOfSteps, device)
         else:
             print("Train/valid split not defined")
             return None
@@ -201,8 +164,7 @@ def training(dataSet, modelType, fullTrain=False):
         weightPath = 'weights/spike/resnet9_weights_' + dataSet + '.pth'
         torch.save(model.state_dict(), weightPath)
 
-# TODO
-# revise the definition
+
 def forward_pass_feature_extraction(model, numSteps, data):
         feat_trace = []
         prob_trace = []
@@ -217,6 +179,24 @@ def forward_pass_feature_extraction(model, numSteps, data):
         prob_trace = torch.stack(prob_trace)
 
         return feat_trace, prob_trace
+
+
+def forward_pass_rate_feature_extraction(model, numSteps, data):
+        feat_trace = []
+        prob_trace = []
+        utils.reset(model)
+
+        spike_data = spikegen.rate(data, num_steps=numSteps)
+        for i in range(numSteps):
+            _, feat_out, prob_out = model(spike_data[i])
+            feat_trace.append(feat_out)
+            prob_trace.append(prob_out)
+
+        feat_trace = torch.stack(feat_trace)
+        prob_trace = torch.stack(prob_trace)
+
+        return feat_trace, prob_trace
+
 
 def feature_extraction_conv(dataSet):
     '''
@@ -302,6 +282,7 @@ def feature_extraction_conv(dataSet):
 
     return None
 
+
 def feature_extraction_spike(dataSet):
     '''
     Spiking models only
@@ -323,7 +304,7 @@ def feature_extraction_spike(dataSet):
     numberOfClasses = 10
 
     # Batch size
-    batchSize = 50
+    batchSize = 20
 
     # For spiking neural network we need number of steps
     numberOfSteps = 50
@@ -335,17 +316,19 @@ def feature_extraction_spike(dataSet):
     threshold = 0.25
 
     # There is not validation data
-    train_loader = DataLoader(dataset_train, batchSize)
-    test_loader = DataLoader(dataset_test, batchSize)
+    # train_loader = DataLoader(dataset_train, batchSize)
+    # test_loader = DataLoader(dataset_test, batchSize)
+    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
+
 
     # Loss function
     loss_fn = SF.ce_rate_loss()
 
     # Define model
-    model = SpikeResNet9Model(numberOfChannels=1, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+    model = SpikeResNet9Model(numberOfChannels=3, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
     # Load weights
     # weightsName = 'weights/spike/' + 'resnet9_MNIST_025_params.pth'
-    dataSetID = 'MNIST'
+    dataSetID = 'CIFAR10'
     weightsName = 'weights/spike/resnet9_weights_' + dataSetID + '.pth'
     model.load_state_dict(torch.load(weightsName, weights_only=True))
     model = model.to(device)
@@ -361,7 +344,8 @@ def feature_extraction_spike(dataSet):
         startIndex = i*batchSize
         endIndex = startIndex + batchSize
 
-        f, p = forward_pass_feature_extraction(model, numberOfSteps, batch)
+        # f, p = forward_pass_feature_extraction(model, numberOfSteps, batch)
+        f, p = forward_pass_rate_feature_extraction(model, numberOfSteps, batch)
         f = f.cpu().detach().numpy()
         p = p.cpu().detach().numpy()
             
@@ -390,7 +374,8 @@ def feature_extraction_spike(dataSet):
         startIndex = i*batchSize
         endIndex = startIndex + batchSize
 
-        f, p = forward_pass_feature_extraction(model, numberOfSteps, batch)
+        # f, p = forward_pass_feature_extraction(model, numberOfSteps, batch)
+        f, p = forward_pass_rate_feature_extraction(model, numberOfSteps, batch)
         f = f.cpu().detach().numpy()
         p = p.cpu().detach().numpy()
             
@@ -408,171 +393,11 @@ def feature_extraction_spike(dataSet):
     Tags_test = np.concatenate(Tags_test)
     print("Tags_test shape is ", Tags_test.shape)
 
-    fileName = 'features/case_05/' + dataSet + '-on_mnist' + '.npz'
+    fileName = 'features/case_07/' + dataSet + '-on_cifar10' + '.npz'
     np.savez(fileName, arr1=Feat_train, arr2=Prob_train, arr3=Tags_train, arr4=Feat_test, arr5=Prob_test, arr6=Tags_test)
 
     return None
 
-
-# TODO make time consumption analysis
-def test_with_output(case, nameID):
-    '''
-    case:       for example case 01 is '01'
-    nameID:     name of the In Distribution features, example 'MNIST'
-    '''
-    if nameID == 'MNIST':
-        namesOOD = ['FMNIST', 'KMNIST']
-        suffixID = '-on_mnist'
-    elif nameID == 'FMNIST':
-        namesOOD = ['MNIST', 'KMNIST']
-        suffixID = '-on_fmnist'
-    elif nameID == 'KMNIST':
-        namesOOD = ['MNIST', 'FMNIST']
-        suffixID = '-on_kmnist'
-
-    methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    # methods = ['MD', 'NNDR']
-    stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
-    IDpath = 'features/case_' + case + '/' + nameID + suffixID + '.npz'
-
-    ID = np.load(IDpath)
-    ID_feat_train = ID['arr1']  # In-Distribution training set features
-    ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
-    ID_tags_train = ID['arr3']  # In-Distribution training set labels
-    ID_feat_test  = ID['arr4']  # Out-of-Distribution training set features
-    ID_prob_test  = ID['arr5']  # Out-of-Distribution training set outputs (usually with no softmax applied)
-    ID_tags_test  = ID['arr6']  # Out-of-Distribution training set labels
-
-    for i in range(len(namesOOD)):
-        OODpath = 'features/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
-        OOD = np.load(OODpath)
-        OOD_feat_train = OOD['arr1']  # In-Distribution test set features
-        OOD_prob_train = OOD['arr2']  # In-Distribution test set outputs (usually with no softmax applied)
-        OOD_tags_train = OOD['arr3']  # In-Distribution test set labels
-        OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
-        OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
-        OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
-
-        # Methodology includes the IN/OOD classification where ID are positive samples taken from ID_test_set
-        # and OOD are negative samples taken from OOD_train_set (or maybe OOD_train_set + OOD_test_set)
-
-        for j in range(len(methods)):
-
-            # iterate trought each of classification methods and calculate the metrics
-            if methods[j] == 'MSP':
-                # This is the baseline method that uses the outputs of the network number_of_classes-D 
-                start_time = time.time() 
-                ID_labels   = np.ones((len(ID_prob_test)))
-                OOD_labels  = np.zeros((len(OOD_prob_test)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-                threshold = 0
-
-                _ , ID_distances = Metrics.MSP(ID_prob_test, threshold)
-                _, OOD_distances = Metrics.MSP(OOD_prob_test, threshold)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-                ID_predictions, _  = Metrics.MSP(ID_prob_test, threshold)
-                OOD_predictions, _ = Metrics.MSP(OOD_prob_test, threshold)
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                print(f"MSP Execution time: {execution_time:.4f} seconds")
-
-
-            elif methods[j] == 'NCM':
-                # All other methods use features
-                number_classes = ID_prob_train.shape[1]
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-                threshold = 0
-
-                _, ID_distances  = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes)
-                _, OOD_distances = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-                ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes)
-                OOD_predictions, _ = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes)
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-
-
-            elif methods[j] == 'KNN':
-                number_neighbors = 5 
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-                threshold = 0
-
-                _, ID_distances = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
-                _, OOD_distances = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-                ID_predictions, _  = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
-                OOD_predictions, _ = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-
-
-            elif methods[j] == 'NNDR':
-                number_neighbors = 5 
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-                threshold = 0
-
-                _, ID_distances  = Metrics.NNDR(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
-                _, OOD_distances = Metrics.NNDR(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-                ID_predictions, _  = Metrics.NNDR(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
-                OOD_predictions, _ = Metrics.NNDR(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-
-
-            elif methods[j] == 'MD':
-                number_classes = ID_prob_train.shape[1]
-                number_features = ID_feat_train.shape[1]
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-                threshold = 0
-
-                _, ID_distances  = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes, number_features)
-                _, OOD_distances = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes, number_features)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-                ID_predictions, _  = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes, number_features)
-                OOD_predictions, _ = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes, number_features)
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-
-            else:
-                pass
-
-    return stats
 
 def generate_latex(nameID, stats):
     if nameID == 'MNIST':
@@ -612,36 +437,39 @@ def generate_latex(nameID, stats):
 
 if __name__ == "__main__":
     # Define defaut arguments and call training
-    training('MNIST', 'spike', fullTrain=True)
+    # training('SVHN', 'conv', case='07', fullTrain=False)
     # feature_extraction_spike('MNIST')
     # feature_extraction_spike('FMNIST')
     # feature_extraction_spike('KMNIST')
     # feature_extraction_conv('FMNIST')
+    # feature_extraction_spike('SVHN')
 
-    # stats = test_with_output(case='05', nameID='MNIST')
+    stats = test_with_output(case='07', nameID='CIFAR10')
 
-    # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-    # for row in formatted_stats:
-    #     print(' '.join(row))
+    formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
+    for row in formatted_stats:
+        print(' '.join(row))
 
 
     # TODO: code manually every interesting LIF node and repeat the results
-    # TODO: check the details about Baseline
     # TODO: check the rest of the apporaches, ODIN energy-based
     # TODO: make utilities for automatic data processing
     # TODO make utilities for graphics
     # TODO: ResNet18
     # TODO update feature extraction conv to enable diferent base 
+    # TODO utilize training cases, or make the weights names more flexibile 
+    # TODO move main to different file
 
 
     '''
-    case 01: threshold is 1.0, LIFs are snn.Leaky(beta=beta, threshold=threshold, base dataset MNIST
-    case 02: konvoluciona mreza 10-D izlaza
-    case 03: threshold je 0.25 beta je 0.95
-    case 04: conv Resnet9
+    case 01: weights/spike/resnet9_MNIST_params.pth threshold is 1.0, LIFs are snn.Leaky(beta=beta, threshold=threshold, base dataset MNIST
+    case 02: OBSOLETE, REMOVE konvoluciona mreza 10-D izlaza
+    case 03: weights/spike/resnet9_MNIST_025_params.pth threshold je 0.25 beta je 0.95
+    case 04: conv Resnet9 weights/conv/resnet9_weights_MNIST.pth
+                          weights/conv/resnet9_weights_KMNIST.pth 
+                          weights/conv/resnet9_weights_FMNIST.pth
 
-    all convResnet9 grayscale are trained
-
-    cas 05: spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-
+    case 05: weights/spike/resnet9_weights_MNIST.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
+    case 06: weights/spike/resnet9_weights_MNIST_rate.pth rate encoding spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
+    case 07: cifar10 vs svhn
     '''

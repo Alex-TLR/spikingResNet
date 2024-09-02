@@ -1,8 +1,8 @@
 ''' 
 Author: Aleksej Avramovic
-Last update: 21/08/2024
+Last update: 27/08/2024
 
-The first step towards Out of Distribution detection
+The first step towards spiking In Distribution / Out of Distribution detection
 
 Resnet9 for MNIST
 '''
@@ -45,7 +45,7 @@ class BasicModel(nn.Module):
     # TODO: Define train and valid steps separately 
     # also validation needs to have decorator @torch.no_grad()
     
-    def fit(self, nEpochs, model, lossFunction, lr, train_load, val_load, history, device, wd = 0, gd = None):
+    def fit_conv(self, nEpochs, model, lossFunction, lr, train_load, val_load, history, device, wd = 0, gd = None):
         '''
         nEpochs:      number of epochs for training
         model:        architecure of network
@@ -124,7 +124,7 @@ class BasicModel(nn.Module):
         print('\n')
         return model, history 
     
-    def fit_full_train(self, nEpochs, model, lossFunction, lr, train_load, history, device, wd = 0, gd = None):
+    def fit_conv_full_train(self, nEpochs, model, lossFunction, lr, train_load, history, device, wd = 0, gd = None):
     # def fit(self, nEpochs, model, lossFunction, train_load, val_load, history, gd = None):
         '''
         nEpochs:      number of epochs for training
@@ -149,6 +149,7 @@ class BasicModel(nn.Module):
             tLoss = []
             tAcc = list()
             for batch, labels in train_load:
+                # print(f"Batch size {batch.size()}\n")
                 batch = batch.to(device)
                 labels = labels.to(device)
                 # Generate predictions
@@ -203,7 +204,6 @@ class ResNet9Model(BasicModel):
         self.block4 = self.convBlock2(256, 512)
         self.resBlock2 = nn.Sequential(self.convBlock1(512, 512), self.convBlock1(512, 512))
 
-        # self.classifier = self.flatLayer(numberOfClasses)
         self.mpool = nn.MaxPool2d(3)
         self.flat = nn.Flatten()
         self.fc = nn.Linear(512, numberOfClasses)
@@ -222,8 +222,7 @@ class ResNet9Model(BasicModel):
         return nn.Sequential(*layers)
     
     def flatLayer(self, numOfClasses):
-        layers = [
-                  nn.AdaptiveMaxPool2d(1),      
+        layers = [nn.AdaptiveMaxPool2d(1),      
                 #   nn.MaxPool2d(3),  #32 za 256
                   nn.Flatten(),
                   nn.Linear(512, numOfClasses)]
