@@ -225,36 +225,36 @@ class BasicModel(nn.Module):
 #####################
 
 class SpikeResNet9Model(BasicModel):
-
-    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
+                                                                                # Input size
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):     # 28x28
         super().__init__(numberOfClasses)
 
-        self.block1 = self.convBlock1(numberOfChannels, 64)         # 64x28x28
-        self.lif1 = snn.Leaky(beta=beta, threshold=threshold)       # 64x28x28
+        self.block1 = self.convBlock1(numberOfChannels, 64)                     # 64x28x28
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold)                   # 64x28x28
 
-        self.block2 = self.convBlock1(64, 128)                      # 128x28x28
-        self.lif2 = snn.Leaky(beta=beta, threshold=threshold)       # 128x28x28
-        self.maxp2 = nn.MaxPool2d(2)                                # 128x14x14
+        self.block2 = self.convBlock1(64, 128)                                  # 128x28x28
+        self.lif2 = snn.Leaky(beta=beta, threshold=threshold)                   # 128x28x28
+        self.maxp2 = nn.MaxPool2d(2)                                            # 128x14x14
 
         self.resBlock3_1 = self.convBlock1(128, 128)
         self.r3_lif1 = snn.Leaky(beta=beta, threshold=threshold)
         self.resBlock3_2 = self.convBlock1(128, 128)
-        self.r3_lif2 = snn.Leaky(beta=beta, threshold=threshold)    # 128x14x14
+        self.r3_lif2 = snn.Leaky(beta=beta, threshold=threshold)                # 128x14x14
         
-        self.block4 = self.convBlock1(128, 256)                     # 256x14x14
+        self.block4 = self.convBlock1(128, 256)                                 # 256x14x14
         self.lif4 = snn.Leaky(beta=beta, threshold=threshold)
-        self.maxp4 = nn.MaxPool2d(2)                                # 256x7x7
+        self.maxp4 = nn.MaxPool2d(2)                                            # 256x7x7
 
-        self.block5 = self.convBlock1(256, 512)                     # 512x7x7
+        self.block5 = self.convBlock1(256, 512)                                 # 512x7x7
         self.lif5 = snn.Leaky(beta=beta, threshold=threshold)
-        self.maxp5 = nn.MaxPool2d(2)                                # 512x3x3
+        self.maxp5 = nn.MaxPool2d(2)                                            # 512x3x3
 
         self.resBlock6_1 = self.convBlock1(512, 512)
         self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold)
         self.resBlock6_2 = self.convBlock1(512, 512)
-        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold)    # 512x3x3
+        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold)                # 512x3x3
 
-        self.amax7 = nn.AdaptiveMaxPool2d(1)
+        self.amax7 = nn.AdaptiveMaxPool2d(1)                                    # 512x1x1
         self.flat = nn.Flatten()
         self.fc7 = nn.Linear(512, numberOfClasses)
         self.lifOut = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='none', output=True)
@@ -313,3 +313,174 @@ class SpikeResNet9Model(BasicModel):
     # spk7 512-D spikes
     # spk_out 10-D spikes
     # mem7 10-D memebrane voltage
+
+# 18 layers
+class SpikeResNet18Model(BasicModel):                                           # Input size
+
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):     # 32x32
+        super().__init__(numberOfClasses)
+
+        self.block1 = self.convBlock(numberOfChannels, 64)                      # 64x32x32
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold)                   # 64x32x32
+
+        # The residual super-block
+        # Contains two blocks with skip connections ( 4 conv blocks)
+        self.resBlock2_1 = self.convBlock(64, 64)                               # 64x32x32
+        self.r2_lif1 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.resBlock2_2 = self.convBlock(64, 64)                               # 64x32x32
+        self.r2_lif2 = snn.Leaky(beta=beta, threshold=threshold)
+        self.resBlock2_3 = self.convBlock(64, 64)                               # 64x32x32
+        self.r2_lif3 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.resBlock2_4 = self.convBlock(64, 64)                               # 64x32x32
+        self.r2_lif4 = snn.Leaky(beta=beta, threshold=threshold)  
+        
+        # Downsample block
+        self.downsample3 = self.convBlock(64, 128, kernel_size=1, stride=2, padding=0)
+
+        # The residual super-block
+        # Contains two blocks with skip connections ( 4 conv blocks)
+        self.resBlock4_1 = self.convBlock(64, 128, kernel_size=3, stride=2)     # 64x32x32
+        self.r4_lif1 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.resBlock4_2 = self.convBlock(128, 128)                             # 128x16x16
+        # Here is the place for skip connection
+        self.r4_lif2 = snn.Leaky(beta=beta, threshold=threshold)
+        self.resBlock4_3 = self.convBlock(128, 128)                             # 128x16x16
+        self.r4_lif3 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.resBlock4_4 = self.convBlock(128, 128)                             # 128x16x16
+        # Here is the place for skip connection
+        self.r4_lif4 = snn.Leaky(beta=beta, threshold=threshold) 
+
+        # Downsample block
+        self.downsample5 = self.convBlock(128, 256, kernel_size=1, stride=2, padding=0)
+
+        # The residual super-block
+        # Contains two blocks with skip connections ( 4 conv blocks)
+        self.resBlock6_1 = self.convBlock(128, 256, kernel_size=3, stride=2)    # 128x16x16
+        self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.resBlock6_2 = self.convBlock(256, 256)                             # 256x8x8
+        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold)
+        self.resBlock6_3 = self.convBlock(256, 256)                             # 256x8x8
+        self.r6_lif3 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.resBlock6_4 = self.convBlock(256, 256)                             # 256x8x8
+        self.r6_lif4 = snn.Leaky(beta=beta, threshold=threshold) 
+
+        # Downsample block
+        self.downsample7 = self.convBlock(256, 512, kernel_size=1, stride=2, padding=0)
+
+        # The residual super-block
+        # Contains two blocks with skip connections ( 4 conv blocks)
+        self.resBlock8_1 = self.convBlock(256, 512, kernel_size=3, stride=2)    # 256x8x8
+        self.r8_lif1 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.resBlock8_2 = self.convBlock(512, 512)                             # 512x4x4
+        # Here is the place for skip connection
+        self.r8_lif2 = snn.Leaky(beta=beta, threshold=threshold)
+        self.resBlock8_3 = self.convBlock(512, 512)                             # 512x4x4
+        self.r8_lif3 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.resBlock8_4 = self.convBlock(512, 512)                             # 512x4x4
+        # Here is the place for skip connection
+        self.r8_lif4 = snn.Leaky(beta=beta, threshold=threshold) 
+
+        self.amax9 = nn.AdaptiveMaxPool2d(1)
+        self.flat = nn.Flatten()
+        self.fc10 = nn.Linear(512, numberOfClasses)
+        self.lifOut = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='none', output=True)
+
+    def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
+        layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
+                    nn.BatchNorm2d(num_features=output)]
+        return nn.Sequential(*layers)
+    
+    def forward(self, x):
+
+        # Initialize hidden states and outputs at t=0
+        mem1 = self.lif1.init_leaky()
+        mem2_1 = self.r2_lif1.init_leaky()
+        mem2_2 = self.r2_lif2.init_leaky()
+        mem2_3 = self.r2_lif3.init_leaky()
+        mem2_4 = self.r2_lif4.init_leaky()
+        mem4_1 = self.r4_lif1.init_leaky()
+        mem4_2 = self.r4_lif2.init_leaky()
+        mem4_3 = self.r4_lif3.init_leaky()
+        mem4_4 = self.r4_lif4.init_leaky()
+        mem6_1 = self.r6_lif1.init_leaky()
+        mem6_2 = self.r6_lif2.init_leaky()
+        mem6_3 = self.r6_lif3.init_leaky()
+        mem6_4 = self.r6_lif4.init_leaky()
+        mem8_1 = self.r8_lif1.init_leaky()
+        mem8_2 = self.r8_lif2.init_leaky()
+        mem8_3 = self.r8_lif3.init_leaky()
+        mem8_4 = self.r8_lif4.init_leaky()
+        mem_out = self.lifOut.init_leaky()
+
+        cur1 = self.block1(x)                       # Conv block gives current for the following 
+        spk1, mem1 = self.lif1(cur1, mem1)          # Leaky gives spk1 and membrane voltage
+        # spk1 is used for skip connection
+
+        # Block input conv (64, 64)
+        cur2_1 = self.resBlock2_1(spk1)
+        spk2_1, mem2_1 = self.r2_lif1(cur2_1, mem2_1)
+        cur2_2 = self.resBlock2_2(spk2_1)
+        spk2_2, mem2_2 = self.r2_lif2(cur2_2, mem2_2)
+        # make skip connection, ADD :)
+        spk_r2_1 = spk2_2 + spk1
+        # spk_r2_1 is used for skip connection
+        cur2_3 = self.resBlock2_3(spk_r2_1)
+        spk2_3, mem2_3 = self.r2_lif3(cur2_3, mem2_3)
+        cur2_4 = self.resBlock2_4(spk2_3)
+        spk2_4, mem2_4 = self.r2_lif4(cur2_4, mem2_4)
+        # make skip connection, ADD :)
+        spk_r2_2 = spk2_4 + spk_r2_1
+        # print(f'spk_r2_2.shape is {spk_r2_2.shape}')
+
+        # Block input conv (64, 128)
+        identity_4 = self.downsample3(spk_r2_2)
+        # print(f'identity_4.shape is {identity_4.shape}')
+        cur4_1 = self.resBlock4_1(spk_r2_2)
+        spk4_1, mem4_1 = self.r4_lif1(cur4_1, mem4_1)
+        cur4_2 = self.resBlock4_2(spk4_1)
+        spk4_2, mem4_2 = self.r4_lif2(cur4_2, mem4_2)
+        # make skip connection
+        spk_r4_1 = spk4_2 + identity_4
+        cur4_3 = self.resBlock4_3(spk_r4_1)
+        spk4_3, mem4_3 = self.r4_lif3(cur4_3, mem4_3)
+        cur4_4 = self.resBlock4_4(spk4_3)
+        spk4_4, mem4_4 = self.r4_lif4(cur4_4, mem4_4)
+        # make skip connection
+        spk_r4_2 = spk4_4 + spk_r4_1
+
+        # Block input conv (128, 256)
+        identity_6 = self.downsample5(spk_r4_2)
+        cur6_1 = self.resBlock6_1(spk_r4_2)
+        spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
+        cur6_2 = self.resBlock6_2(spk6_1)
+        spk6_2, mem6_2 = self.r6_lif2(cur6_2, mem6_2)
+        # make skip connection
+        spk_r6_1 = spk6_2 + identity_6
+        cur6_3 = self.resBlock6_3(spk_r6_1)
+        spk6_3, mem6_3 = self.r6_lif3(cur6_3, mem6_3)
+        cur6_4 = self.resBlock6_4(spk6_3)
+        spk6_4, mem6_4 = self.r6_lif4(cur6_4, mem6_4)
+        # make skip connection
+        spk_r6_2 = spk6_4 + spk_r6_1
+
+        # Block input conv (256, 512)
+        identity_8 = self.downsample7(spk_r6_2)
+        cur8_1 = self.resBlock8_1(spk_r6_2)
+        spk8_1, mem8_1 = self.r8_lif1(cur8_1, mem8_1)
+        cur8_2 = self.resBlock8_2(spk8_1)
+        spk8_2, mem8_2 = self.r8_lif2(cur8_2, mem8_2)
+        # make skip connection
+        spk_r8_1 = spk8_2 + identity_8
+        cur8_3 = self.resBlock8_3(spk_r8_1)
+        spk8_3, mem8_3 = self.r8_lif3(cur8_3, mem8_3)
+        cur8_4 = self.resBlock8_4(spk8_3)
+        spk8_4, mem8_4 = self.r8_lif4(cur8_4, mem8_4)
+        # make skip connection
+        spk_r8_2 = spk8_4 + spk_r8_1
+
+        spk9 = self.amax9(spk_r8_2)
+        spk9 = self.flat(spk9)
+        cur9 = self.fc10(spk9)
+        spk_out, mem_out = self.lifOut(cur9, mem_out)
+
+        return spk_out, spk9, mem_out

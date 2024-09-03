@@ -22,9 +22,11 @@ def test_with_output(case, nameID):
     elif nameID == 'CIFAR10':
         namesOOD = ['SVHN']
         suffixID = '-on_cifar10'
+    elif nameID == 'SVHN':
+        namesOOD = ['CIFAR10']
+        suffixID = '-on_svhn'
 
     methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    # methods = ['MD', 'NNDR']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/case_' + case + '/' + nameID + suffixID + '.npz'
 
