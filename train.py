@@ -13,16 +13,17 @@ import numpy as np
 from snntorch import utils
 import time 
 from snntorch import spikegen
-from test import test_with_output
+from test import test_with_output, test_accuracy
 from feature import feature_extraction_conv, feature_extraction_spike
 
 
-def training(dataSet, modelType, case='00', fullTrain=False):
+def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetModel, case='00', fullTrain=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
     case:           case needs to contain the details of the case scenario
     fullTrain:      define if training is done on complete training set or train/valid split is used
+    ResNetModel:    determines number of layers in model
     '''
 
     # Load datase
@@ -32,26 +33,25 @@ def training(dataSet, modelType, case='00', fullTrain=False):
     Utils.get_image_size(dataset_train, dataSet)
 
     # Define batch size
-    batchSize = 16
+    batchSize = batchSize
     
     if (fullTrain == False):
         train_loader, val_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, False)
     else:
         train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
-
-        
+    
     # Get the device
     device = Utils.get_device()
 
     # Define training parameters
+    # Number of classes
+    numberOfClasses = numOfClasses
 
-    if modelType == 'conv':
+    # Number of channels
+    numberOfChannels = numOfChannels
 
-        # Number of classes
-        numberOfClasses = 10
 
-        # Number of channels
-        numberOfChannels = 3
+    if modelType == 'conv':    
 
         # Learning rate (KEY)
         lr = [0.0001]
@@ -70,8 +70,12 @@ def training(dataSet, modelType, case='00', fullTrain=False):
         lossFunction = nn.CrossEntropyLoss()
 
         # Model
-        model = ResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses)
-
+        if ResNetModel == 9:
+            model = ResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses)
+        else:
+            print("Not defined")
+            return -1
+        
         # Move model to device
         model.to(device)
 
@@ -129,12 +133,6 @@ def training(dataSet, modelType, case='00', fullTrain=False):
         return None
 
     elif modelType == 'spike':
-        
-        # Number of classes
-        numberOfClasses = 10
-
-        # Number of epochs
-        numberOfEpochs = 10
 
         # Keeps accuracy and loss for both training and validation in each epoch
         H = []
@@ -145,7 +143,13 @@ def training(dataSet, modelType, case='00', fullTrain=False):
         threshold = 0.25
 
         # Define model
-        model = SpikeResNet18Model(numberOfChannels=3, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        if ResNetModel == 9:
+            model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 18:
+            model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        else:
+            print("Not defined")
+            return -1
         model = model.to(device)
 
         # Optimizer
@@ -154,6 +158,8 @@ def training(dataSet, modelType, case='00', fullTrain=False):
 
         # Loss function
         loss_fn = SF.ce_rate_loss()
+        
+        numberOfEpochs = 10
 
         # Training
         if (fullTrain == True):
@@ -202,42 +208,43 @@ def generate_latex(nameID, stats):
     
 
 
-if __name__ == "__main__":
-    # Define defaut arguments and call training
-    training('CIFAR10', 'spike', case='08', fullTrain=True)
-    # feature_extraction_spike('MNIST')
-    # feature_extraction_spike('FMNIST')
-    # feature_extraction_spike('KMNIST')
-    # feature_extraction_conv('FMNIST')
-    # feature_extraction_spike('SVHN')
+# if __name__ == "__main__":
+#     # Define defaut arguments and call training
+#     training('CIFAR10', 'conv', case='08', fullTrain=True)
+#     # test_accuracy('CIFAR10', 'spike')
+#     # feature_extraction_spike('MNIST')
+#     # feature_extraction_spike('FMNIST')
+#     # feature_extraction_spike('KMNIST')
+#     # feature_extraction_conv('FMNIST')
+#     # feature_extraction_spike('SVHN')
 
-    # stats = test_with_output(case='07', nameID='CIFAR10')
+#     # stats = test_with_output(case='07', nameID='CIFAR10')
 
-    # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-    # for row in formatted_stats:
-    #     print(' '.join(row))
-
-
-    # TODO: code manually every interesting LIF node and repeat the results
-    # TODO: check the rest of the apporaches, ODIN energy-based
-    # TODO: make utilities for automatic data processing
-    # TODO make utilities for graphics
-    # TODO: ResNet18
-    # TODO update feature extraction conv to enable diferent base 
-    # TODO utilize training cases, or make the weights names more flexibile 
-    # TODO move main to different file
+#     # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
+#     # for row in formatted_stats:
+#     #     print(' '.join(row))
 
 
-    '''
-    case 01: weights/spike/resnet9_MNIST_params.pth threshold is 1.0, LIFs are snn.Leaky(beta=beta, threshold=threshold, base dataset MNIST
-    case 02: OBSOLETE, REMOVE konvoluciona mreza 10-D izlaza
-    case 03: weights/spike/resnet9_MNIST_025_params.pth threshold je 0.25 beta je 0.95
-    case 04: conv Resnet9 weights/conv/resnet9_weights_MNIST.pth
-                          weights/conv/resnet9_weights_KMNIST.pth 
-                          weights/conv/resnet9_weights_FMNIST.pth
+#     # TODO: code manually every interesting LIF node and repeat the results
+#     # TODO: check the rest of the apporaches, ODIN energy-based
+#     # TODO: make utilities for automatic data processing
+#     # TODO make utilities for graphics
+#     # TODO: ResNet18
+#     # TODO update feature extraction conv to enable diferent base 
+#     # TODO utilize training cases, or make the weights names more flexibile 
+#     # TODO move main to different file
 
-    case 05: weights/spike/resnet9_weights_MNIST.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-    case 06: weights/spike/resnet9_weights_MNIST_rate.pth rate encoding spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-    case 07: cifar10 vs svhn weights/spike/resnet9_weights_CIFAR10.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-    case 08: spikeResNet18
-    '''
+
+#     '''
+#     case 01: weights/spike/resnet9_MNIST_params.pth threshold is 1.0, LIFs are snn.Leaky(beta=beta, threshold=threshold, base dataset MNIST
+#     case 02: OBSOLETE, REMOVE konvoluciona mreza 10-D izlaza
+#     case 03: weights/spike/resnet9_MNIST_025_params.pth threshold je 0.25 beta je 0.95
+#     case 04: conv Resnet9 weights/conv/resnet9_weights_MNIST.pth
+#                           weights/conv/resnet9_weights_KMNIST.pth 
+#                           weights/conv/resnet9_weights_FMNIST.pth
+
+#     case 05: weights/spike/resnet9_weights_MNIST.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
+#     case 06: weights/spike/resnet9_weights_MNIST_rate.pth rate encoding spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
+#     case 07: cifar10 vs svhn weights/spike/resnet9_weights_CIFAR10.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
+#     case 08: spikeResNet18
+#     '''

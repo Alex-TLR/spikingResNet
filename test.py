@@ -2,6 +2,69 @@ import numpy as np
 import time 
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
+from models.spikeresnet import SpikeResNet9Model, SpikeResNet18Model
+import torch 
+import snntorch.functional as SF 
+
+def test_accuracy(dataSet, modelType):
+    '''
+    check accuracy of trained model on ID test data
+    '''
+
+    # Load datase
+    dataset_train, dataset_test = Utils.load_data(dataSet)
+
+    # Define batch size
+    batchSize = 8
+
+    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
+
+    # Get the device
+    device = Utils.get_device()
+
+    if modelType == 'conv':
+        pass
+
+
+    elif modelType == 'spike':
+
+        # Number of classes
+        numberOfClasses = 10
+
+        # For spiking neural network we need number of steps
+        numberOfSteps = 50
+        beta = 0.95
+        threshold = 0.25
+
+        # Define model
+        model = SpikeResNet9Model(numberOfChannels=3, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        # Load weights
+        weightsName = 'weights/spike/' + 'resnet9_weights_' + dataSet + '.pth'
+        model.load_state_dict(torch.load(weightsName, weights_only=True))
+        model = model.to(device)
+
+        # Loss function
+        loss_fn = SF.ce_rate_loss()
+
+        print("Check test images.")
+        testAcc = []
+        testLoss = []
+        for batch, labels in test_loader:
+            batch = batch.to(device)
+            labels = labels.to(device)
+            # Generate predictions/ forward pass
+            spikes, _ = model.forward_pass(model, numberOfSteps, batch)
+            l = loss_fn(spikes, labels)
+            testLoss.append(l.item())
+            a = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
+            testAcc.append(a.item())
+        # Test stats
+        meanA = sum(testAcc) / len(testAcc)
+        meanL = sum(testLoss) / len(testLoss)
+        print(f'Test loss is {meanL:.2f}. Test accuracy is {meanA:.2f}.')
+
+        return None
+
 
 
 # TODO make time consumption analysis

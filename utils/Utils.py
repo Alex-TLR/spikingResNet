@@ -1,4 +1,4 @@
-from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN
+from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN, Places365
 from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
@@ -51,11 +51,15 @@ class Utils():
             name = 'svhn'
             Name =  'SVHN'
             transformData = transformData_rgb_32
+        elif database_name == 'Places365':
+            name = 'places'
+            Name =  'Places365'
+            transformData = transformData_rgb_32
         else:
             print("Wrong database name!")
             return -1
 
-        if database_name != 'SVHN':
+        if (database_name != 'SVHN') and (database_name != 'Places365') :
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
             print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
@@ -64,6 +68,11 @@ class Utils():
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', target_transform = transformData)'
             print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', target_transform = transformData)'
+            print(command_test)
+        elif database_name == 'Places365':
+            command_train = Name + '(root = \'data/' + name + '/\', download=False, split = \'train-standard\', small = True, target_transform = transformData)'
+            print(command_train)
+            command_test = Name + '(root = \'data/' + name + '/\', download=False, split = \'val\', small = True, target_transform = transformData)'
             print(command_test)
         
         dataset_train = eval(command_train)

@@ -53,8 +53,8 @@ class BasicModel(nn.Module):
         return None
     
     def forward_pass(self, model, numSteps, data):
-        mem_trace = []
-        spk_trace = []
+        # mem_trace = []
+        # spk_trace = []
         utils.reset(model)
 
         for _ in range(numSteps):
@@ -67,6 +67,7 @@ class BasicModel(nn.Module):
 
         return spk_trace, mem_trace
     
+    # TODO: Fix
     def forward_pass_rate(self, model, numSteps, data):
         mem_trace = []
         spk_trace = []
@@ -89,7 +90,7 @@ class BasicModel(nn.Module):
             model.eval()
             data = data.to(device)
             labels = labels.to(device)
-            spikes, _ = self.forward_pass(model, numSteps, data)
+            spikes, _ , _ = model(data, numSteps)
             acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
             total = spikes.size(1)
 
@@ -117,7 +118,7 @@ class BasicModel(nn.Module):
                 labels = labels.to(device)
                 model.train()
                 # Generate predictions/ forward pass
-                spikes, _ = self.forward_pass(model, nSteps, batch)
+                spikes, _, _ = model(batch, nSteps)
                 # Calculate loss
                 loss = lossF(spikes, labels) 
                 tLoss.append(loss.detach().item())
@@ -145,7 +146,7 @@ class BasicModel(nn.Module):
             for batch, labels in val_load:
                 batch = batch.to(device)
                 labels = labels.to(device)
-                spikes, _ = self.forward_pass(model, nSteps, batch)
+                spikes, _, _ = model(batch, nSteps)
                 with torch.no_grad():
                     loss = lossF(spikes, labels)
                 vLoss.append(loss.detach().item())
@@ -190,7 +191,7 @@ class BasicModel(nn.Module):
                 labels = labels.to(device)
                 model.train()
                 # Generate predictions/ forward pass
-                spikes, _ = self.forward_pass(model, nSteps, batch)
+                spikes, _, _ = model(batch, nSteps)
                 # Calculate loss
                 loss = lossF(spikes, labels) 
                 tLoss.append(loss.detach().item())
@@ -264,8 +265,8 @@ class SpikeResNet9Model(BasicModel):
                   nn.BatchNorm2d(num_features=output)]
         return nn.Sequential(*layers)
     
-    def forward(self, x):
-
+    def forward(self, x, numberOfSteps):
+        # TODO: Fix this
         # Initialize hidden states and outputs at t=0
         mem1 = self.lif1.init_leaky()
         mem2 = self.lif2.init_leaky()
@@ -277,38 +278,49 @@ class SpikeResNet9Model(BasicModel):
         mem6_2 = self.r6_lif2.init_leaky()
         mem7 = self.lifOut.init_leaky()
 
-        cur1 = self.block1(x)
-        spk1, mem1 = self.lif1(cur1, mem1)
-        cur2 = self.block2(spk1)
-        spk2, mem2 = self.lif2(cur2, mem2)
-        spk2_2 = self.maxp2(spk2) # used for residual
+        feat_trace = []
+        prob_trace = []
+        spik_trace = []
 
-        cur3_1 = self.resBlock3_1(spk2_2)
-        spk3_1, mem3_1 = self.r3_lif1(cur3_1, mem3_1)
-        cur3_2 = self.resBlock3_2(spk3_1)
-        spk3_2, mem3_2 = self.r3_lif1(cur3_2, mem3_2)
-        spk_r1 = spk3_2 + spk2_2
-        
-        cur4 = self.block4(spk_r1)
-        spk4, mem4 = self.lif4(cur4, mem4)
-        spk4_2 = self.maxp4(spk4) 
+        for _ in range(numberOfSteps):
 
-        cur5 = self.block5(spk4_2)
-        spk5, mem5 = self.lif5(cur5, mem5)
-        spk5_2 = self.maxp5(spk5) # used for residual 
+            cur1 = self.block1(x)
+            spk1, mem1 = self.lif1(cur1, mem1)
+            cur2 = self.block2(spk1)
+            spk2, mem2 = self.lif2(cur2, mem2)
+            spk2_2 = self.maxp2(spk2) # used for residual
 
-        cur6_1 = self.resBlock6_1(spk5_2)
-        spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
-        cur6_2 = self.resBlock6_2(spk6_1)
-        spk6_2, mem6_2 = self.r6_lif1(cur6_2, mem6_2)
-        spk_r2 = spk6_2 + spk5_2
+            cur3_1 = self.resBlock3_1(spk2_2)
+            spk3_1, mem3_1 = self.r3_lif1(cur3_1, mem3_1)
+            cur3_2 = self.resBlock3_2(spk3_1)
+            spk3_2, mem3_2 = self.r3_lif1(cur3_2, mem3_2)
+            spk_r1 = spk3_2 + spk2_2
+            
+            cur4 = self.block4(spk_r1)
+            spk4, mem4 = self.lif4(cur4, mem4)
+            spk4_2 = self.maxp4(spk4) 
 
-        spk7 = self.amax7(spk_r2)
-        spk7 = self.flat(spk7)
-        cur7 = self.fc7(spk7)
-        spk_out, mem7 = self.lifOut(cur7, mem7)
+            cur5 = self.block5(spk4_2)
+            spk5, mem5 = self.lif5(cur5, mem5)
+            spk5_2 = self.maxp5(spk5) # used for residual 
 
-        return spk_out, spk7, mem7
+            cur6_1 = self.resBlock6_1(spk5_2)
+            spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
+            cur6_2 = self.resBlock6_2(spk6_1)
+            spk6_2, mem6_2 = self.r6_lif1(cur6_2, mem6_2)
+            spk_r2 = spk6_2 + spk5_2
+
+            spk7 = self.amax7(spk_r2)
+            spk7 = self.flat(spk7)
+            cur7 = self.fc7(spk7)
+            spk_out, mem7 = self.lifOut(cur7, mem7)
+
+            feat_trace.append(spk7)
+            prob_trace.append(mem7)
+            spik_trace.append(spk_out)
+
+        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
+
     
     # spk7 512-D spikes
     # spk_out 10-D spikes
@@ -390,7 +402,7 @@ class SpikeResNet18Model(BasicModel):                                           
                     nn.BatchNorm2d(num_features=output)]
         return nn.Sequential(*layers)
     
-    def forward(self, x):
+    def forward(self, x, numberOfSteps):
 
         # Initialize hidden states and outputs at t=0
         mem1 = self.lif1.init_leaky()
@@ -412,75 +424,85 @@ class SpikeResNet18Model(BasicModel):                                           
         mem8_4 = self.r8_lif4.init_leaky()
         mem_out = self.lifOut.init_leaky()
 
-        cur1 = self.block1(x)                       # Conv block gives current for the following 
-        spk1, mem1 = self.lif1(cur1, mem1)          # Leaky gives spk1 and membrane voltage
-        # spk1 is used for skip connection
+        feat_trace = []
+        prob_trace = []
+        spik_trace = []
 
-        # Block input conv (64, 64)
-        cur2_1 = self.resBlock2_1(spk1)
-        spk2_1, mem2_1 = self.r2_lif1(cur2_1, mem2_1)
-        cur2_2 = self.resBlock2_2(spk2_1)
-        spk2_2, mem2_2 = self.r2_lif2(cur2_2, mem2_2)
-        # make skip connection, ADD :)
-        spk_r2_1 = spk2_2 + spk1
-        # spk_r2_1 is used for skip connection
-        cur2_3 = self.resBlock2_3(spk_r2_1)
-        spk2_3, mem2_3 = self.r2_lif3(cur2_3, mem2_3)
-        cur2_4 = self.resBlock2_4(spk2_3)
-        spk2_4, mem2_4 = self.r2_lif4(cur2_4, mem2_4)
-        # make skip connection, ADD :)
-        spk_r2_2 = spk2_4 + spk_r2_1
-        # print(f'spk_r2_2.shape is {spk_r2_2.shape}')
+        for _ in range(numberOfSteps):
 
-        # Block input conv (64, 128)
-        identity_4 = self.downsample3(spk_r2_2)
-        # print(f'identity_4.shape is {identity_4.shape}')
-        cur4_1 = self.resBlock4_1(spk_r2_2)
-        spk4_1, mem4_1 = self.r4_lif1(cur4_1, mem4_1)
-        cur4_2 = self.resBlock4_2(spk4_1)
-        spk4_2, mem4_2 = self.r4_lif2(cur4_2, mem4_2)
-        # make skip connection
-        spk_r4_1 = spk4_2 + identity_4
-        cur4_3 = self.resBlock4_3(spk_r4_1)
-        spk4_3, mem4_3 = self.r4_lif3(cur4_3, mem4_3)
-        cur4_4 = self.resBlock4_4(spk4_3)
-        spk4_4, mem4_4 = self.r4_lif4(cur4_4, mem4_4)
-        # make skip connection
-        spk_r4_2 = spk4_4 + spk_r4_1
+            cur1 = self.block1(x)                       # Conv block gives current for the following 
+            spk1, mem1 = self.lif1(cur1, mem1)          # Leaky gives spk1 and membrane voltage
+            # spk1 is used for skip connection
 
-        # Block input conv (128, 256)
-        identity_6 = self.downsample5(spk_r4_2)
-        cur6_1 = self.resBlock6_1(spk_r4_2)
-        spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
-        cur6_2 = self.resBlock6_2(spk6_1)
-        spk6_2, mem6_2 = self.r6_lif2(cur6_2, mem6_2)
-        # make skip connection
-        spk_r6_1 = spk6_2 + identity_6
-        cur6_3 = self.resBlock6_3(spk_r6_1)
-        spk6_3, mem6_3 = self.r6_lif3(cur6_3, mem6_3)
-        cur6_4 = self.resBlock6_4(spk6_3)
-        spk6_4, mem6_4 = self.r6_lif4(cur6_4, mem6_4)
-        # make skip connection
-        spk_r6_2 = spk6_4 + spk_r6_1
+            # Block input conv (64, 64)
+            cur2_1 = self.resBlock2_1(spk1)
+            spk2_1, mem2_1 = self.r2_lif1(cur2_1, mem2_1)
+            cur2_2 = self.resBlock2_2(spk2_1)
+            spk2_2, mem2_2 = self.r2_lif2(cur2_2, mem2_2)
+            # make skip connection, ADD :)
+            spk_r2_1 = spk2_2 + spk1
+            # spk_r2_1 is used for skip connection
+            cur2_3 = self.resBlock2_3(spk_r2_1)
+            spk2_3, mem2_3 = self.r2_lif3(cur2_3, mem2_3)
+            cur2_4 = self.resBlock2_4(spk2_3)
+            spk2_4, mem2_4 = self.r2_lif4(cur2_4, mem2_4)
+            # make skip connection, ADD :)
+            spk_r2_2 = spk2_4 + spk_r2_1
+            # print(f'spk_r2_2.shape is {spk_r2_2.shape}')
 
-        # Block input conv (256, 512)
-        identity_8 = self.downsample7(spk_r6_2)
-        cur8_1 = self.resBlock8_1(spk_r6_2)
-        spk8_1, mem8_1 = self.r8_lif1(cur8_1, mem8_1)
-        cur8_2 = self.resBlock8_2(spk8_1)
-        spk8_2, mem8_2 = self.r8_lif2(cur8_2, mem8_2)
-        # make skip connection
-        spk_r8_1 = spk8_2 + identity_8
-        cur8_3 = self.resBlock8_3(spk_r8_1)
-        spk8_3, mem8_3 = self.r8_lif3(cur8_3, mem8_3)
-        cur8_4 = self.resBlock8_4(spk8_3)
-        spk8_4, mem8_4 = self.r8_lif4(cur8_4, mem8_4)
-        # make skip connection
-        spk_r8_2 = spk8_4 + spk_r8_1
+            # Block input conv (64, 128)
+            identity_4 = self.downsample3(spk_r2_2)
+            # print(f'identity_4.shape is {identity_4.shape}')
+            cur4_1 = self.resBlock4_1(spk_r2_2)
+            spk4_1, mem4_1 = self.r4_lif1(cur4_1, mem4_1)
+            cur4_2 = self.resBlock4_2(spk4_1)
+            spk4_2, mem4_2 = self.r4_lif2(cur4_2, mem4_2)
+            # make skip connection
+            spk_r4_1 = spk4_2 + identity_4
+            cur4_3 = self.resBlock4_3(spk_r4_1)
+            spk4_3, mem4_3 = self.r4_lif3(cur4_3, mem4_3)
+            cur4_4 = self.resBlock4_4(spk4_3)
+            spk4_4, mem4_4 = self.r4_lif4(cur4_4, mem4_4)
+            # make skip connection
+            spk_r4_2 = spk4_4 + spk_r4_1
 
-        spk9 = self.amax9(spk_r8_2)
-        spk9 = self.flat(spk9)
-        cur9 = self.fc10(spk9)
-        spk_out, mem_out = self.lifOut(cur9, mem_out)
+            # Block input conv (128, 256)
+            identity_6 = self.downsample5(spk_r4_2)
+            cur6_1 = self.resBlock6_1(spk_r4_2)
+            spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
+            cur6_2 = self.resBlock6_2(spk6_1)
+            spk6_2, mem6_2 = self.r6_lif2(cur6_2, mem6_2)
+            # make skip connection
+            spk_r6_1 = spk6_2 + identity_6
+            cur6_3 = self.resBlock6_3(spk_r6_1)
+            spk6_3, mem6_3 = self.r6_lif3(cur6_3, mem6_3)
+            cur6_4 = self.resBlock6_4(spk6_3)
+            spk6_4, mem6_4 = self.r6_lif4(cur6_4, mem6_4)
+            # make skip connection
+            spk_r6_2 = spk6_4 + spk_r6_1
 
-        return spk_out, spk9, mem_out
+            # Block input conv (256, 512)
+            identity_8 = self.downsample7(spk_r6_2)
+            cur8_1 = self.resBlock8_1(spk_r6_2)
+            spk8_1, mem8_1 = self.r8_lif1(cur8_1, mem8_1)
+            cur8_2 = self.resBlock8_2(spk8_1)
+            spk8_2, mem8_2 = self.r8_lif2(cur8_2, mem8_2)
+            # make skip connection
+            spk_r8_1 = spk8_2 + identity_8
+            cur8_3 = self.resBlock8_3(spk_r8_1)
+            spk8_3, mem8_3 = self.r8_lif3(cur8_3, mem8_3)
+            cur8_4 = self.resBlock8_4(spk8_3)
+            spk8_4, mem8_4 = self.r8_lif4(cur8_4, mem8_4)
+            # make skip connection
+            spk_r8_2 = spk8_4 + spk_r8_1
+
+            spk9 = self.amax9(spk_r8_2)
+            spk9 = self.flat(spk9)
+            cur9 = self.fc10(spk9)
+            spk_out, mem_out = self.lifOut(cur9, mem_out)
+
+            feat_trace.append(spk9)
+            prob_trace.append(mem_out)
+            spik_trace.append(spk_out)
+
+        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
