@@ -17,21 +17,20 @@ if __name__ == "__main__":
     batchSize = 16
     numberOfClasses = 10
     numberOfChannels = 1
-    ResNetModel = 9
-
-    training(dataSet, modelType, batchSize, numberOfClasses, numberOfChannels, ResNetModel, case='08', fullTrain=True)
+    ResNetModel = 10
     
-    # visualize_feature('07')
+    case = '10'
+    # training(dataSet, modelType, batchSize, numberOfClasses, numberOfChannels, ResNetModel, case=case, fullTrain=True)
+    # test_accuracy('MNIST', 'spike')
+    visualize_feature('10')
     
-    
-    # test_accuracy('CIFAR10', 'spike')
-    # feature_extraction_spike('MNIST')
-    # feature_extraction_spike('FMNIST')
-    # feature_extraction_spike('KMNIST')
+    # feature_extraction_spike(dataSet, modelType, case, numberOfClasses, numberOfChannels)
+    # feature_extraction_spike(dataSet, modelType, case, numberOfClasses, numberOfChannels)
+    # feature_extraction_spike(dataSet, modelType, case, numberOfClasses, numberOfChannels)
     # feature_extraction_conv('FMNIST')
     # feature_extraction_spike('Places365', '08')
 
-    # stats = test_with_output(case='08', nameID='CIFAR10')
+    # stats = test_with_output(case=case, nameID='MNIST')
 
     # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
     # for row in formatted_stats:
@@ -60,4 +59,5 @@ if __name__ == "__main__":
     case 06: weights/spike/resnet9_weights_MNIST_rate.pth rate encoding spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
     case 07: cifar10 vs svhn weights/spike/resnet9_weights_CIFAR10.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
     case 08: spikeResNet18 CIFAR10 obucavanje
+    case 10: MNIST ResNET10 novi model
     '''

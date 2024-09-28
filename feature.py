@@ -4,46 +4,47 @@ from snntorch import spikegen
 from utils.Utils import Utils, SVHNDataset
 from torch.utils.data import DataLoader
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import SpikeResNet9Model, SpikeResNet18Model
+from models.spikeresnet import SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
 import numpy as np
 import snntorch.functional as SF
 import os
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from metrics.Metrics import Metrics
 
 
-def forward_pass_feature_extraction(model, numSteps, data):
-        feat_trace = []
-        prob_trace = []
-        utils.reset(model)
+# def forward_pass_feature_extraction(model, numSteps, data):
+#         feat_trace = []
+#         prob_trace = []
+#         utils.reset(model)
 
-        for _ in range(numSteps):
-            _, feat_out, prob_out = model(data)
-            feat_trace.append(feat_out)
-            prob_trace.append(prob_out)
+#         for _ in range(numSteps):
+#             _, feat_out, prob_out = model(data)
+#             feat_trace.append(feat_out)
+#             prob_trace.append(prob_out)
 
-        feat_trace = torch.stack(feat_trace)
-        prob_trace = torch.stack(prob_trace)
+#         feat_trace = torch.stack(feat_trace)
+#         prob_trace = torch.stack(prob_trace)
 
-        return feat_trace, prob_trace
+#         return feat_trace, prob_trace
 
 
-def forward_pass_rate_feature_extraction(model, numSteps, data):
-        feat_trace = []
-        prob_trace = []
-        utils.reset(model)
+# def forward_pass_rate_feature_extraction(model, numSteps, data):
+#         feat_trace = []
+#         prob_trace = []
+#         utils.reset(model)
 
-        spike_data = spikegen.rate(data, num_steps=numSteps)
-        for i in range(numSteps):
-            _, feat_out, prob_out = model(spike_data[i])
-            feat_trace.append(feat_out)
-            prob_trace.append(prob_out)
+#         spike_data = spikegen.rate(data, num_steps=numSteps)
+#         for i in range(numSteps):
+#             _, feat_out, prob_out = model(spike_data[i])
+#             feat_trace.append(feat_out)
+#             prob_trace.append(prob_out)
 
-        feat_trace = torch.stack(feat_trace)
-        prob_trace = torch.stack(prob_trace)
+#         feat_trace = torch.stack(feat_trace)
+#         prob_trace = torch.stack(prob_trace)
 
-        return feat_trace, prob_trace
+#         return feat_trace, prob_trace
 
 
 def feature_extraction_conv(dataSet):
@@ -93,8 +94,11 @@ def feature_extraction_conv(dataSet):
 
         probs, feats = model(batch)
         labels = labels.cpu().detach().numpy()
-        Feat_train[startIndex:endIndex, :] = feats.cpu().detach().numpy()
-        Prob_train[startIndex:endIndex, :] = probs.cpu().detach().numpy()
+        feats = feats.cpu().detach().numpy()
+        probs = probs.cpu().detach().numpy()
+        print(f'feats.shape is {feats.shape} and probs.shape is {probs.shape}')
+        Feat_train[startIndex:endIndex, :] = feats
+        Prob_train[startIndex:endIndex, :] = probs
         Tags_train.append(labels.flatten())
         del batch, labels, probs
         i += 1
@@ -131,12 +135,15 @@ def feature_extraction_conv(dataSet):
     return None
 
 
-def feature_extraction_spike(dataSet, case):
+def feature_extraction_spike(dataSet, ResNetModel, case, numOfClasses, numOfChannels):
     '''
     Spiking models only
     dataSet:        the data set from which we extract feature
                     at the moment, features are extracted only on MNIST-trained network.
+    ResNetModel:    select resnet model type (resnet10, resnet18)
     case:           define folder for case study  
+    numOfClasses:   number of classes
+    numOfChannels:  number of input channels
     '''
 
     dataset_train, dataset_test = Utils.load_data(dataSet)
@@ -149,10 +156,10 @@ def feature_extraction_spike(dataSet, case):
     print("Test data size: ", testDataSize)
 
     # Number of classes
-    numberOfClasses = 10
+    numberOfClasses = numOfClasses
 
     # Batch size
-    batchSize = 16
+    batchSize = 12
 
     # For spiking neural network we need number of steps
     numberOfSteps = 50
@@ -169,11 +176,20 @@ def feature_extraction_spike(dataSet, case):
     loss_fn = SF.ce_rate_loss()
 
     # Define model
-    model = SpikeResNet18Model(numberOfChannels=3, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+    if ResNetModel == 9:
+        model = SpikeResNet9Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+    elif ResNetModel == 10:
+        model = SpikeResNet10Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+    elif ResNetModel == 18:
+        model = SpikeResNet18Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+    else:
+        print("Not defined")
+        return -1
+    
     # Load weights
     # weightsName = 'weights/spike/' + 'resnet9_MNIST_025_params.pth'
-    dataSetID = 'CIFAR10'
-    weightsName = 'weights/spike/resnet18_weights_' + dataSetID + '.pth'
+    dataSetID = 'MNIST'
+    weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSetID + '.pth'
     model.load_state_dict(torch.load(weightsName, weights_only=True))
     model = model.to(device)
 
@@ -187,12 +203,19 @@ def feature_extraction_spike(dataSet, case):
         startIndex = i*batchSize
         endIndex = startIndex + batchSize
 
-        f, p = forward_pass_feature_extraction(model, numberOfSteps, batch)
+        s, f, p = model(batch, numberOfSteps)
         f = f.cpu().detach().numpy()
         p = p.cpu().detach().numpy()
-            
+        s = s.cpu().detach().numpy()
+        s = s.sum(axis=0)
+        # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
         features = f.sum(axis=0)
         probs = p.max(axis=0)
+        # if i < 5:
+        #     # print(f'{i}\n{s}\n{probs}')
+        #     plotProb(p, batchSize, numberOfSteps)
+        probs = Metrics.softmax(probs)
+        # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
         labels = labels.cpu().detach().numpy()
         Feat_train[startIndex:endIndex, :] = features
         Prob_train[startIndex:endIndex, :] = probs
@@ -214,7 +237,7 @@ def feature_extraction_spike(dataSet, case):
         startIndex = i*batchSize
         endIndex = startIndex + batchSize
 
-        f, p = forward_pass_feature_extraction(model, numberOfSteps, batch)
+        _, f, p = model(batch, numberOfSteps)
         f = f.cpu().detach().numpy()
         p = p.cpu().detach().numpy()
             
@@ -232,10 +255,55 @@ def feature_extraction_spike(dataSet, case):
     Tags_test = np.concatenate(Tags_test)
     print("Tags_test shape is ", Tags_test.shape)
 
-    fileName = 'features/case_' + case + '/' + dataSet + '-on_cifar10' + '.npz'
+    fileName = 'features/case_' + case + '/' + dataSet + '-on_mnist' + '.npz'
     np.savez(fileName, arr1=Feat_train, arr2=Prob_train, arr3=Tags_train, arr4=Feat_test, arr5=Prob_test, arr6=Tags_test)
 
     return None
+
+def plotProb(prob, batchSize, numOfSteps):
+    '''
+    Plot one probability 
+    '''
+    print(f'Probs shape is {prob.shape}')
+    # for i in range(batchSize):
+    #     p = prob[:, i, 0].squeeze()
+
+    #     plt.figure(figsize=(10, 5))
+    #     plt.plot(p, marker='o')  # Convert to NumPy for plotting
+    #     plt.title('Memebrane voltage')
+    #     plt.xlabel('Steps')
+    #     plt.ylabel('Voltage')
+    #     plt.grid(True)
+    #     plt.show()
+    # Determine the number of columns and rows
+    num_cols = 3
+    num_rows = int(np.ceil(batchSize / num_cols))
+
+    # Create subplots
+    fig, axes = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(15, 5 * num_rows))
+    
+    # Flatten axes for easy indexing
+    axes = axes.flatten()
+
+    for i in range(batchSize):
+        p = prob[:, i, 1].squeeze()
+
+        axes[i].plot(p, marker='o')  # Plot on the ith subplot
+        axes[i].set_title(f'Membrane Voltage for Sample {i+1}')
+        axes[i].set_xlabel('Steps')
+        axes[i].set_ylabel('Voltage')
+        axes[i].grid(True)
+
+    # Hide any unused subplots
+    for j in range(batchSize, num_rows * num_cols):
+        fig.delaxes(axes[j])
+    
+    plt.tight_layout()  # Adjust layout to prevent overlap
+    plt.show()
+
+    probs_ = prob.max(axis=0)
+    print(f'Max value is {probs_}')
+
 
 
 def visualize_feature(case):
@@ -243,7 +311,7 @@ def visualize_feature(case):
     plot reduced features
     '''
 
-    tsne = TSNE(n_components=3, random_state=42)
+    tsne = TSNE(n_components=2, random_state=42)
 
     folderName = 'features/case_' + case + '/'
     print(folderName)
@@ -289,51 +357,51 @@ def visualize_feature(case):
 
     print(f'features_tsne shape is {features_tsne.shape}')
 
-    # plt.figure(figsize=(10, 8))
-
-    # # Plot the first set of features
-    # plt.scatter(features1_tsne[:, 0], features1_tsne[:, 1], c='blue', label='Dataset 1', alpha=0.5)
-
-    # # Plot the second set of features
-    # plt.scatter(features2_tsne[:, 0], features2_tsne[:, 1], c='red', label='Dataset 2', alpha=0.5)
-
-    # # Add labels and legend
-    # plt.xlabel('t-SNE Dimension 1')
-    # plt.ylabel('t-SNE Dimension 2')
-    # plt.title('t-SNE Visualization of Feature Vectors')
-    # plt.legend()
-    # plt.grid(True)
-
-    # # Show the plot
-    # plt.show()
-
-    # Initialize interactive mode
-    plt.ion()
-
-    # Create a 3D plot
-    fig = plt.figure(figsize=(12, 10))
-    ax = fig.add_subplot(111, projection='3d')
+    plt.figure(figsize=(10, 8))
 
     # Plot the first set of features
-    ax.scatter(features1_tsne[:, 0], features1_tsne[:, 1], features1_tsne[:, 2], 
-            c='blue', label='Dataset 1', alpha=0.6, s=50)
+    plt.scatter(features1_tsne[:, 0], features1_tsne[:, 1], c='blue', label='Dataset 1', alpha=0.5)
 
     # Plot the second set of features
-    ax.scatter(features2_tsne[:, 0], features2_tsne[:, 1], features2_tsne[:, 2], 
-            c='red', label='Dataset 2', alpha=0.6, s=50)
+    plt.scatter(features2_tsne[:, 0], features2_tsne[:, 1], c='red', label='Dataset 2', alpha=0.5)
 
     # Add labels and legend
-    ax.set_xlabel('t-SNE Dimension 1')
-    ax.set_ylabel('t-SNE Dimension 2')
-    ax.set_zlabel('t-SNE Dimension 3')
-    ax.set_title('3D t-SNE Visualization of Feature Vectors')
-    ax.legend()
+    plt.xlabel('t-SNE Dimension 1')
+    plt.ylabel('t-SNE Dimension 2')
+    plt.title('t-SNE Visualization of Feature Vectors')
+    plt.legend()
+    plt.grid(True)
 
     # Show the plot
     plt.show()
 
-    # Disable interactive mode
-    plt.ioff()
+    # Initialize interactive mode
+    # plt.ion()
+
+    # # Create a 3D plot
+    # fig = plt.figure(figsize=(12, 10))
+    # ax = fig.add_subplot(111, projection='3d')
+
+    # # Plot the first set of features
+    # ax.scatter(features1_tsne[:, 0], features1_tsne[:, 1], features1_tsne[:, 2], 
+    #         c='blue', label='Dataset 1', alpha=0.6, s=50)
+
+    # # Plot the second set of features
+    # ax.scatter(features2_tsne[:, 0], features2_tsne[:, 1], features2_tsne[:, 2], 
+    #         c='red', label='Dataset 2', alpha=0.6, s=50)
+
+    # # Add labels and legend
+    # ax.set_xlabel('t-SNE Dimension 1')
+    # ax.set_ylabel('t-SNE Dimension 2')
+    # ax.set_zlabel('t-SNE Dimension 3')
+    # ax.set_title('3D t-SNE Visualization of Feature Vectors')
+    # ax.legend()
+
+    # # Show the plot
+    # plt.show()
+
+    # # Disable interactive mode
+    # plt.ioff()
 
 
     return None

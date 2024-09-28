@@ -163,9 +163,9 @@ class Metrics():
         for i in range(len(neigh_dist)):
             for j in range(len(neigh_dist[i])):
                 if(train_Y[neigh_ind[i][j]] != train_Y[neigh_ind[i][0]]):
+                    m.append(j)
                     break
-            m.append(j)
-
+            
         for i in range(len(neigh_dist)):
             distances.append(-neigh_dist[i][0]/neigh_dist[i][m[i]])
         if(distances[i] > threshold):

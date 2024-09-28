@@ -2,7 +2,7 @@ import numpy as np
 import time 
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
-from models.spikeresnet import SpikeResNet9Model, SpikeResNet18Model
+from models.spikeresnet import SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
 import torch 
 import snntorch.functional as SF 
 
@@ -37,9 +37,9 @@ def test_accuracy(dataSet, modelType):
         threshold = 0.25
 
         # Define model
-        model = SpikeResNet9Model(numberOfChannels=3, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        model = SpikeResNet10Model(numberOfChannels=1, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         # Load weights
-        weightsName = 'weights/spike/' + 'resnet9_weights_' + dataSet + '.pth'
+        weightsName = 'weights/spike/' + 'resnet10_weights_' + dataSet + '.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         model = model.to(device)
 
@@ -53,7 +53,7 @@ def test_accuracy(dataSet, modelType):
             batch = batch.to(device)
             labels = labels.to(device)
             # Generate predictions/ forward pass
-            spikes, _ = model.forward_pass(model, numberOfSteps, batch)
+            spikes, _, _ = model(batch, numberOfSteps)
             l = loss_fn(spikes, labels)
             testLoss.append(l.item())
             a = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
@@ -61,7 +61,7 @@ def test_accuracy(dataSet, modelType):
         # Test stats
         meanA = sum(testAcc) / len(testAcc)
         meanL = sum(testLoss) / len(testLoss)
-        print(f'Test loss is {meanL:.2f}. Test accuracy is {meanA:.2f}.')
+        print(f'Test loss is {meanL:.2f}. Test accuracy is {meanA*100:.2f}.')
 
         return None
 
@@ -190,7 +190,7 @@ def test_with_output(case, nameID):
 
 
             elif methods[j] == 'NNDR':
-                number_neighbors = 5 
+                number_neighbors = 10000 
                 ID_labels = np.ones((len(ID_prob_test)))
                 OOD_labels = np.zeros((len(OOD_prob_train)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))

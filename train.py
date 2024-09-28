@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from torchsummary import summary
 from torch.utils.data import DataLoader, Dataset
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import SpikeResNet9Model, SpikeResNet18Model  
+from models.spikeresnet import SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
 import snntorch.functional as SF
 import numpy as np
 from snntorch import utils
@@ -145,6 +145,8 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
         # Define model
         if ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 10:
+            model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
@@ -168,7 +170,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
             print("Train/valid split not defined")
             return None
 
-        weightPath = 'weights/spike/resnet18_weights_' + dataSet + '.pth'
+        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
         torch.save(model.state_dict(), weightPath)
 
 
