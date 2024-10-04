@@ -4,7 +4,7 @@ from snntorch import spikegen
 from utils.Utils import Utils, SVHNDataset
 from torch.utils.data import DataLoader
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
+from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
 import numpy as np
 import snntorch.functional as SF
 import os
@@ -154,6 +154,7 @@ def feature_extraction_spike(dataSet, ResNetModel, case, numOfClasses, numOfChan
     print("Train data size: ", trainDataSize)
     testDataSize = len(dataset_test)
     print("Test data size: ", testDataSize)
+    print(f"Network models is {ResNetModel}")
 
     # Number of classes
     numberOfClasses = numOfClasses
@@ -176,12 +177,18 @@ def feature_extraction_spike(dataSet, ResNetModel, case, numOfClasses, numOfChan
     loss_fn = SF.ce_rate_loss()
 
     # Define model
-    if ResNetModel == 9:
+    if ResNetModel == 1:
+        model = spikeConvNN1(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        featSize = 256
+    elif ResNetModel == 9:
         model = SpikeResNet9Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        featSize = 512
     elif ResNetModel == 10:
         model = SpikeResNet10Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        featSize = 512
     elif ResNetModel == 18:
         model = SpikeResNet18Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        featSize = 512
     else:
         print("Not defined")
         return -1
@@ -193,7 +200,7 @@ def feature_extraction_spike(dataSet, ResNetModel, case, numOfClasses, numOfChan
     model.load_state_dict(torch.load(weightsName, weights_only=True))
     model = model.to(device)
 
-    Feat_train = np.zeros((trainDataSize, 512))
+    Feat_train = np.zeros((trainDataSize, featSize))
     Prob_train = np.zeros((trainDataSize, 10))
     Tags_train = []
     i = 0    
@@ -227,7 +234,7 @@ def feature_extraction_spike(dataSet, ResNetModel, case, numOfClasses, numOfChan
     Tags_train = np.concatenate(Tags_train)
     print("Tags_train shape is ", Tags_train.shape)
 
-    Feat_test = np.zeros((testDataSize, 512))
+    Feat_test = np.zeros((testDataSize, featSize))
     Prob_test = np.zeros((testDataSize, 10))
     Tags_test = []
     i = 0

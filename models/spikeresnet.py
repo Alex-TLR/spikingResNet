@@ -7,7 +7,6 @@ The first step towards spiking In Distribution / Out of Distribution detection
 SpikeResNet9Model: Spiking-Resnet9 for MNIST, from the scratch
 '''
 
-# TODO: make identity mapping
 # TODO: make generic Resenet model
 
 import torch 
@@ -52,37 +51,37 @@ class BasicModel(nn.Module):
         sys.stdout.flush()
         return None
     
-    def forward_pass(self, model, numSteps, data):
-        # mem_trace = []
-        # spk_trace = []
-        utils.reset(model)
+    # def forward_pass(self, model, numSteps, data):
+    #     # mem_trace = []
+    #     # spk_trace = []
+    #     utils.reset(model)
 
-        for _ in range(numSteps):
-            spk_out, _, mem_out = model(data)
-            spk_trace.append(spk_out)
-            mem_trace.append(mem_out)
+    #     for _ in range(numSteps):
+    #         spk_out, _, mem_out = model(data)
+    #         spk_trace.append(spk_out)
+    #         mem_trace.append(mem_out)
 
-        spk_trace = torch.stack(spk_trace)
-        mem_trace = torch.stack(mem_trace)
+    #     spk_trace = torch.stack(spk_trace)
+    #     mem_trace = torch.stack(mem_trace)
 
-        return spk_trace, mem_trace
+    #     return spk_trace, mem_trace
     
-    # TODO: Fix
-    def forward_pass_rate(self, model, numSteps, data):
-        mem_trace = []
-        spk_trace = []
-        utils.reset(model)
+    # # TODO: Fix
+    # def forward_pass_rate(self, model, numSteps, data):
+    #     mem_trace = []
+    #     spk_trace = []
+    #     utils.reset(model)
 
-        spike_data = spikegen.rate(data, num_steps=numSteps)
-        for i in range(numSteps):
-            spk_out, _, mem_out = model(spike_data[i])
-            spk_trace.append(spk_out)
-            mem_trace.append(mem_out)
+    #     spike_data = spikegen.rate(data, num_steps=numSteps)
+    #     for i in range(numSteps):
+    #         spk_out, _, mem_out = model(spike_data[i])
+    #         spk_trace.append(spk_out)
+    #         mem_trace.append(mem_out)
 
-        spk_trace = torch.stack(spk_trace)
-        mem_trace = torch.stack(mem_trace)
+    #     spk_trace = torch.stack(spk_trace)
+    #     mem_trace = torch.stack(mem_trace)
 
-        return spk_trace, mem_trace
+    #     return spk_trace, mem_trace
     
     def accuracy_spike(self, model, numSteps, data, labels, device):
 
@@ -109,14 +108,14 @@ class BasicModel(nn.Module):
         history = []
 
         for i in range(nEpochs):
-            # model.train()
+            model.train()
             # Define lists to store training loss and accuracy
             tLoss = []
             tAcc = list()
             for batch, labels in train_load:
                 batch = batch.to(device)
                 labels = labels.to(device)
-                model.train()
+                # model.train()
                 # Generate predictions/ forward pass
                 spikes, _, _ = model(batch, nSteps)
                 # Calculate loss
@@ -131,7 +130,6 @@ class BasicModel(nn.Module):
                 # Check train accuracy
                 a = self.accuracy_spike(model, nSteps, batch, labels, device)
                 tAcc.append(a.item())
-
                 del batch, labels
 
             # Training stats
@@ -170,14 +168,16 @@ class BasicModel(nn.Module):
         print('\n')
         return history
     
-    def fit_spike_full_train(self, model, nEpochs, opt, lossF, train_load, nSteps, device):
+    def fit_spike_full_train(self, model, nEpochs, sched, opt, lossF, train_load, nSteps, gd, device):
         '''
         nEpochs:      number of epochs for training
+        sched:        schedlurer
         opt:          optimizer
         lossf:        loss function
         train_load:   loader for train data
         nSteps:       number of steps in one exitation !
         history:      list of statistics for all epochs (appended in each epoch)
+        gd:           gradient clipping
         '''
         history = []
 
@@ -199,12 +199,13 @@ class BasicModel(nn.Module):
                 opt.zero_grad()
                 # Update weights
                 loss.backward()
+                nn.utils.clip_grad_value_(model.parameters(), gd)
                 # Update opt
                 opt.step()
+                sched.step()
                 # Check train accuracy
                 a = self.accuracy_spike(model, nSteps, batch, labels, device)
                 tAcc.append(a.item())
-
                 del batch, labels
 
             # Training stats
@@ -634,6 +635,63 @@ class SpikeResNet18Model(BasicModel):                                           
 
             feat_trace.append(spk9)
             prob_trace.append(mem_out)
+            spik_trace.append(spk_out)
+
+        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
+
+
+class spikeConvNN1(BasicModel):
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
+        # it was set to init threshold value 0.2
+        super().__init__(numberOfClasses)
+
+        self.conv1 = nn.Conv2d(numberOfChannels, 64, kernel_size=3, padding=1, stride=2)
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        self.conv2 = nn.Conv2d(64, 128, kernel_size=3, padding=1, stride=2)
+        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        self.conv3 = nn.Conv2d(128, 256, kernel_size=3, padding=1, stride=2)
+        self.lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        self.amax = nn.AdaptiveMaxPool2d(1)
+        self.flat = nn.Flatten()    
+        self.fc4 = nn.Linear(256, numberOfClasses)
+        self.lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
+
+        # self.fc1 = nn.Linear(50*8*8, 500)
+        # self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero")
+        # self.fc2 = nn.Linear(500, 300)
+        # self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism="zero")
+        # self.fc3 = nn.Linear(300, 10)
+        # self.lif5 = snn.Leaky(beta=beta)
+
+    def forward(self, x, num_steps):
+
+        # Initialize hidden states and outputs at t=0
+        mem1 = self.lif1.init_leaky()
+        mem2 = self.lif2.init_leaky()
+        mem3 = self.lif3.init_leaky()
+        mem4 = self.lif4.init_leaky()
+        
+        feat_trace = []
+        prob_trace = []
+        spik_trace = []
+
+        for _ in range(num_steps):
+            cur1 = self.conv1(x)
+            spk1, mem1 = self.lif1(cur1, mem1)
+
+            cur2 = self.conv2(spk1)
+            spk2, mem2 = self.lif2(cur2, mem2)
+
+            cur3 = self.conv3(spk2)
+            spk3, mem3 = self.lif3(cur3, mem3)
+
+            spk4 = self.amax(spk3)
+            spk4 = self.flat(spk4)
+            cur4 = self.fc4(spk4)
+            spk_out, mem4 = self.lif4(cur4, mem4)
+
+            feat_trace.append(spk4)
+            prob_trace.append(mem4)
             spik_trace.append(spk_out)
 
         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)

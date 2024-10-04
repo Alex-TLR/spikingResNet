@@ -2,11 +2,12 @@ import numpy as np
 import time 
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
-from models.spikeresnet import SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
+from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
+
 import torch 
 import snntorch.functional as SF 
 
-def test_accuracy(dataSet, modelType):
+def test_accuracy(dataSet, modelType, numberOfClasses, numberOfChannels, ResNetModel):
     '''
     check accuracy of trained model on ID test data
     '''
@@ -25,21 +26,27 @@ def test_accuracy(dataSet, modelType):
     if modelType == 'conv':
         pass
 
-
     elif modelType == 'spike':
-
-        # Number of classes
-        numberOfClasses = 10
 
         # For spiking neural network we need number of steps
         numberOfSteps = 50
         beta = 0.95
         threshold = 0.25
 
-        # Define model
-        model = SpikeResNet10Model(numberOfChannels=1, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+                # Define model
+        if ResNetModel == 1:
+            model = spikeConvNN1(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 9:
+            model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 10:
+            model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 18:
+            model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        else:
+            print("Not defined")
+            return -1
         # Load weights
-        weightsName = 'weights/spike/' + 'resnet10_weights_' + dataSet + '.pth'
+        weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '-new.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         model = model.to(device)
 

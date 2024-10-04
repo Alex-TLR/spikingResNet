@@ -7,14 +7,11 @@ import matplotlib.pyplot as plt
 from torchsummary import summary
 from torch.utils.data import DataLoader, Dataset
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
 import snntorch.functional as SF
 import numpy as np
 from snntorch import utils
-import time 
 from snntorch import spikegen
-from test import test_with_output, test_accuracy
-from feature import feature_extraction_conv, feature_extraction_spike
 
 
 def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetModel, case='00', fullTrain=False):
@@ -142,8 +139,16 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
         beta = 0.95
         threshold = 0.25
 
+        # Weight decay
+        wDecay = 0.0001
+
+        # Gradient clipping 
+        gClip = 0.1
+
         # Define model
-        if ResNetModel == 9:
+        if ResNetModel == 1:
+            model = spikeConvNN1(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
             model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
@@ -154,23 +159,27 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
             return -1
         model = model.to(device)
 
+        if dataSet == 'CIFAR10':
+            numberOfEpochs = 100
+        else:
+            numberOfEpochs = 40
+
         # Optimizer
-        optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, betas=(0.9, 0.999))
+        optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, betas=(0.9, 0.999), weight_decay=wDecay)
         # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.999))
+        sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=5e-4, epochs=numberOfEpochs, steps_per_epoch=len(train_loader))
 
         # Loss function
         loss_fn = SF.ce_rate_loss()
-        
-        numberOfEpochs = 10
 
         # Training
         if (fullTrain == True):
-            H = model.fit_spike_full_train(model, numberOfEpochs, optimizer, loss_fn, train_loader, numberOfSteps, device)
+            H = model.fit_spike_full_train(model, numberOfEpochs, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device)
         else:
             print("Train/valid split not defined")
             return None
 
-        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '-new.pth'
         torch.save(model.state_dict(), weightPath)
 
 

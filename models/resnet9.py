@@ -157,6 +157,8 @@ class BasicModel(nn.Module):
                 # Calculate loss
                 loss = lossFunction(pred, labels)
                 tLoss.append(loss.detach().item())
+                # Reset gradiensts / this needs to up rechecked
+                opt.zero_grad()
                 # Calculate gradients
                 loss.backward()
                 if gd:
@@ -164,8 +166,6 @@ class BasicModel(nn.Module):
                 # Update parameters
                 opt.step()
                 sched.step()
-                # Reset gradiensts
-                opt.zero_grad()
                 # Check train accuracy
                 a = self.accuracy(pred, labels)
                 tAcc.append(a.item())

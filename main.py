@@ -12,21 +12,22 @@ if __name__ == "__main__":
     modelType:      convolutional or spiking neural network, 'conv' or 'spike' 
     batchSize:      batch size
     '''
-    dataSet = 'MNIST'
+    dataSet = 'SVHN'
     modelType = 'spike'
-    batchSize = 16
+    batchSize = 24
     numberOfClasses = 10
-    numberOfChannels = 1
-    ResNetModel = 10
+    numberOfChannels = 3
+    ResNetModel = 1
+    # ResNetModel =1 is the first cplain conv model
     
-    case = '10'
-    # training(dataSet, modelType, batchSize, numberOfClasses, numberOfChannels, ResNetModel, case=case, fullTrain=True)
-    # test_accuracy('MNIST', 'spike')
-    visualize_feature('10')
+    case = '11'
+    training(dataSet, modelType, batchSize, numberOfClasses, numberOfChannels, ResNetModel, case=case, fullTrain=True)
+    test_accuracy(dataSet, 'spike', numberOfClasses, numberOfChannels, ResNetModel)
+    # visualize_feature('10')
     
-    # feature_extraction_spike(dataSet, modelType, case, numberOfClasses, numberOfChannels)
-    # feature_extraction_spike(dataSet, modelType, case, numberOfClasses, numberOfChannels)
-    # feature_extraction_spike(dataSet, modelType, case, numberOfClasses, numberOfChannels)
+    # feature_extraction_spike(dataSet, ResNetModel, case, numberOfClasses, numberOfChannels)
+    # feature_extraction_spike('FMNIST', ResNetModel, case, numberOfClasses, numberOfChannels)
+    # feature_extraction_spike('KMNIST', ResNetModel, case, numberOfClasses, numberOfChannels)
     # feature_extraction_conv('FMNIST')
     # feature_extraction_spike('Places365', '08')
 
@@ -60,4 +61,5 @@ if __name__ == "__main__":
     case 07: cifar10 vs svhn weights/spike/resnet9_weights_CIFAR10.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
     case 08: spikeResNet18 CIFAR10 obucavanje
     case 10: MNIST ResNET10 novi model
+    case 11: spike CNN 1
     '''
