@@ -135,18 +135,23 @@ def feature_extraction_conv(dataSet):
     return None
 
 
-def feature_extraction_spike(dataSet, ResNetModel, case, numOfClasses, numOfChannels):
+def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses):
     '''
     Spiking models only
     dataSet:        the data set from which we extract feature
                     at the moment, features are extracted only on MNIST-trained network.
+    dataSet_ID:     in-definition dataset
+    dataSet_feat:   dataset for feature extraction
     ResNetModel:    select resnet model type (resnet10, resnet18)
-    case:           define folder for case study  
     numOfClasses:   number of classes
     numOfChannels:  number of input channels
     '''
 
-    dataset_train, dataset_test = Utils.load_data(dataSet)
+    dataset_train, dataset_test = Utils.load_data(dataSet_feat)
+
+    # Get image size
+    channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_feat)
+    print(f"Image size: {channels, rows, cols}")
 
     device = Utils.get_device()
 
@@ -178,25 +183,24 @@ def feature_extraction_spike(dataSet, ResNetModel, case, numOfClasses, numOfChan
 
     # Define model
     if ResNetModel == 1:
-        model = spikeConvNN1(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 256
     elif ResNetModel == 9:
-        model = SpikeResNet9Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
     elif ResNetModel == 10:
-        model = SpikeResNet10Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
     elif ResNetModel == 18:
-        model = SpikeResNet18Model(numberOfChannels=numOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
     else:
         print("Not defined")
         return -1
     
     # Load weights
-    # weightsName = 'weights/spike/' + 'resnet9_MNIST_025_params.pth'
-    dataSetID = 'MNIST'
-    weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSetID + '.pth'
+    # Loading the weights for the ID-trained network
+    weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
     model.load_state_dict(torch.load(weightsName, weights_only=True))
     model = model.to(device)
 
@@ -262,7 +266,8 @@ def feature_extraction_spike(dataSet, ResNetModel, case, numOfClasses, numOfChan
     Tags_test = np.concatenate(Tags_test)
     print("Tags_test shape is ", Tags_test.shape)
 
-    fileName = 'features/case_' + case + '/' + dataSet + '-on_mnist' + '.npz'
+    fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
+    print(fileName)
     np.savez(fileName, arr1=Feat_train, arr2=Prob_train, arr3=Tags_train, arr4=Feat_test, arr5=Prob_test, arr6=Tags_test)
 
     return None

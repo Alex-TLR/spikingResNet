@@ -1,4 +1,4 @@
-from utils.Utils import Utils, SVHNDataset
+from utils.Utils import Utils
 from metrics.Metrics import Metrics
 from torch.utils.data import random_split
 import torch.nn as nn
@@ -14,7 +14,7 @@ from snntorch import utils
 from snntorch import spikegen
 
 
-def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetModel, case='00', fullTrain=False):
+def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
@@ -27,7 +27,8 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
     dataset_train, dataset_test = Utils.load_data(dataSet)
 
     # Get image size
-    Utils.get_image_size(dataset_train, dataSet)
+    channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
+    print(f"Image size: {channels, rows, cols}")
 
     # Define batch size
     batchSize = batchSize
@@ -42,26 +43,29 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
 
     # Define training parameters
     # Number of classes
-    numberOfClasses = numOfClasses
+    if ((dataSet == 'MNIST') or (dataSet == 'KMNIST') or (dataSet == 'FMNIST')):
+        numberOfClasses = 10
+    elif ((dataSet == 'CIFAR10') or (dataSet == 'SVHN')):
+        numberOfClasses = 10
+    else:
+        numberOfClasses = numOfClasses
 
     # Number of channels
-    numberOfChannels = numOfChannels
+    numberOfChannels = channels
 
+    # Gradient clipping 
+    gClip = 0.1
+
+    # Weight decay
+    wDecay = 0.0001
 
     if modelType == 'conv':    
 
         # Learning rate (KEY)
         lr = [0.0001]
 
-        # Gradient clipping 
-
-        gClip = 0.1
-
         # Number of epochs
         numberOfEpochs = [20]
-
-        # Weight decay
-        wDecay = 0.0001
 
         # Loss function
         lossFunction = nn.CrossEntropyLoss()
@@ -93,7 +97,6 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
                 model, H = model.fit_conv_full_train(nEpochs, model, lossFunction, lrCurrent, train_loader, H, device, wd=wDecay, gd=gClip)
         print("\n")
 
-        case = case 
         weightPath = 'weights/conv/resnet9_weights_' + dataSet + '.pth'
         torch.save(model.state_dict(), weightPath)
 
@@ -139,11 +142,11 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
         beta = 0.95
         threshold = 0.25
 
-        # Weight decay
-        wDecay = 0.0001
+        # # Weight decay
+        # wDecay = 0.0001
 
-        # Gradient clipping 
-        gClip = 0.1
+        # # Gradient clipping 
+        # gClip = 0.1
 
         # Define model
         if ResNetModel == 1:
@@ -162,7 +165,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
         if dataSet == 'CIFAR10':
             numberOfEpochs = 100
         else:
-            numberOfEpochs = 40
+            numberOfEpochs = 20
 
         # Optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, betas=(0.9, 0.999), weight_decay=wDecay)
@@ -179,7 +182,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, numOfChannels, ResNetM
             print("Train/valid split not defined")
             return None
 
-        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '-new.pth'
+        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
         torch.save(model.state_dict(), weightPath)
 
 

@@ -7,7 +7,7 @@ from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Mod
 import torch 
 import snntorch.functional as SF 
 
-def test_accuracy(dataSet, modelType, numberOfClasses, numberOfChannels, ResNetModel):
+def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     '''
     check accuracy of trained model on ID test data
     '''
@@ -15,8 +15,8 @@ def test_accuracy(dataSet, modelType, numberOfClasses, numberOfChannels, ResNetM
     # Load datase
     dataset_train, dataset_test = Utils.load_data(dataSet)
 
-    # Define batch size
-    batchSize = 8
+    # Get image size
+    channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
 
     train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
 
@@ -35,13 +35,13 @@ def test_accuracy(dataSet, modelType, numberOfClasses, numberOfChannels, ResNetM
 
                 # Define model
         if ResNetModel == 1:
-            model = spikeConvNN1(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 9:
-            model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
-            model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
             print("Not defined")
             return -1
@@ -81,13 +81,13 @@ def test_with_output(case, nameID):
     nameID:     name of the In Distribution features, example 'MNIST'
     '''
     if nameID == 'MNIST':
-        namesOOD = ['FMNIST', 'KMNIST']
+        namesOOD = ['FMNIST', 'KMNIST', 'EMNIST', 'Letters']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
-        namesOOD = ['MNIST', 'KMNIST']
+        namesOOD = ['MNIST', 'KMNIST', 'EMNIST', 'Letters']
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
-        namesOOD = ['MNIST', 'FMNIST']
+        namesOOD = ['MNIST', 'FMNIST', 'EMNIST', 'Letters']
         suffixID = '-on_kmnist'
     elif nameID == 'CIFAR10':
         namesOOD = ['SVHN']

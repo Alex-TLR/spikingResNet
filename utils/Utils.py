@@ -1,4 +1,4 @@
-from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN, Places365
+from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN, Places365, EMNIST
 from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve
+import os
 
 '''
 Utility functions
@@ -27,6 +28,11 @@ class Utils():
                                                     transforms.ToTensor(),
                                                     transforms.Normalize((0,), (1,))])
         
+        transformData_emnist = transforms.Compose([ transforms.Resize((20, 20)),
+                                                    transforms.Grayscale(),
+                                                    transforms.ToTensor(),
+                                                    transforms.Normalize((0,), (1,))])
+        
         transformData_rgb_32  = transforms.Compose([transforms.Resize((32, 32)),
                                                     transforms.ToTensor(),
                                                     transforms.Normalize((0,0,0,), (1,1,1,))])
@@ -42,6 +48,10 @@ class Utils():
         elif database_name == 'FMNIST':
             name = 'fmnist'
             Name = 'FashionMNIST'
+            transformData = transformData_gray_28
+        elif database_name == 'EMNIST':
+            name = 'emnist'
+            Name = 'EMNIST'
             transformData = transformData_gray_28
         elif database_name == 'CIFAR10':
             name = 'cifar10'
@@ -59,7 +69,7 @@ class Utils():
             print("Wrong database name!")
             return -1
 
-        if (database_name != 'SVHN') and (database_name != 'Places365') :
+        if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST'):
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
             print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
@@ -73,6 +83,16 @@ class Utils():
             command_train = Name + '(root = \'data/' + name + '/\', download=False, split = \'train-standard\', small = True, target_transform = transformData)'
             print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=False, split = \'val\', small = True, target_transform = transformData)'
+            print(command_test)
+        elif database_name == 'EMNIST':
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = True, transform = transformData)'
+            print(command_train)
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = False, transform = transformData)'
+            print(command_test)
+        elif database_name == 'Letters':
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData)'
+            print(command_train)
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData)'
             print(command_test)
         
         dataset_train = eval(command_train)
@@ -88,13 +108,31 @@ class Utils():
         name:           database name 
         '''
 
-        if name == 'SVHN':
+        if (name == 'SVHN'):
             train_tensor = dataset.data[0]
             imageSize = train_tensor.shape
+        # elif (name == 'EMNIST'):
+        #     first_image, first_label = dataset[0]
+        #     print(f"Data {first_image.shape}")
+        #     train_tensor = dataset.train_data.data[0]
+        #     imageSize = train_tensor.shape
         else:
             train_tensor, _ = dataset[0]
             imageSize = train_tensor.size()
         print(f'Image size: {imageSize[0]}, {imageSize[1]}, {imageSize[2]}')
+
+        return imageSize[0], imageSize[1], imageSize[2]
+    
+
+    @staticmethod
+    def make_features_dir(modelType, case = '00'):
+
+        folderPath = 'features/' + modelType + '/case_' + case
+        if not os.path.exists(folderPath):
+            os.makedirs(folderPath)
+            print(f"Directory {folderPath} created.")
+        else:
+            print(f"Directory {folderPath} already exists.")
 
         return None
     

@@ -2,6 +2,7 @@ from test import test_with_output, test_accuracy
 from feature import feature_extraction_conv, feature_extraction_spike, visualize_feature
 from train import training
 import numpy as np
+from utils.Utils import Utils
 
 
 if __name__ == "__main__":
@@ -11,23 +12,37 @@ if __name__ == "__main__":
     dataSet:        dataset like MNIST, CIFAR10
     modelType:      convolutional or spiking neural network, 'conv' or 'spike' 
     batchSize:      batch size
+
+    ResNetModel 1:  Convolutional neural network based on Conv2D, and LIFs
     '''
-    dataSet = 'SVHN'
+
+    dataSet_ID = 'MNIST'
+    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
     modelType = 'spike'
     batchSize = 24
     numberOfClasses = 10
-    numberOfChannels = 3
     ResNetModel = 1
-    # ResNetModel =1 is the first cplain conv model
+
+    # # Load datase
+    # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
+
+    # # Get image size
+    # channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_ID)
+    # print(f"Image size: {channels, rows, cols}")
+
+    # Define case 
+    case = '01'
+
+    # Create features case
+    Utils.make_features_dir(modelType, case)
     
-    case = '11'
-    training(dataSet, modelType, batchSize, numberOfClasses, numberOfChannels, ResNetModel, case=case, fullTrain=True)
-    test_accuracy(dataSet, 'spike', numberOfClasses, numberOfChannels, ResNetModel)
-    # visualize_feature('10')
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True)
+    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
-    # feature_extraction_spike(dataSet, ResNetModel, case, numberOfClasses, numberOfChannels)
-    # feature_extraction_spike('FMNIST', ResNetModel, case, numberOfClasses, numberOfChannels)
-    # feature_extraction_spike('KMNIST', ResNetModel, case, numberOfClasses, numberOfChannels)
+    for i in range(len(dataSet_feat)):
+        feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses)
+    # feature_extraction_spike('FMNIST', ResNetModel, case, numberOfClasses)
+    # feature_extraction_spike('KMNIST', ResNetModel, case, numberOfClasses)
     # feature_extraction_conv('FMNIST')
     # feature_extraction_spike('Places365', '08')
 
@@ -48,6 +63,14 @@ if __name__ == "__main__":
     # TODO move main to different file
 
 
+    '''
+    New feature cases:
+    case 01: ResNetModel1
+
+    '''
+
+
+    # Old featruee, needs cleanup
     '''
     case 01: weights/spike/resnet9_MNIST_params.pth threshold is 1.0, LIFs are snn.Leaky(beta=beta, threshold=threshold, base dataset MNIST
     case 02: OBSOLETE, REMOVE konvoluciona mreza 10-D izlaza
