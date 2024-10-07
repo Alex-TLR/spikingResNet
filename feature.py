@@ -147,6 +147,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     numOfChannels:  number of input channels
     '''
 
+    print(dataSet_feat)
     dataset_train, dataset_test = Utils.load_data(dataSet_feat)
 
     # Get image size
@@ -176,7 +177,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     # Threshold
     threshold = 0.25
 
-    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
+    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet_feat, True)
 
     # Loss function
     loss_fn = SF.ce_rate_loss()

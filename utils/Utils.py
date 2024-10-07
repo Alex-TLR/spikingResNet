@@ -28,11 +28,6 @@ class Utils():
                                                     transforms.ToTensor(),
                                                     transforms.Normalize((0,), (1,))])
         
-        transformData_emnist = transforms.Compose([ transforms.Resize((20, 20)),
-                                                    transforms.Grayscale(),
-                                                    transforms.ToTensor(),
-                                                    transforms.Normalize((0,), (1,))])
-        
         transformData_rgb_32  = transforms.Compose([transforms.Resize((32, 32)),
                                                     transforms.ToTensor(),
                                                     transforms.Normalize((0,0,0,), (1,1,1,))])
@@ -53,6 +48,10 @@ class Utils():
             name = 'emnist'
             Name = 'EMNIST'
             transformData = transformData_gray_28
+        elif database_name == 'Letters':
+            name = 'letters'
+            Name = 'EMNIST'
+            transformData = transformData_gray_28
         elif database_name == 'CIFAR10':
             name = 'cifar10'
             Name =  'CIFAR10'
@@ -69,7 +68,7 @@ class Utils():
             print("Wrong database name!")
             return -1
 
-        if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST'):
+        if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST') and (database_name != 'Letters'):
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
             print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
@@ -90,11 +89,13 @@ class Utils():
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = False, transform = transformData)'
             print(command_test)
         elif database_name == 'Letters':
+            # print("jesmo li ovdje")
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData)'
             print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData)'
             print(command_test)
         
+        print(command_train)
         dataset_train = eval(command_train)
         dataset_test = eval(command_test)
 

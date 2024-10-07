@@ -46,7 +46,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             print("Not defined")
             return -1
         # Load weights
-        weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '-new.pth'
+        weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         model = model.to(device)
 

@@ -16,12 +16,13 @@ if __name__ == "__main__":
     ResNetModel 1:  Convolutional neural network based on Conv2D, and LIFs
     '''
 
-    dataSet_ID = 'MNIST'
+    dataSet_ID = 'CIFAR10'
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+
     modelType = 'spike'
     batchSize = 24
     numberOfClasses = 10
-    ResNetModel = 1
+    ResNetModel = 18
 
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -37,14 +38,10 @@ if __name__ == "__main__":
     Utils.make_features_dir(modelType, case)
     
     training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True)
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
-    for i in range(len(dataSet_feat)):
-        feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses)
-    # feature_extraction_spike('FMNIST', ResNetModel, case, numberOfClasses)
-    # feature_extraction_spike('KMNIST', ResNetModel, case, numberOfClasses)
-    # feature_extraction_conv('FMNIST')
-    # feature_extraction_spike('Places365', '08')
+    # for i in range(len(dataSet_feat)):
+    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses)
 
     # stats = test_with_output(case=case, nameID='MNIST')
 
