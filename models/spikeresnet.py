@@ -465,18 +465,18 @@ class SpikeResNet18Model(BasicModel):                                           
         super().__init__(numberOfClasses)
 
         self.block1 = self.convBlock(numberOfChannels, 64)                      # 64x32x32
-        self.lif1 = snn.Leaky(beta=beta, threshold=threshold)                   # 64x32x32
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')                   # 64x32x32
 
         # The residual super-block
         # Contains two blocks with skip connections ( 4 conv blocks)
         self.resBlock2_1 = self.convBlock(64, 64)                               # 64x32x32
-        self.r2_lif1 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r2_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock2_2 = self.convBlock(64, 64)                               # 64x32x32
-        self.r2_lif2 = snn.Leaky(beta=beta, threshold=threshold)
+        self.r2_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
         self.resBlock2_3 = self.convBlock(64, 64)                               # 64x32x32
-        self.r2_lif3 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r2_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock2_4 = self.convBlock(64, 64)                               # 64x32x32
-        self.r2_lif4 = snn.Leaky(beta=beta, threshold=threshold)  
+        self.r2_lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')  
         
         # Downsample block
         self.downsample3 = self.convBlock(64, 128, kernel_size=1, stride=2, padding=0)
@@ -484,15 +484,15 @@ class SpikeResNet18Model(BasicModel):                                           
         # The residual super-block
         # Contains two blocks with skip connections ( 4 conv blocks)
         self.resBlock4_1 = self.convBlock(64, 128, kernel_size=3, stride=2)     # 64x32x32
-        self.r4_lif1 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r4_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock4_2 = self.convBlock(128, 128)                             # 128x16x16
         # Here is the place for skip connection
-        self.r4_lif2 = snn.Leaky(beta=beta, threshold=threshold)
+        self.r4_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
         self.resBlock4_3 = self.convBlock(128, 128)                             # 128x16x16
-        self.r4_lif3 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r4_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock4_4 = self.convBlock(128, 128)                             # 128x16x16
         # Here is the place for skip connection
-        self.r4_lif4 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r4_lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
 
         # Downsample block
         self.downsample5 = self.convBlock(128, 256, kernel_size=1, stride=2, padding=0)
@@ -500,13 +500,13 @@ class SpikeResNet18Model(BasicModel):                                           
         # The residual super-block
         # Contains two blocks with skip connections ( 4 conv blocks)
         self.resBlock6_1 = self.convBlock(128, 256, kernel_size=3, stride=2)    # 128x16x16
-        self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock6_2 = self.convBlock(256, 256)                             # 256x8x8
-        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold)
+        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
         self.resBlock6_3 = self.convBlock(256, 256)                             # 256x8x8
-        self.r6_lif3 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r6_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock6_4 = self.convBlock(256, 256)                             # 256x8x8
-        self.r6_lif4 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r6_lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
 
         # Downsample block
         self.downsample7 = self.convBlock(256, 512, kernel_size=1, stride=2, padding=0)
@@ -514,15 +514,15 @@ class SpikeResNet18Model(BasicModel):                                           
         # The residual super-block
         # Contains two blocks with skip connections ( 4 conv blocks)
         self.resBlock8_1 = self.convBlock(256, 512, kernel_size=3, stride=2)    # 256x8x8
-        self.r8_lif1 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r8_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock8_2 = self.convBlock(512, 512)                             # 512x4x4
         # Here is the place for skip connection
-        self.r8_lif2 = snn.Leaky(beta=beta, threshold=threshold)
+        self.r8_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
         self.resBlock8_3 = self.convBlock(512, 512)                             # 512x4x4
-        self.r8_lif3 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r8_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock8_4 = self.convBlock(512, 512)                             # 512x4x4
         # Here is the place for skip connection
-        self.r8_lif4 = snn.Leaky(beta=beta, threshold=threshold) 
+        self.r8_lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
 
         self.amax9 = nn.AdaptiveMaxPool2d(1)
         self.flat = nn.Flatten()

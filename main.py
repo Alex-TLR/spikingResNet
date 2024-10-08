@@ -16,13 +16,13 @@ if __name__ == "__main__":
     ResNetModel 1:  Convolutional neural network based on Conv2D, and LIFs
     '''
 
-    dataSet_ID = 'CIFAR10'
+    dataSet_ID = 'MNIST'
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 
     modelType = 'spike'
     batchSize = 24
     numberOfClasses = 10
-    ResNetModel = 18
+    ResNetModel = 1
 
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     '''
     New feature cases:
-    case 01: ResNetModel1
+    case 01: ResNetModel1, epoch 20, steps 50, LIF beta 0.95, threshold 0.25, weight decay, gradient clipping, Adam optim, triangle sched
 
     '''
 

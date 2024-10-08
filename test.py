@@ -3,7 +3,6 @@ import time
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
 from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
-
 import torch 
 import snntorch.functional as SF 
 
@@ -12,12 +11,13 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     check accuracy of trained model on ID test data
     '''
 
-    # Load datase
+    # Load database
     dataset_train, dataset_test = Utils.load_data(dataSet)
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
 
+    # Load data
     train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
 
     # Get the device
@@ -176,6 +176,7 @@ def test_with_output(case, nameID):
 
 
             elif methods[j] == 'KNN':
+                start_time = time.time()
                 number_neighbors = 5 
                 ID_labels = np.ones((len(ID_prob_test)))
                 OOD_labels = np.zeros((len(OOD_prob_train)))
@@ -194,9 +195,13 @@ def test_with_output(case, nameID):
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                print(f"KNN Execution time: {execution_time:.4f} seconds")
 
 
             elif methods[j] == 'NNDR':
+                start_time = time.time()
                 number_neighbors = 10000 
                 ID_labels = np.ones((len(ID_prob_test)))
                 OOD_labels = np.zeros((len(OOD_prob_train)))
@@ -215,6 +220,9 @@ def test_with_output(case, nameID):
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                print(f"NNDR Execution time: {execution_time:.4f} seconds")
 
 
             elif methods[j] == 'MD':
