@@ -14,39 +14,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from metrics.Metrics import Metrics
 
 
-# def forward_pass_feature_extraction(model, numSteps, data):
-#         feat_trace = []
-#         prob_trace = []
-#         utils.reset(model)
-
-#         for _ in range(numSteps):
-#             _, feat_out, prob_out = model(data)
-#             feat_trace.append(feat_out)
-#             prob_trace.append(prob_out)
-
-#         feat_trace = torch.stack(feat_trace)
-#         prob_trace = torch.stack(prob_trace)
-
-#         return feat_trace, prob_trace
-
-
-# def forward_pass_rate_feature_extraction(model, numSteps, data):
-#         feat_trace = []
-#         prob_trace = []
-#         utils.reset(model)
-
-#         spike_data = spikegen.rate(data, num_steps=numSteps)
-#         for i in range(numSteps):
-#             _, feat_out, prob_out = model(spike_data[i])
-#             feat_trace.append(feat_out)
-#             prob_trace.append(prob_out)
-
-#         feat_trace = torch.stack(feat_trace)
-#         prob_trace = torch.stack(prob_trace)
-
-#         return feat_trace, prob_trace
-
-
 def feature_extraction_conv(dataSet):
     '''
     Feature extraction out of regular ResNet9

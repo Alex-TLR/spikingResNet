@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch 
 import matplotlib.pyplot as plt
 from torchsummary import summary
-from torch.utils.data import DataLoader, Dataset
 from models.resnet9 import ResNet9Model 
 from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
 import snntorch.functional as SF
@@ -144,12 +143,6 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         beta = 0.95
         threshold = 0.25
 
-        # # Weight decay
-        # wDecay = 0.0001
-
-        # # Gradient clipping 
-        # gClip = 0.1
-
         # Define model
         if ResNetModel == 1:
             model = spikeConvNN1(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
@@ -187,7 +180,10 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
         torch.save(model.state_dict(), weightPath)
 
+        print("Training done.")
+        return None
 
+# TODO
 def generate_latex(nameID, stats):
     if nameID == 'MNIST':
         namesOOD = ['FMNIST', 'KMNIST']
@@ -222,45 +218,3 @@ def generate_latex(nameID, stats):
     with open('sample_document.tex', 'w') as f:
         f.write(latex_code)
     
-
-
-# if __name__ == "__main__":
-#     # Define defaut arguments and call training
-#     training('CIFAR10', 'conv', case='08', fullTrain=True)
-#     # test_accuracy('CIFAR10', 'spike')
-#     # feature_extraction_spike('MNIST')
-#     # feature_extraction_spike('FMNIST')
-#     # feature_extraction_spike('KMNIST')
-#     # feature_extraction_conv('FMNIST')
-#     # feature_extraction_spike('SVHN')
-
-#     # stats = test_with_output(case='07', nameID='CIFAR10')
-
-#     # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-#     # for row in formatted_stats:
-#     #     print(' '.join(row))
-
-
-#     # TODO: code manually every interesting LIF node and repeat the results
-#     # TODO: check the rest of the apporaches, ODIN energy-based
-#     # TODO: make utilities for automatic data processing
-#     # TODO make utilities for graphics
-#     # TODO: ResNet18
-#     # TODO update feature extraction conv to enable diferent base 
-#     # TODO utilize training cases, or make the weights names more flexibile 
-#     # TODO move main to different file
-
-
-#     '''
-#     case 01: weights/spike/resnet9_MNIST_params.pth threshold is 1.0, LIFs are snn.Leaky(beta=beta, threshold=threshold, base dataset MNIST
-#     case 02: OBSOLETE, REMOVE konvoluciona mreza 10-D izlaza
-#     case 03: weights/spike/resnet9_MNIST_025_params.pth threshold je 0.25 beta je 0.95
-#     case 04: conv Resnet9 weights/conv/resnet9_weights_MNIST.pth
-#                           weights/conv/resnet9_weights_KMNIST.pth 
-#                           weights/conv/resnet9_weights_FMNIST.pth
-
-#     case 05: weights/spike/resnet9_weights_MNIST.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-#     case 06: weights/spike/resnet9_weights_MNIST_rate.pth rate encoding spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-#     case 07: cifar10 vs svhn weights/spike/resnet9_weights_CIFAR10.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-#     case 08: spikeResNet18
-#     '''

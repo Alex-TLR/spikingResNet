@@ -112,11 +112,6 @@ class Utils():
         if (name == 'SVHN'):
             train_tensor = dataset.data[0]
             imageSize = train_tensor.shape
-        # elif (name == 'EMNIST'):
-        #     first_image, first_label = dataset[0]
-        #     print(f"Data {first_image.shape}")
-        #     train_tensor = dataset.train_data.data[0]
-        #     imageSize = train_tensor.shape
         else:
             train_tensor, _ = dataset[0]
             imageSize = train_tensor.size()
