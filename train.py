@@ -1,5 +1,5 @@
 from utils.Utils import Utils
-from metrics.Metrics import Metrics
+#from metrics.Metrics import Metrics
 from torch.utils.data import random_split
 import torch.nn as nn
 import torch 
@@ -12,6 +12,7 @@ import snntorch.functional as SF
 import numpy as np
 from snntorch import utils
 from snntorch import spikegen
+import sys
 
 
 def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain=False):
@@ -29,6 +30,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
     print(f"Image size: {channels, rows, cols}")
+    sys.stdout.flush() 
 
     # Define batch size
     batchSize = batchSize

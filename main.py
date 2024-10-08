@@ -3,6 +3,8 @@ from feature import feature_extraction_conv, feature_extraction_spike, visualize
 from train import training
 import numpy as np
 from utils.Utils import Utils
+# To enable downloading some datasets from pytorch
+import ssl
 
 
 if __name__ == "__main__":
@@ -20,10 +22,10 @@ if __name__ == "__main__":
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 
     modelType = 'spike'
-    batchSize = 24
+    batchSize = 64
     numberOfClasses = 10
     ResNetModel = 18
-
+    ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
 

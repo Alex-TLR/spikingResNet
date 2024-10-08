@@ -1,0 +1,96 @@
+INFO:    Setting 'NVIDIA_VISIBLE_DEVICES=all' to emulate legacy GPU binding.
+INFO:    Setting --writable-tmpfs (required by nvidia-container-cli)
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.1.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "/d/hpc/home/dsluga/SNN/spikingResNet/main.py", line 1, in <module>
+    from test import test_with_output, test_accuracy
+  File "/d/hpc/home/dsluga/SNN/spikingResNet/test.py", line 3, in <module>
+    from utils.Utils import Utils
+  File "/d/hpc/home/dsluga/SNN/spikingResNet/utils/Utils.py", line 8, in <module>
+    from sklearn.metrics import roc_curve
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/__init__.py", line 84, in <module>
+    from .base import clone
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/base.py", line 19, in <module>
+    from .utils._estimator_html_repr import _HTMLDocumentationLinkMixin, estimator_html_repr
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/__init__.py", line 11, in <module>
+    from ._chunking import gen_batches, gen_even_slices
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/_chunking.py", line 8, in <module>
+    from ._param_validation import Interval, validate_params
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/_param_validation.py", line 14, in <module>
+    from .validation import _is_arraylike_not_scalar
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/validation.py", line 26, in <module>
+    from ..utils._array_api import _asarray_with_order, _is_numpy_namespace, get_namespace
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/_array_api.py", line 11, in <module>
+    from .fixes import parse_version
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/fixes.py", line 24, in <module>
+    import pandas as pd
+  File "/opt/conda/lib/python3.11/site-packages/pandas/__init__.py", line 26, in <module>
+    from pandas.compat import (
+  File "/opt/conda/lib/python3.11/site-packages/pandas/compat/__init__.py", line 27, in <module>
+    from pandas.compat.pyarrow import (
+  File "/opt/conda/lib/python3.11/site-packages/pandas/compat/pyarrow.py", line 8, in <module>
+    import pyarrow as pa
+  File "/opt/conda/lib/python3.11/site-packages/pyarrow/__init__.py", line 65, in <module>
+    import pyarrow.lib as _lib
+AttributeError: _ARRAY_API not found
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.1.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "/d/hpc/home/dsluga/SNN/spikingResNet/main.py", line 1, in <module>
+    from test import test_with_output, test_accuracy
+  File "/d/hpc/home/dsluga/SNN/spikingResNet/test.py", line 3, in <module>
+    from utils.Utils import Utils
+  File "/d/hpc/home/dsluga/SNN/spikingResNet/utils/Utils.py", line 8, in <module>
+    from sklearn.metrics import roc_curve
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/__init__.py", line 84, in <module>
+    from .base import clone
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/base.py", line 19, in <module>
+    from .utils._estimator_html_repr import _HTMLDocumentationLinkMixin, estimator_html_repr
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/__init__.py", line 11, in <module>
+    from ._chunking import gen_batches, gen_even_slices
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/_chunking.py", line 8, in <module>
+    from ._param_validation import Interval, validate_params
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/_param_validation.py", line 14, in <module>
+    from .validation import _is_arraylike_not_scalar
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/validation.py", line 26, in <module>
+    from ..utils._array_api import _asarray_with_order, _is_numpy_namespace, get_namespace
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/_array_api.py", line 11, in <module>
+    from .fixes import parse_version
+  File "/opt/conda/lib/python3.11/site-packages/sklearn/utils/fixes.py", line 24, in <module>
+    import pandas as pd
+  File "/opt/conda/lib/python3.11/site-packages/pandas/__init__.py", line 49, in <module>
+    from pandas.core.api import (
+  File "/opt/conda/lib/python3.11/site-packages/pandas/core/api.py", line 9, in <module>
+    from pandas.core.dtypes.dtypes import (
+  File "/opt/conda/lib/python3.11/site-packages/pandas/core/dtypes/dtypes.py", line 24, in <module>
+    from pandas._libs import (
+  File "/opt/conda/lib/python3.11/site-packages/pyarrow/__init__.py", line 65, in <module>
+    import pyarrow.lib as _lib
+AttributeError: _ARRAY_API not found
+Directory features/spike/case_01 already exists.
+CIFAR10(root = 'data/cifar10/', download=True, train = True, transform = transformData)
+CIFAR10(root = 'data/cifar10/', download=True, train = False, transform = transformData)
+CIFAR10(root = 'data/cifar10/', download=True, train = True, transform = transformData)
+Files already downloaded and verified
+Files already downloaded and verified
+Image size: 3, 32, 32
+Image size: (3, 32, 32)
+Train data length  50000
+Test data length  10000
+Progress:  |________________________________________ 1.0%  Training loss: 2.19 Training accuracy: 0.23 Progress:  |________________________________________ 2.0%  Training loss: 2.06 Training accuracy: 0.29 Progress:  |#_______________________________________ 3.0%  Training loss: 2.03 Training accuracy: 0.30 Progress:  |#_______________________________________ 4.0%  Training loss: 2.02 Training accuracy: 0.31 Progress:  |##______________________________________ 5.0%  Training loss: 2.01 Training accuracy: 0.30 Progress:  |##______________________________________ 6.0%  Training loss: 2.01 Training accuracy: 0.30 Progress:  |##______________________________________ 7.0%  Training loss: 2.00 Training accuracy: 0.30 Progress:  |###_____________________________________ 8.0%  Training loss: 2.00 Training accuracy: 0.31 Progress:  |###_____________________________________ 9.0%  Training loss: 2.00 Training accuracy: 0.34 Progress:  |####____________________________________ 10.0%  Training loss: 2.01 Training accuracy: 0.34 Progress:  |####____________________________________ 11.0%  Training loss: 2.00 Training accuracy: 0.34 Progress:  |####____________________________________ 12.0%  Training loss: 2.01 Training accuracy: 0.35 Progress:  |#####___________________________________ 13.0%  Training loss: 2.00 Training accuracy: 0.35 Progress:  |#####___________________________________ 14.0%  Training loss: 1.99 Training accuracy: 0.36 Progress:  |######__________________________________ 15.0%  Training loss: 2.01 Training accuracy: 0.37 Progress:  |######__________________________________ 16.0%  Training loss: 2.02 Training accuracy: 0.36 Progress:  |######__________________________________ 17.0%  Training loss: 2.02 Training accuracy: 0.36 Progress:  |#######_________________________________ 18.0%  Training loss: 2.02 Training accuracy: 0.36 Progress:  |#######_________________________________ 19.0%  Training loss: 2.00 Training accuracy: 0.36 Progress:  |########________________________________ 20.0%  Training loss: 2.01 Training accuracy: 0.35 Progress:  |########________________________________ 21.0%  Training loss: 1.99 Training accuracy: 0.36 Progress:  |########________________________________ 22.0%  Training loss: 1.99 Training accuracy: 0.37 Progress:  |#########_______________________________ 23.0%  Training loss: 1.98 Training accuracy: 0.37 Progress:  |#########_______________________________ 24.0%  Training loss: 1.99 Training accuracy: 0.30 Progress:  |##########______________________________ 25.0%  Training loss: 1.99 Training accuracy: 0.20 Progress:  |##########______________________________ 26.0%  Training loss: 1.98 Training accuracy: 0.22 Progress:  |##########______________________________ 27.0%  Training loss: 1.97 Training accuracy: 0.35 Progress:  |###########_____________________________ 28.0%  Training loss: 1.96 Training accuracy: 0.39 Progress:  |###########_____________________________ 29.0%  Training loss: 1.95 Training accuracy: 0.38 Progress:  |############____________________________ 30.0%  Training loss: 1.95 Training accuracy: 0.38 Progress:  |############____________________________ 31.0%  Training loss: 1.94 Training accuracy: 0.39 Progress:  |############____________________________ 32.0%  Training loss: 1.95 Training accuracy: 0.39 Progress:  |#############___________________________ 33.0%  Training loss: 1.93 Training accuracy: 0.41 Progress:  |#############___________________________ 34.0%  Training loss: 1.92 Training accuracy: 0.40 Progress:  |##############__________________________ 35.0%  Training loss: 1.88 Training accuracy: 0.36 Progress:  |##############__________________________ 36.0%  Training loss: 1.87 Training accuracy: 0.36 Progress:  |##############__________________________ 37.0%  Training loss: 1.86 Training accuracy: 0.37 Progress:  |###############_________________________ 38.0%  Training loss: 1.85 Training accuracy: 0.36 Progress:  |###############_________________________ 39.0%  Training loss: 1.85 Training accuracy: 0.40 Progress:  |################________________________ 40.0%  Training loss: 1.85 Training accuracy: 0.39 Progress:  |################________________________ 41.0%  Training loss: 1.84 Training accuracy: 0.39 Progress:  |################________________________ 42.0%  Training loss: 1.84 Training accuracy: 0.40 Progress:  |#################_______________________ 43.0%  Training loss: 1.84 Training accuracy: 0.39 Progress:  |#################_______________________ 44.0%  Training loss: 1.83 Training accuracy: 0.40 Progress:  |##################______________________ 45.0%  Training loss: 1.82 Training accuracy: 0.41 Progress:  |##################______________________ 46.0%  Training loss: 1.82 Training accuracy: 0.43 Progress:  |##################______________________ 47.0%  Training loss: 1.81 Training accuracy: 0.44 Progress:  |###################_____________________ 48.0%  Training loss: 1.81 Training accuracy: 0.43 Progress:  |###################_____________________ 49.0%  Training loss: 1.81 Training accuracy: 0.44 Progress:  |####################____________________ 50.0%  Training loss: 1.80 Training accuracy: 0.45 Progress:  |####################____________________ 51.0%  Training loss: 1.80 Training accuracy: 0.43 Progress:  |####################____________________ 52.0%  Training loss: 1.80 Training accuracy: 0.44 Progress:  |#####################___________________ 53.0%  Training loss: 1.79 Training accuracy: 0.43 Progress:  |#####################___________________ 54.0%  Training loss: 1.79 Training accuracy: 0.43 Progress:  |######################__________________ 55.0%  Training loss: 1.79 Training accuracy: 0.44 Progress:  |######################__________________ 56.0%  Training loss: 1.78 Training accuracy: 0.45 Progress:  |######################__________________ 57.0%  Training loss: 1.78 Training accuracy: 0.47 Progress:  |#######################_________________ 58.0%  Training loss: 1.78 Training accuracy: 0.46 Progress:  |#######################_________________ 59.0%  Training loss: 1.77 Training accuracy: 0.47 Progress:  |########################________________ 60.0%  Training loss: 1.76 Training accuracy: 0.47 Progress:  |########################________________ 61.0%  Training loss: 1.76 Training accuracy: 0.49 Progress:  |########################________________ 62.0%  Training loss: 1.76 Training accuracy: 0.49 Progress:  |#########################_______________ 63.0%  Training loss: 1.75 Training accuracy: 0.48 Progress:  |#########################_______________ 64.0%  Training loss: 1.75 Training accuracy: 0.50 Progress:  |##########################______________ 65.0%  Training loss: 1.75 Training accuracy: 0.49 Progress:  |##########################______________ 66.0%  Training loss: 1.74 Training accuracy: 0.51 Progress:  |##########################______________ 67.0%  Training loss: 1.74 Training accuracy: 0.50 Progress:  |###########################_____________ 68.0%  Training loss: 1.73 Training accuracy: 0.52 Progress:  |###########################_____________ 69.0%  Training loss: 1.73 Training accuracy: 0.52 Progress:  |############################____________ 70.0%  Training loss: 1.73 Training accuracy: 0.52 Progress:  |############################____________ 71.0%  Training loss: 1.72 Training accuracy: 0.51 Progress:  |############################____________ 72.0%  Training loss: 1.72 Training accuracy: 0.51 Progress:  |#############################___________ 73.0%  Training loss: 1.72 Training accuracy: 0.53 Progress:  |#############################___________ 74.0%  Training loss: 1.71 Training accuracy: 0.54 Progress:  |##############################__________ 75.0%  Training loss: 1.71 Training accuracy: 0.53 Progress:  |##############################__________ 76.0%  Training loss: 1.70 Training accuracy: 0.55 Progress:  |##############################__________ 77.0%  Training loss: 1.70 Training accuracy: 0.56 Progress:  |###############################_________ 78.0%  Training loss: 1.70 Training accuracy: 0.57 Progress:  |###############################_________ 79.0%  Training loss: 1.69 Training accuracy: 0.56 Progress:  |################################________ 80.0%  Training loss: 1.69 Training accuracy: 0.56 Progress:  |################################________ 81.0%  Training loss: 1.68 Training accuracy: 0.56 Progress:  |################################________ 82.0%  Training loss: 1.68 Training accuracy: 0.58 Progress:  |#################################_______ 83.0%  Training loss: 1.68 Training accuracy: 0.58 Progress:  |#################################_______ 84.0%  Training loss: 1.67 Training accuracy: 0.59 Progress:  |##################################______ 85.0%  Training loss: 1.67 Training accuracy: 0.58 Progress:  |##################################______ 86.0%  Training loss: 1.67 Training accuracy: 0.59 Progress:  |##################################______ 87.0%  Training loss: 1.66 Training accuracy: 0.60 Progress:  |###################################_____ 88.0%  Training loss: 1.66 Training accuracy: 0.60 Progress:  |###################################_____ 89.0%  Training loss: 1.66 Training accuracy: 0.61 Progress:  |####################################____ 90.0%  Training loss: 1.65 Training accuracy: 0.60 Progress:  |####################################____ 91.0%  Training loss: 1.65 Training accuracy: 0.61 Progress:  |####################################____ 92.0%  Training loss: 1.65 Training accuracy: 0.61 Progress:  |#####################################___ 93.0%  Training loss: 1.65 Training accuracy: 0.61 Progress:  |#####################################___ 94.0%  Training loss: 1.65 Training accuracy: 0.61 Progress:  |######################################__ 95.0%  Training loss: 1.65 Training accuracy: 0.62 Progress:  |######################################__ 96.0%  Training loss: 1.64 Training accuracy: 0.62 Progress:  |######################################__ 97.0%  Training loss: 1.64 Training accuracy: 0.61 Progress:  |#######################################_ 98.0%  Training loss: 1.65 Training accuracy: 0.61 Progress:  |#######################################_ 99.0%  Training loss: 1.64 Training accuracy: 0.62 Progress:  |######################################## 100.0%  Training loss: 1.64 Training accuracy: 0.62 
+
