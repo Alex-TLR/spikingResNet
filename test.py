@@ -65,6 +65,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             testLoss.append(l.item())
             a = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
             testAcc.append(a.item())
+            del batch, labels
         # Test stats
         meanA = sum(testAcc) / len(testAcc)
         meanL = sum(testLoss) / len(testLoss)
