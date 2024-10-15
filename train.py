@@ -14,7 +14,7 @@ from snntorch import spikegen
 import sys
 
 
-def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain=False):
+def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain=False, pretrained=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
@@ -159,7 +159,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         print(model)
 
         if dataSet == 'CIFAR10':
-            numberOfEpochs = 250
+            numberOfEpochs = 100
         else:
             numberOfEpochs = 20
 
@@ -173,6 +173,13 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
 
         # Training
         if (fullTrain == True):
+            if(pretrained == True):
+                weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+                print("Loading weights: "+weightsName)
+                model.load_state_dict(torch.load(weightsName, weights_only=True))
+                model = model.to(device)
+            print("Training started")
+            sys.stdout.flush()
             H = model.fit_spike_full_train(model, numberOfEpochs, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device)
         else:
             print("Train/valid split not defined")
