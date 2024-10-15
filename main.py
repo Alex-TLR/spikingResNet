@@ -22,7 +22,7 @@ if __name__ == "__main__":
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 
     modelType = 'spike'
-    batchSize = 64
+    batchSize = 4
     numberOfClasses = 10
     ResNetModel = 18
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -39,8 +39,8 @@ if __name__ == "__main__":
     # Create features case
     Utils.make_features_dir(modelType, case)
     
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True)
-    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True)
+    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # for i in range(len(dataSet_feat)):
     #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses)
@@ -59,7 +59,6 @@ if __name__ == "__main__":
     # TODO: ResNet18
     # TODO update feature extraction conv to enable diferent base 
     # TODO utilize training cases, or make the weights names more flexibile 
-    # TODO move main to different file
 
 
     '''

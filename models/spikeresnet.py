@@ -10,19 +10,16 @@ SpikeResNet9Model: Spiking-Resnet9 for MNIST, from the scratch
 # TODO: make generic Resenet model
 
 import torch 
-import numpy as np 
 import torch.nn as nn
 import sys
 sys.path.append('../')
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
 import snntorch as snn
-from snntorch import utils
 import snntorch.functional as SF
-from snntorch import spikegen
 
 
-# Utility functions
+# Utility functio06ns
 ###################
 
 def showBatch(inputData):
@@ -231,30 +228,30 @@ class SpikeResNet9Model(BasicModel):
     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):     # 28x28
         super().__init__(numberOfClasses)
 
-        self.block1 = self.convBlock1(numberOfChannels, 64)                     # 64x28x28
+        self.block1 = self.convBlock(numberOfChannels, 64)                     # 64x28x28
         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')                   # 64x28x28
 
-        self.block2 = self.convBlock1(64, 128)                                  # 128x28x28
-        self.lif2 = snn.Leaky(beta=beta, threshold=threshold)                   # 128x28x28
+        self.block2 = self.convBlock(64, 128)                                  # 128x28x28
+        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')                   # 128x28x28
         self.maxp2 = nn.MaxPool2d(2)                                            # 128x14x14
 
-        self.resBlock3_1 = self.convBlock1(128, 128)
-        self.r3_lif1 = snn.Leaky(beta=beta, threshold=threshold)
-        self.resBlock3_2 = self.convBlock1(128, 128)
-        self.r3_lif2 = snn.Leaky(beta=beta, threshold=threshold)                # 128x14x14
+        self.resBlock3_1 = self.convBlock(128, 128)
+        self.r3_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+        self.resBlock3_2 = self.convBlock(128, 128)
+        self.r3_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')                # 128x14x14
         
-        self.block4 = self.convBlock1(128, 256)                                 # 256x14x14
-        self.lif4 = snn.Leaky(beta=beta, threshold=threshold)
+        self.block4 = self.convBlock(128, 256)                                 # 256x14x14
+        self.lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
         self.maxp4 = nn.MaxPool2d(2)                                            # 256x7x7
 
-        self.block5 = self.convBlock1(256, 512)                                 # 512x7x7
-        self.lif5 = snn.Leaky(beta=beta, threshold=threshold)
+        self.block5 = self.convBlock(256, 512)                                 # 512x7x7
+        self.lif5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
         self.maxp5 = nn.MaxPool2d(2)                                            # 512x3x3
 
-        self.resBlock6_1 = self.convBlock1(512, 512)
-        self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold)
-        self.resBlock6_2 = self.convBlock1(512, 512)
-        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold)                # 512x3x3
+        self.resBlock6_1 = self.convBlock(512, 512)
+        self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+        self.resBlock6_2 = self.convBlock(512, 512)
+        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')                # 512x3x3
 
         self.amax7 = nn.AdaptiveMaxPool2d(1)                                    # 512x1x1
         self.flat = nn.Flatten()
@@ -286,7 +283,7 @@ class SpikeResNet9Model(BasicModel):
 
             cur1 = self.block1(x)
             spk1, mem1 = self.lif1(cur1, mem1)
-            print(f'mem1 is {mem1}')
+            # print(f'mem1 is {mem1}')
             cur2 = self.block2(spk1)
             spk2, mem2 = self.lif2(cur2, mem2)
             spk2_2 = self.maxp2(spk2) # used for residual
