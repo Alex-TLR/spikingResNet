@@ -18,13 +18,13 @@ if __name__ == "__main__":
     ResNetModel 1:  Convolutional neural network based on Conv2D, and LIFs
     '''
 
-    dataSet_ID = 'MNIST'
+    dataSet_ID = 'CIFAR10'
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 
     modelType = 'spike'
     batchSize = 64
     numberOfClasses = 10
-    ResNetModel = 1
+    ResNetModel = 18
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
