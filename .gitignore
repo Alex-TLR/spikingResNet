@@ -19,3 +19,4 @@ features/case_07
 weights_old
 *.out
 *.log
+*.pth

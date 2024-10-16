@@ -165,7 +165,7 @@ class BasicModel(nn.Module):
         print('\n')
         return history
     
-    def fit_spike_full_train(self, model, nEpochs, sched, opt, lossF, train_load, nSteps, gd, device):
+    def fit_spike_full_train(self, model, startEpoch, nEpochs, sched, opt, lossF, train_load, nSteps, gd, device, checkpointPeriod=10):
         '''
         nEpochs:      number of epochs for training
         sched:        schedlurer
@@ -178,7 +178,7 @@ class BasicModel(nn.Module):
         '''
         history = []
 
-        for i in range(nEpochs):
+        for i in range(startEpoch, nEpochs):
             # model.train()
             # Define lists to store training loss and accuracy
             tLoss = []
@@ -215,6 +215,15 @@ class BasicModel(nn.Module):
             self.progressBar(i + 1, nEpochs, prefix = 'Progress: ', suffix = suffixArray, length = 40, fill = '#')
             currentHistory = [meanTL, meanTA]
             history.append(currentHistory)
+            if i%checkpointPeriod==0:
+                fileName = 'weights/spike/' + 'resnet' + str(18) + '_checkpoint_' + 'CIFAR10' + '.pth'
+                checkpoint = {
+                    "model": model.state_dict(),
+                    "optimizer": opt.state_dict(),
+                    "lr_scheduler": sched.state_dict(),
+                    "epochs": i
+                }
+                torch.save(checkpoint, fileName)
 
         print('\n')
         return history

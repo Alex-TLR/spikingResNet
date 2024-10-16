@@ -155,39 +155,45 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         else:
             print("Not defined")
             return -1
-        model = model.to(device)
-        print(model)
 
         if dataSet == 'CIFAR10':
-            numberOfEpochs = 100
+            numberOfEpochs = 350
         else:
             numberOfEpochs = 20
+        model = model.to(device)
+        
 
+        # Loss function
+        loss_fn = SF.ce_rate_loss()
         # Optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, betas=(0.9, 0.999), weight_decay=wDecay)
         # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.999))
         sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=5e-4, epochs=numberOfEpochs, steps_per_epoch=len(train_loader))
-
-        # Loss function
-        loss_fn = SF.ce_rate_loss()
-
         # Training
+        startEpoch=0
         if (fullTrain == True):
             if(pretrained == True):
-                weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
-                print("Loading weights: "+weightsName)
-                model.load_state_dict(torch.load(weightsName, weights_only=True))
-                model = model.to(device)
-            print("Training started")
-            sys.stdout.flush()
-            H = model.fit_spike_full_train(model, numberOfEpochs, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device)
+                weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_checkpoint_' + dataSet + '.pth'
+                print("Try to load checkpoint: "+weightsName)
+                try:
+                    file = torch.load(weightsName)
+                    model.load_state_dict(file["model"])
+                    optimizer.load_state_dict(file["optimizer"])
+                    sched.load_state_dict(file["lr_scheduler"])
+                    startEpoch=file["epochs"]
+                    print("Checkpoint loaded.")
+                except:
+                    print("No valid checkpoint found. Starting from scratch.")
+                print("Training started")
+                sys.stdout.flush()
+
+            H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=10)
         else:
             print("Train/valid split not defined")
             return None
 
-        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
-        torch.save(model.state_dict(), weightPath)
-
+        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weight_' + dataSet + '.pth'
+        torch.save(model, weightPath)
         print("Training done.")
         return None
 
