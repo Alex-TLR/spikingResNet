@@ -173,7 +173,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     model = model.to(device)
 
     Feat_train = np.zeros((trainDataSize, featSize))
-    Prob_train = np.zeros((trainDataSize, 10))
+    Prob_train = np.zeros((trainDataSize, numberOfClasses))
     Tags_train = []
     i = 0    
     for batch, labels in train_loader:

@@ -17,6 +17,7 @@ features/case_05
 features/case_06
 features/case_07
 weights_old
+weights/spike_old
 *.out
 *.log
 *.pth

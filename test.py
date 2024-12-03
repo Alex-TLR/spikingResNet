@@ -45,6 +45,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         else:
             print("Not defined")
             return -1
+        
         # Load weights
         weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
@@ -82,7 +83,8 @@ def test_with_output(case, nameID):
     nameID:     name of the In Distribution features, example 'MNIST'
     '''
     if nameID == 'MNIST':
-        namesOOD = ['FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+        # namesOOD = ['FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+        namesOOD = ['FMNIST', 'KMNIST']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
         namesOOD = ['MNIST', 'KMNIST', 'EMNIST', 'Letters']
@@ -99,7 +101,7 @@ def test_with_output(case, nameID):
 
     methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
-    IDpath = 'features/case_' + case + '/' + nameID + suffixID + '.npz'
+    IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
     ID = np.load(IDpath)
     ID_feat_train = ID['arr1']  # In-Distribution training set features
@@ -110,14 +112,17 @@ def test_with_output(case, nameID):
     ID_tags_test  = ID['arr6']  # Out-of-Distribution training set labels
 
     for i in range(len(namesOOD)):
-        OODpath = 'features/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
+        OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
         OOD = np.load(OODpath)
         OOD_feat_train = OOD['arr1']  # In-Distribution test set features
         OOD_prob_train = OOD['arr2']  # In-Distribution test set outputs (usually with no softmax applied)
-        OOD_tags_train = OOD['arr3']  # In-Distribution test set labels
-        OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
+        # OOD_tags_train = OOD['arr3']  # In-Distribution test set labels
+        # OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
         OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
-        OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
+        # OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
+
+        print(f"ID_feat_train.shape: {ID_feat_train.shape}, ID_feat_test.shape: {ID_feat_test.shape}, OOD_feat_train.shape: {OOD_feat_train.shape}")
+
 
         # Methodology includes the IN/OOD classification where ID are positive samples taken from ID_test_set
         # and OOD are negative samples taken from OOD_train_set (or maybe OOD_train_set + OOD_test_set)
@@ -227,6 +232,7 @@ def test_with_output(case, nameID):
 
 
             elif methods[j] == 'MD':
+                start_time = time.time()
                 number_classes = ID_prob_train.shape[1]
                 number_features = ID_feat_train.shape[1]
                 ID_labels = np.ones((len(ID_prob_test)))
@@ -246,8 +252,13 @@ def test_with_output(case, nameID):
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                print(f"MD Execution time: {execution_time:.4f} seconds")
 
             else:
                 pass
+
+        del OOD, OOD_feat_train, OOD_prob_train, OOD_prob_test
 
     return stats

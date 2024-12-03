@@ -165,7 +165,7 @@ class BasicModel(nn.Module):
         print('\n')
         return history
     
-    def fit_spike_full_train(self, model, startEpoch, nEpochs, sched, opt, lossF, train_load, nSteps, gd, device, checkpointPeriod=10):
+    def fit_spike_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, train_load, nSteps, gd, device, checkpointPeriod=10):
         '''
         nEpochs:      number of epochs for training
         sched:        schedlurer
@@ -215,8 +215,8 @@ class BasicModel(nn.Module):
             self.progressBar(i + 1, nEpochs, prefix = 'Progress: ', suffix = suffixArray, length = 40, fill = '#')
             currentHistory = [meanTL, meanTA]
             history.append(currentHistory)
-            if i%checkpointPeriod==0:
-                fileName = 'weights/spike/' + 'resnet' + str(18) + '_checkpoint_' + 'CIFAR10' + '.pth'
+            if i%checkpointPeriod == 0:
+                fileName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
                 checkpoint = {
                     "model": model.state_dict(),
                     "optimizer": opt.state_dict(),

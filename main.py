@@ -18,13 +18,29 @@ if __name__ == "__main__":
     ResNetModel 1:  Convolutional neural network based on Conv2D, and LIFs
     '''
 
-    dataSet_ID = 'CIFAR10'
+    # Case 01:
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: spikeConvNN1 (ResNetModel = 1)
+    # Number of classes: 10
+    # Batch size: 16
+
+    # Case 02:
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: SpikeResNet9Model (ResNetModel = 9)
+    # Number of classes: 10
+    # Batch size: 16
+
+    # Define case 
+    case = '01'
+    dataSet_ID = 'MNIST'
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 
     modelType = 'spike'
-    batchSize = 64
+    batchSize = 16
     numberOfClasses = 10
-    ResNetModel = 18
+    ResNetModel = 9
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -33,19 +49,21 @@ if __name__ == "__main__":
     # channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_ID)
     # print(f"Image size: {channels, rows, cols}")
 
-    # Define case 
-    case = '01'
-
     # Create features case
     Utils.make_features_dir(modelType, case)
     
+    # Training
     training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=True)
+    
+    # Test accuracy of trained model on test
     # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
+    # Feature extraction
     # for i in range(len(dataSet_feat)):
     #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses)
 
-    # stats = test_with_output(case=case, nameID='MNIST')
+    # Statistics
+    # stats = test_with_output(case=case, nameID=dataSet_ID)
 
     # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
     # for row in formatted_stats:

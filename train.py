@@ -159,7 +159,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         if dataSet == 'CIFAR10':
             numberOfEpochs = 350
         else:
-            numberOfEpochs = 20
+            numberOfEpochs = 30
         model = model.to(device)
         
 
@@ -170,13 +170,14 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.999))
         sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=5e-4, epochs=numberOfEpochs, steps_per_epoch=len(train_loader))
         # Training
-        startEpoch=0
+        startEpoch = 0
         if (fullTrain == True):
             if(pretrained == True):
-                weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_checkpoint_' + dataSet + '.pth'
+                # weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_checkpoint_' + dataSet + '.pth'
+                weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
                 print("Try to load checkpoint: "+weightsName)
                 try:
-                    file = torch.load(weightsName)
+                    file = torch.load(weightsName, weights_only=True)
                     model.load_state_dict(file["model"])
                     optimizer.load_state_dict(file["optimizer"])
                     sched.load_state_dict(file["lr_scheduler"])
@@ -187,13 +188,13 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
                 print("Training started")
                 sys.stdout.flush()
 
-            H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=10)
+            H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
         else:
             print("Train/valid split not defined")
             return None
 
-        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weight_' + dataSet + '.pth'
-        torch.save(model, weightPath)
+        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+        torch.save(model.state_dict(), weightPath)
         print("Training done.")
         return None
 
