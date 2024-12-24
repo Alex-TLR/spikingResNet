@@ -177,13 +177,16 @@ class BasicModel(nn.Module):
         gd:           gradient clipping
         '''
         history = []
+        global_step = 0 
 
         for i in range(startEpoch, nEpochs):
             # model.train()
             # Define lists to store training loss and accuracy
             tLoss = []
             tAcc = list()
-            for batch, labels in train_load:
+            # print(f"3. sched._step_count: {sched._step_count}")
+            # for batch, labels in train_load:
+            for batch_idx, (batch, labels) in enumerate(train_load):
                 batch = batch.to(device)
                 labels = labels.to(device)
                 model.train()
@@ -205,6 +208,8 @@ class BasicModel(nn.Module):
                 tAcc.append(a.item())
                 del batch, labels
 
+                global_step += 1
+
             # Training stats
             meanTA = sum(tAcc) / len(tAcc)
             meanTL = sum(tLoss) / len(tLoss)           
@@ -221,7 +226,8 @@ class BasicModel(nn.Module):
                     "model": model.state_dict(),
                     "optimizer": opt.state_dict(),
                     "lr_scheduler": sched.state_dict(),
-                    "epochs": i
+                    "epochs": i,
+                    "global_step": global_step
                 }
                 torch.save(checkpoint, fileName)
 

@@ -177,17 +177,22 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
                 weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
                 print("Try to load checkpoint: "+weightsName)
                 try:
-                    file = torch.load(weightsName, weights_only=True)
+                    file = torch.load(weightsName)
                     model.load_state_dict(file["model"])
                     optimizer.load_state_dict(file["optimizer"])
                     sched.load_state_dict(file["lr_scheduler"])
-                    startEpoch=file["epochs"]
+                    startEpoch=file["epochs"] + 1
+                    global_step = file["global_step"]
+                    print(f"numberOfEpochs: {numberOfEpochs}, startEpoch: {startEpoch}, steps_per_epoch: {len(train_loader)}, total_steps: {sched.total_steps}")
+                    # sched._step_count = startEpoch * len(train_loader)
+                    print(f"global_step: {global_step}")
                     print("Checkpoint loaded.")
                 except:
                     print("No valid checkpoint found. Starting from scratch.")
                 print("Training started")
                 sys.stdout.flush()
 
+            # print(f"2. sched._step_count: {sched._step_count}")
             H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
         else:
             print("Train/valid split not defined")
