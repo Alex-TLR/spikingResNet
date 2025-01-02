@@ -6,7 +6,7 @@ import torch
 import matplotlib.pyplot as plt
 from torchsummary import summary
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
 import snntorch.functional as SF
 import numpy as np
 from snntorch import utils
@@ -150,6 +150,8 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
             model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
             model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 11:
+            model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
@@ -159,7 +161,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         if dataSet == 'CIFAR10':
             numberOfEpochs = 350
         else:
-            numberOfEpochs = 30
+            numberOfEpochs = 40
         model = model.to(device)
         
 

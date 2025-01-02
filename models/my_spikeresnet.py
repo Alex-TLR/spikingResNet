@@ -80,18 +80,6 @@ class BasicModel(nn.Module):
 
     #     return spk_trace, mem_trace
     
-    # def accuracy_spike(self, model, numSteps, data, labels, device):
-
-    #     with torch.no_grad():
-    #         model.eval()
-    #         data = data.to(device)
-    #         labels = labels.to(device)
-    #         spikes, _ , _ = model(data, numSteps)
-    #         acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
-    #         total = spikes.size(1)
-
-    #     return acc/total
-    
     def accuracy_spike(self, model, numSteps, data, labels, device):
 
         '''
@@ -104,14 +92,8 @@ class BasicModel(nn.Module):
             data = data.to(device)
             labels = labels.to(device)
             spikes, _ , _ = model(data, numSteps)
-            idx = spikes.sum(dim=0).max(1)
-            sumss = spikes.sum(dim=0)
-            # print(f"spikes.shape: {spikes.shape}, data.shape: {data.shape}, labels: {labels}")
-            # print(f"labels: {labels}")
-            # print(f"spikes.size(1): {spikes.size(1)}")
-            # print(f"idex:\n{idx},\nsumss:\n{sumss}")
             acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
-            # print(f"acc: {acc}")
+            # print(f"acc: {acc}, total: {total}")
             total = spikes.size(1)
 
         return acc/total, acc
@@ -189,7 +171,7 @@ class BasicModel(nn.Module):
         print('\n')
         return history
     
-    def fit_spike_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, train_load, nSteps, gd, device, checkpointPeriod=1):
+    def fit_spike_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, train_load, nSteps, gd, device, checkpointPeriod=10):
         '''
         nEpochs:      number of epochs for training
         sched:        schedlurer
@@ -201,13 +183,14 @@ class BasicModel(nn.Module):
         gd:           gradient clipping
         '''
         history = []
-        current_step = 0
+        global_step = 0 
 
         for i in range(startEpoch, nEpochs):
             # model.train()
             # Define lists to store training loss and accuracy
             tLoss = []
             tAcc = list()
+            # print(f"3. sched._step_count: {sched._step_count}")
             # for batch, labels in train_load:
             for batch_idx, (batch, labels) in enumerate(train_load):
                 batch = batch.to(device)
@@ -229,8 +212,9 @@ class BasicModel(nn.Module):
                 # Check train accuracy
                 a, _ = self.accuracy_spike(model, nSteps, batch, labels, device)
                 tAcc.append(a.item())
-                current_step = i * len(train_load) + batch_idx
                 del batch, labels
+
+                global_step += 1
 
             # Training stats
             meanTA = sum(tAcc) / len(tAcc)
@@ -244,14 +228,12 @@ class BasicModel(nn.Module):
             history.append(currentHistory)
             if i%checkpointPeriod == 0:
                 fileName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
-                print(sched.state_dict())
-                print(f"sched.last_epoch: {sched.last_epoch}")
                 checkpoint = {
                     "model": model.state_dict(),
                     "optimizer": opt.state_dict(),
                     "lr_scheduler": sched.state_dict(),
                     "epochs": i,
-                    "current_step": current_step  # Store current step
+                    "global_step": global_step
                 }
                 torch.save(checkpoint, fileName)
 
@@ -383,7 +365,6 @@ class SpikeResNet10Model(BasicModel):
 
         # Downsample block
         self.downsample3 = self.convBlock(64, 128, kernel_size=1, stride=2, padding=0)
-        self.downsample3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
 
         # The residual super-block
         # Contains two blocks with skip connections (4 conv blocks)
@@ -394,7 +375,6 @@ class SpikeResNet10Model(BasicModel):
 
         # Downsample block
         self.downsample5 = self.convBlock(128, 256, kernel_size=1, stride=2, padding=0)
-        self.downsample5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
 
         # The residual super-block
         # Contains two blocks with skip connections (2 conv blocks)
@@ -405,7 +385,6 @@ class SpikeResNet10Model(BasicModel):
 
         # Downsample block
         self.downsample7 = self.convBlock(256, 512, kernel_size=1, stride=2, padding=0)
-        self.downsample7 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
  
         # The residual super-block
         # Contains two blocks with skip connections (2 conv blocks)
@@ -456,7 +435,6 @@ class SpikeResNet10Model(BasicModel):
             
             # Block input conv (64, 128)
             identity_4 = self.downsample3(spk_r2_1)
-
             # print(f'identity_4.shape is {identity_4.shape}')
             cur4_1 = self.resBlock4_1(spk_r2_1)
             spk4_1, mem4_1 = self.r4_lif1(cur4_1, mem4_1)
@@ -484,151 +462,6 @@ class SpikeResNet10Model(BasicModel):
             spk8_2, mem8_2 = self.r8_lif2(cur8_2, mem8_2)
             # make skip connection
             spk_r8_1 = spk8_2 + identity_8
-
-            spk9 = self.amax9(spk_r8_1)
-            spk9 = self.flat(spk9)
-            cur9 = self.fc9(spk9)
-            spk_out, mem9 = self.lifOut(cur9, mem9)
-
-            feat_trace.append(spk9)
-            prob_trace.append(mem9)
-            spik_trace.append(spk_out)
-
-        # print(f'spik_trace is {spik_trace}, prob_trace is {prob_trace}')
-        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
-
-
-class SpikeResNet10ModelAlt(BasicModel):
-    
-    '''
-    Version of spike-ResNet10 with spike block inside downsampling block
-    SNN must be in residual and downsampling block befor adding
-    '''
-    
-                                                                                    # Input size
-    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):     # 32x32
-        super().__init__(numberOfClasses)
-
-        self.block1 = self.convBlock(numberOfChannels, 64)                      # 64x32x32
-        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') # 64x32x32
-
-        # The residual super-block
-        # Contains blocks with skip connections (2 conv blocks)
-        self.resBlock2_1 = self.convBlock(64, 64)                               # 64x32x32
-        self.r2_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
-        self.resBlock2_2 = self.convBlock(64, 64)                               # 64x32x32
-        self.r2_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # Downsample block
-        self.downsample3 = self.convBlock(64, 128, kernel_size=1, stride=2, padding=0)
-        self.d_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # The residual super-block
-        # Contains two blocks with skip connections (4 conv blocks)
-        self.resBlock4_1 = self.convBlock(64, 128, kernel_size=3, stride=2)     # 64x32x32
-        self.r4_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
-        self.resBlock4_2 = self.convBlock(128, 128)                             # 128x16x16
-        self.r4_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # Downsample block
-        self.downsample5 = self.convBlock(128, 256, kernel_size=1, stride=2, padding=0)
-        self.d_lif5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # The residual super-block
-        # Contains two blocks with skip connections (2 conv blocks)
-        self.resBlock6_1 = self.convBlock(128, 256, kernel_size=3, stride=2)    # 128x16x16
-        self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
-        self.resBlock6_2 = self.convBlock(256, 256)                             # 256x8x8
-        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # Downsample block
-        self.downsample7 = self.convBlock(256, 512, kernel_size=1, stride=2, padding=0)
-        self.d_lif7 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
- 
-        # The residual super-block
-        # Contains two blocks with skip connections (2 conv blocks)
-        self.resBlock8_1 = self.convBlock(256, 512, kernel_size=3, stride=2)    # 512x4x4
-        self.r8_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
-        self.resBlock8_2 = self.convBlock(512, 512)                             # 512x4x4
-        self.r8_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        self.amax9 = nn.AdaptiveMaxPool2d(1)                                    # 512x1x1
-        self.flat = nn.Flatten()
-        self.fc9 = nn.Linear(512, numberOfClasses)
-        self.lifOut = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
-
-    def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
-        layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
-                    nn.BatchNorm2d(num_features=output)]
-        return nn.Sequential(*layers)
-    
-    def forward(self, x, numberOfSteps):
-
-        # Initialize hidden states and outputs at t=0
-        mem1 = self.lif1.init_leaky()
-        mem2_1 = self.r2_lif1.init_leaky()
-        mem2_2 = self.r2_lif2.init_leaky()
-        mem4_1 = self.r4_lif1.init_leaky()
-        mem4_2 = self.r4_lif2.init_leaky()
-        mem6_1 = self.r6_lif1.init_leaky()
-        mem6_2 = self.r6_lif2.init_leaky()
-        mem8_1 = self.r8_lif1.init_leaky()
-        mem8_2 = self.r8_lif2.init_leaky()
-        mem9 = self.lifOut.init_leaky()
-        mem_d3 = self.d_lif3.init_leaky()
-        mem_d5 = self.d_lif5.init_leaky()
-        mem_d7 = self.d_lif7.init_leaky()
-
-        feat_trace = []
-        prob_trace = []
-        spik_trace = []
-
-        for _ in range(numberOfSteps):
-
-            cur1 = self.block1(x)
-            spk1, mem1 = self.lif1(cur1, mem1)
-
-            cur2_1 = self.resBlock2_1(spk1)
-            spk2_1, mem2_1 = self.r2_lif1(cur2_1, mem2_1)
-            cur2_2 = self.resBlock2_2(spk2_1)
-            spk2_2, mem2_2 = self.r2_lif2(cur2_2, mem2_2)
-            # make skip connection, ADD :)
-            spk_r2_1 = spk2_2 + spk1
-            
-            # Block input conv (64, 128)
-            id_3 = self.downsample3(spk_r2_1)
-            identity_3, mem_d3 = self.d_lif3(id_3, mem_d3)
-            # print(f'identity_4.shape is {identity_4.shape}')
-            cur4_1 = self.resBlock4_1(spk_r2_1)
-            spk4_1, mem4_1 = self.r4_lif1(cur4_1, mem4_1)
-            cur4_2 = self.resBlock4_2(spk4_1)
-            spk4_2, mem4_2 = self.r4_lif2(cur4_2, mem4_2)
-            # make skip connection
-            spk_r4_1 = spk4_2 + identity_3
-
-            # Block input conv (128, 256)
-            # identity_6 = self.downsample5(spk_r4_1)
-            id_5 = self.downsample5(spk_r4_1)
-            identity_5, mem_d5 = self.d_lif5(id_5, mem_d5)
-            # print(f'identity_6.shape is {identity_6.shape}')
-            cur6_1 = self.resBlock6_1(spk_r4_1)
-            spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
-            cur6_2 = self.resBlock6_2(spk6_1)
-            spk6_2, mem6_2 = self.r6_lif2(cur6_2, mem6_2)
-            # make skip connection
-            spk_r6_1 = spk6_2 + identity_5
-
-            # Block input conv (256, 512)
-            # identity_8 = self.downsample7(spk_r6_1)
-            id_7 = self.downsample7(spk_r6_1)
-            identity_7, mem_d7 = self.d_lif7(id_7, mem_d7)
-            # print(f'identity_8.shape is {identity_8.shape}')
-            cur8_1 = self.resBlock8_1(spk_r6_1)
-            spk8_1, mem8_1 = self.r8_lif1(cur8_1, mem8_1)
-            cur8_2 = self.resBlock8_2(spk8_1)
-            spk8_2, mem8_2 = self.r8_lif2(cur8_2, mem8_2)
-            # make skip connection
-            spk_r8_1 = spk8_2 + identity_7
 
             spk9 = self.amax9(spk_r8_1)
             spk9 = self.flat(spk9)
@@ -863,7 +696,6 @@ class spikeConvNN1(BasicModel):
         for _ in range(num_steps):
             cur1 = self.conv1(x)
             spk1, mem1 = self.lif1(cur1, mem1)
-            # print(f"cur1.shape {cur1.shape}, spk1.shape: {spk1.shape}, mem1.shape: {mem1.shape}")
 
             cur2 = self.conv2(spk1)
             spk2, mem2 = self.lif2(cur2, mem2)

@@ -132,6 +132,19 @@ class Utils():
 
         return None
     
+    @staticmethod
+    def does_file_exists(fileName):
+
+        '''
+        Reverse logic
+        '''
+
+        if os.path.exists(fileName):
+            print(f"The file {fileName} exists.")
+            return False
+        else:
+            print(f"The file {fileName} does not exist.")
+            return True
 
     @staticmethod
     def data_loader(dataset_train, dataset_test, batchSize, dataset_name, fullTrain=False):
@@ -169,10 +182,10 @@ class Utils():
                 train_data = SVHNDataset(data=dataset_train.data, labels=dataset_train.labels)
                 test_data = SVHNDataset(data=dataset_test.data, labels=dataset_test.labels)
                 train_loader = DataLoader(train_data, batchSize, shuffle=True)
-                test_loader = DataLoader(test_data, batchSize)
+                test_loader = DataLoader(test_data, batchSize, shuffle=False)
             else:
                 train_loader = DataLoader(train_data, batchSize, shuffle=True)
-                test_loader = DataLoader(test_data, batchSize)
+                test_loader = DataLoader(test_data, batchSize, shuffle=False)
 
             return train_loader, test_loader
 
@@ -213,7 +226,7 @@ class Utils():
             th_tpr95:       threshold for which TPR is 95 percent
         '''
 
-        _, tpr, thresholds = roc_curve(test_Y, test_dist, pos_label = positive_label, drop_intermediate = drop)
+        fpr, tpr, thresholds = roc_curve(test_Y, test_dist, pos_label = positive_label, drop_intermediate = drop)
 
         # Plot ROC curve
         # plt.figure()

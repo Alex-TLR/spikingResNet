@@ -2,7 +2,7 @@ import numpy as np
 import time 
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
-from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
 import torch 
 import snntorch.functional as SF 
 
@@ -12,7 +12,10 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     '''
 
     # Load database
+    print(f"dataSet: {dataSet}")
     dataset_train, dataset_test = Utils.load_data(dataSet)
+    testSize = len(dataset_test)
+    print(f"Number of test set images is: {testSize}")
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
@@ -22,6 +25,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
 
     # Get the device
     device = Utils.get_device()
+    # device = torch.device("cpu")
 
     if modelType == 'conv':
         pass
@@ -40,6 +44,8 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
             model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 11:
+            model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
@@ -48,6 +54,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         
         # Load weights
         weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+        print(f"weightsName: {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         model = model.to(device)
 
@@ -55,22 +62,33 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         loss_fn = SF.ce_rate_loss()
 
         print("Check test images.")
-        testAcc = []
+        testAcc = np.zeros((1,testSize))
+        testLen = 0
+        testAccList = []
         testLoss = []
+        i = 0
+        print(f"Number of batches: {len(test_loader)}")
         for batch, labels in test_loader:
+            testLen += len(batch)
             batch = batch.to(device)
+            la = labels[0].item()
             labels = labels.to(device)
             # Generate predictions/ forward pass
             spikes, _, _ = model(batch, numberOfSteps)
             l = loss_fn(spikes, labels)
             testLoss.append(l.item())
-            a = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
-            testAcc.append(a.item())
+            a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
+            # print(f"testLen: {testLen}, a1: {a1}, {a1.item()}, a2: {a2}, {a2.item()}")
+            testAcc[0, i] = a2.item()
+            testAccList.append(a1.item())
             del batch, labels
+            # print(f"\rtestAcc[{i}]: {testAcc[0, i]}, label: {la}, count: {np.sum(testAcc[0, :])/(i+1)}, progress: {i}/{len(test_loader)}", end='', flush=True)
+            i += 1
         # Test stats
-        meanA = sum(testAcc) / len(testAcc)
+        meanA1 = np.sum(testAcc) / testSize
+        meanA2 = sum(testAccList) / len(testAccList)
         meanL = sum(testLoss) / len(testLoss)
-        print(f'Test loss is {meanL:.2f}. Test accuracy is {meanA*100:.2f}.')
+        print(f'Test loss is {meanL:.2f}. Test accuracy1 is {meanA1*100:.2f}. Test accuracy2 is {meanA2*100:.2f}.')
 
         return None
 
@@ -83,8 +101,8 @@ def test_with_output(case, nameID):
     nameID:     name of the In Distribution features, example 'MNIST'
     '''
     if nameID == 'MNIST':
-        # namesOOD = ['FMNIST', 'KMNIST', 'EMNIST', 'Letters']
-        namesOOD = ['FMNIST', 'KMNIST']
+        namesOOD = ['FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+        # namesOOD = ['FMNIST', 'KMNIST']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
         namesOOD = ['MNIST', 'KMNIST', 'EMNIST', 'Letters']
@@ -99,7 +117,8 @@ def test_with_output(case, nameID):
         namesOOD = ['CIFAR10']
         suffixID = '-on_svhn'
 
-    methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
+    # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
+    methods = ['MSP', 'NCM']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
@@ -107,22 +126,21 @@ def test_with_output(case, nameID):
     ID_feat_train = ID['arr1']  # In-Distribution training set features
     ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
     ID_tags_train = ID['arr3']  # In-Distribution training set labels
-    ID_feat_test  = ID['arr4']  # Out-of-Distribution training set features
-    ID_prob_test  = ID['arr5']  # Out-of-Distribution training set outputs (usually with no softmax applied)
-    ID_tags_test  = ID['arr6']  # Out-of-Distribution training set labels
+    ID_feat_test  = ID['arr4']  # In-Distribution test set features
+    ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
+    ID_tags_test  = ID['arr6']  # In-Distribution test set labels
 
     for i in range(len(namesOOD)):
         OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
         OOD = np.load(OODpath)
-        OOD_feat_train = OOD['arr1']  # In-Distribution test set features
-        OOD_prob_train = OOD['arr2']  # In-Distribution test set outputs (usually with no softmax applied)
-        # OOD_tags_train = OOD['arr3']  # In-Distribution test set labels
+        OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
+        OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
+        # OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
         # OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
         OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
         # OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
 
         print(f"ID_feat_train.shape: {ID_feat_train.shape}, ID_feat_test.shape: {ID_feat_test.shape}, OOD_feat_train.shape: {OOD_feat_train.shape}")
-
 
         # Methodology includes the IN/OOD classification where ID are positive samples taken from ID_test_set
         # and OOD are negative samples taken from OOD_train_set (or maybe OOD_train_set + OOD_test_set)
@@ -137,8 +155,12 @@ def test_with_output(case, nameID):
                 OOD_labels  = np.zeros((len(OOD_prob_test)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
+                # If threshold is set to 0, what is the MSP metrics?
 
+                # Calculates the distances between row-wise max and 0 
+                print("MPS ID")
                 _ , ID_distances = Metrics.MSP(ID_prob_test, threshold)
+                print("MPS OOD")
                 _, OOD_distances = Metrics.MSP(OOD_prob_test, threshold)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
@@ -146,7 +168,9 @@ def test_with_output(case, nameID):
                 ID_predictions, _  = Metrics.MSP(ID_prob_test, threshold)
                 OOD_predictions, _ = Metrics.MSP(OOD_prob_test, threshold)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
@@ -172,7 +196,9 @@ def test_with_output(case, nameID):
                 ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes)
                 OOD_predictions, _ = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
@@ -197,7 +223,9 @@ def test_with_output(case, nameID):
                 ID_predictions, _  = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
                 OOD_predictions, _ = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
@@ -222,7 +250,9 @@ def test_with_output(case, nameID):
                 ID_predictions, _  = Metrics.NNDR(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
                 OOD_predictions, _ = Metrics.NNDR(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
@@ -248,7 +278,9 @@ def test_with_output(case, nameID):
                 ID_predictions, _  = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes, number_features)
                 OOD_predictions, _ = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes, number_features)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
