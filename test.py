@@ -53,6 +53,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             return -1
         
         # Load weights
+        torch.cuda.empty_cache()
         weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
         print(f"weightsName: {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=True))
@@ -68,22 +69,24 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         testLoss = []
         i = 0
         print(f"Number of batches: {len(test_loader)}")
-        for batch, labels in test_loader:
-            testLen += len(batch)
-            batch = batch.to(device)
-            la = labels[0].item()
-            labels = labels.to(device)
-            # Generate predictions/ forward pass
-            spikes, _, _ = model(batch, numberOfSteps)
-            l = loss_fn(spikes, labels)
-            testLoss.append(l.item())
-            a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
-            # print(f"testLen: {testLen}, a1: {a1}, {a1.item()}, a2: {a2}, {a2.item()}")
-            testAcc[0, i] = a2.item()
-            testAccList.append(a1.item())
-            del batch, labels
-            # print(f"\rtestAcc[{i}]: {testAcc[0, i]}, label: {la}, count: {np.sum(testAcc[0, :])/(i+1)}, progress: {i}/{len(test_loader)}", end='', flush=True)
-            i += 1
+        model.eval()
+        with torch.no_grad():
+            for batch, labels in test_loader:
+                testLen += len(batch)
+                batch = batch.to(device)
+                la = labels[0].item()
+                labels = labels.to(device)
+                # Generate predictions/ forward pass
+                spikes, _, _ = model(batch, numberOfSteps)
+                l = loss_fn(spikes, labels)
+                testLoss.append(l.item())
+                a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
+                # print(f"testLen: {testLen}, a1: {a1}, {a1.item()}, a2: {a2}, {a2.item()}")
+                testAcc[0, i] = a2.item()
+                testAccList.append(a1.item())
+                del batch, labels
+                # print(f"\rtestAcc[{i}]: {testAcc[0, i]}, label: {la}, count: {np.sum(testAcc[0, :])/(i+1)}, progress: {i}/{len(test_loader)}", end='', flush=True)
+                i += 1
         # Test stats
         meanA1 = np.sum(testAcc) / testSize
         meanA2 = sum(testAccList) / len(testAccList)
@@ -111,10 +114,10 @@ def test_with_output(case, nameID):
         namesOOD = ['MNIST', 'FMNIST', 'EMNIST', 'Letters']
         suffixID = '-on_kmnist'
     elif nameID == 'CIFAR10':
-        namesOOD = ['SVHN']
+        namesOOD = ['SVHN', 'Food101']
         suffixID = '-on_cifar10'
     elif nameID == 'SVHN':
-        namesOOD = ['CIFAR10']
+        namesOOD = ['CIFAR10', 'Food101']
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']

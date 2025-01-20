@@ -8,16 +8,9 @@ models/__pycache__
 utils/__pycache__
 metrics/__pycache__
 __pycache__
-features
-features/case_01
-features/case_02
-features/case_03
-features/case_04
-features/case_05
-features/case_06
-features/case_07
 weights_old
 weights/spike_old
+features
 *.out
 *.log
 *.pth

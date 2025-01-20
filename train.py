@@ -158,8 +158,8 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
             print("Not defined")
             return -1
 
-        if dataSet == 'CIFAR10':
-            numberOfEpochs = 350
+        if (dataSet == 'CIFAR10') or (dataSet == 'SVHN'):
+            numberOfEpochs = 175
         else:
             numberOfEpochs = 40
         model = model.to(device)

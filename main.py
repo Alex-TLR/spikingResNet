@@ -23,14 +23,14 @@ if __name__ == "__main__":
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
     # Network model: spikeConvNN1 (ResNetModel = 1)
     # Number of classes: 10
-    # Batch size: 16
+    # Batch size: 32 
 
     # Case 02:
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
     # Network model: SpikeResNet9Model (ResNetModel = 9)
     # Number of classes: 10
-    # Batch size: 16
+    # Batch size: 32
 
     # Case 03:
     # InDistribution: MNIST
@@ -61,17 +61,17 @@ if __name__ == "__main__":
     # Batch size: 8
 
     # Define case 
-    case = '01'
-    dataSet_ID = 'EMNIST'
-    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+    case = '03'
+    # dataSet_ID = 'MNIST'
+    # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 
-    # dataSet_ID = 'CIFAR10'
-    # dataSet_feat = ['SVHN']
+    dataSet_ID = 'CIFAR10'
+    dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
-    batchSize = 16
+    batchSize = 32
     numberOfClasses = 10
-    ResNetModel = 1
+    ResNetModel = 11
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -85,14 +85,14 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=True)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
     
     # Test accuracy of trained model on test
     # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # Feature extraction
     # for i in range(len(dataSet_feat)):
-    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses)
+    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
     # Statistics
     # stats = test_with_output(case=case, nameID=dataSet_ID)
@@ -100,6 +100,9 @@ if __name__ == "__main__":
     # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
     # for row in formatted_stats:
     #     print(' '.join(row))
+
+    # Vizualizer
+    # visualize_feature('FMNIST', 'MNIST', case)
 
     # TODO: make alternative spikeResnet archs with different downsampling
     # TODO: try different optimization approaches
