@@ -1,4 +1,4 @@
-from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN, Places365, EMNIST
+from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN, Places365, EMNIST, Food101
 from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
@@ -64,11 +64,15 @@ class Utils():
             name = 'places'
             Name =  'Places365'
             transformData = transformData_rgb_32
+        elif database_name == 'Food101':
+            name = 'food'
+            Name =  'Food101'
+            transformData = transformData_rgb_32
         else:
             print("Wrong database name!")
             return -1
 
-        if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST') and (database_name != 'Letters'):
+        if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST') and (database_name != 'Letters') and (database_name != 'Food101'):
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
             print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
@@ -89,11 +93,17 @@ class Utils():
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = False, transform = transformData)'
             print(command_test)
         elif database_name == 'Letters':
-            # print("jesmo li ovdje")
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData)'
             print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData)'
             print(command_test)
+        elif database_name == 'Food101':
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData)'
+            print(command_train)
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData)'
+            print(command_test)
+        else:
+            print(f"Wrong data srt name.")
         
         print(command_train)
         dataset_train = eval(command_train)
@@ -111,6 +121,10 @@ class Utils():
 
         if (name == 'SVHN'):
             train_tensor = dataset.data[0]
+            imageSize = train_tensor.shape
+        elif (name == 'Food101'):
+            print(dataset[0])
+            train_tensor, _ = dataset[0]
             imageSize = train_tensor.shape
         else:
             train_tensor, _ = dataset[0]
@@ -132,6 +146,19 @@ class Utils():
 
         return None
     
+    @staticmethod
+    def does_file_exists(fileName):
+
+        '''
+        Reverse logic
+        '''
+
+        if os.path.exists(fileName):
+            print(f"The file {fileName} exists.")
+            return False
+        else:
+            print(f"The file {fileName} does not exist.")
+            return True
 
     @staticmethod
     def data_loader(dataset_train, dataset_test, batchSize, dataset_name, fullTrain=False):
@@ -169,15 +196,14 @@ class Utils():
                 train_data = SVHNDataset(data=dataset_train.data, labels=dataset_train.labels)
                 test_data = SVHNDataset(data=dataset_test.data, labels=dataset_test.labels)
                 train_loader = DataLoader(train_data, batchSize, shuffle=True)
-                test_loader = DataLoader(test_data, batchSize)
+                test_loader = DataLoader(test_data, batchSize, shuffle=False)
             else:
                 train_loader = DataLoader(train_data, batchSize, shuffle=True)
-                test_loader = DataLoader(test_data, batchSize)
+                test_loader = DataLoader(test_data, batchSize, shuffle=False)
 
             return train_loader, test_loader
 
   
-
     @staticmethod
     def showBatch(inputData):
         '''
@@ -213,7 +239,7 @@ class Utils():
             th_tpr95:       threshold for which TPR is 95 percent
         '''
 
-        _, tpr, thresholds = roc_curve(test_Y, test_dist, pos_label = positive_label, drop_intermediate = drop)
+        fpr, tpr, thresholds = roc_curve(test_Y, test_dist, pos_label = positive_label, drop_intermediate = drop)
 
         # Plot ROC curve
         # plt.figure()

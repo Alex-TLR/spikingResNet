@@ -31,14 +31,17 @@ class Metrics():
         '''
 
         cm = confusion_matrix(labels, predictions, labels=[0, 1])
+        print(f"Confusion matrix:\n{cm}")
         TPR = cm[1][1] / (cm[1][1] + cm[1][0])
         FPR = cm[0][1] / (cm[0][1] + cm[0][0])
+        # print(f"True positive rate: {TPR}")
+        # print(f"False positive rate: {FPR}")
         auroc = roc_auc_score(labels, distances)
         apr = average_precision_score(labels, distances)
         precision, recall, _ = precision_recall_curve(labels, distances)
         aupr = auc(recall, precision)
 
-        return auroc, aupr, FPR
+        return auroc, aupr, TPR, FPR
 
 
     @staticmethod
@@ -69,6 +72,11 @@ class Metrics():
 
         s = Metrics.softmax(test_data)
         max_probs = np.max(s, axis=1)
+        np.set_printoptions(threshold=np.inf)
+        # print(f"test_data {test_data[0:10]}")
+        # print(f"softmax {s[0:10]}")
+        # print(f"softmax sum {np.sum(s[0:50], axis=1)}")
+        # print(f"max_probs {max_probs[0:50]}")
         predictions = (max_probs > threshold).astype(np.int32)
         return predictions, max_probs
     

@@ -18,13 +18,60 @@ if __name__ == "__main__":
     ResNetModel 1:  Convolutional neural network based on Conv2D, and LIFs
     '''
 
+    # Case 01:
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: spikeConvNN1 (ResNetModel = 1)
+    # Number of classes: 10
+    # Batch size: 32 
+
+    # Case 02:
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: SpikeResNet9Model (ResNetModel = 9)
+    # Number of classes: 10
+    # Batch size: 32
+
+    # Case 03:
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: SpikeResNet10Model (ResNetModel = 10)
+    # Number of classes: 10
+    # Batch size: 16
+
+    # Case 031:
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: SpikeResNet10ModelAlt (ResNetModel = 11)
+    # Number of classes: 10
+    # Batch size: 16
+
+    # Case 04:
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: SpikeResNet18Model (ResNetModel = 18)
+    # Number of classes: 18
+    # Batch size: 12
+
+    # Case 05:
+    # InDistribution: CIFAR10
+    # OutOfDistribution: 'SVHN'
+    # Network model: SpikeResNet18Model (ResNetModel = 18)
+    # Number of classes: 18
+    # Batch size: 8
+
+    # Define case 
+    case = '03'
+    # dataSet_ID = 'MNIST'
+    # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+
     dataSet_ID = 'CIFAR10'
-    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+    dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
-    batchSize = 64
+    batchSize = 32
     numberOfClasses = 10
-    ResNetModel = 18
+    ResNetModel = 11
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -33,54 +80,36 @@ if __name__ == "__main__":
     # channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_ID)
     # print(f"Image size: {channels, rows, cols}")
 
-    # Define case 
-    case = '01'
-
     # Create features case
     Utils.make_features_dir(modelType, case)
     
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=True)
+    # Training
+    # set pretrained=True if continious training is needed
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
+    
+    # Test accuracy of trained model on test
     # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
+    # Feature extraction
     # for i in range(len(dataSet_feat)):
-    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses)
+    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
-    # stats = test_with_output(case=case, nameID='MNIST')
+    # Statistics
+    # stats = test_with_output(case=case, nameID=dataSet_ID)
 
     # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
     # for row in formatted_stats:
     #     print(' '.join(row))
 
+    # Vizualizer
+    # visualize_feature('FMNIST', 'MNIST', case)
 
+    # TODO: make alternative spikeResnet archs with different downsampling
+    # TODO: try different optimization approaches
+    # TODO: check the metrics, NNDR!!!
+    # TODO: check the fpr95, what about it
     # TODO: code manually every interesting LIF node and repeat the results
+    # not sure if this is needed, mazbe do the paralellization
     # TODO: check the rest of the apporaches, ODIN energy-based
-    # TODO: make utilities for automatic data processing
     # TODO make utilities for graphics
-    # TODO: ResNet18
     # TODO update feature extraction conv to enable diferent base 
-    # TODO utilize training cases, or make the weights names more flexibile 
-
-
-    '''
-    New feature cases:
-    case 01: ResNetModel1, epoch 20, steps 50, LIF beta 0.95, threshold 0.25, weight decay, gradient clipping, Adam optim, triangle sched
-
-    '''
-
-
-    # Old featruee, needs cleanup
-    '''
-    case 01: weights/spike/resnet9_MNIST_params.pth threshold is 1.0, LIFs are snn.Leaky(beta=beta, threshold=threshold, base dataset MNIST
-    case 02: OBSOLETE, REMOVE konvoluciona mreza 10-D izlaza
-    case 03: weights/spike/resnet9_MNIST_025_params.pth threshold je 0.25 beta je 0.95
-    case 04: conv Resnet9 weights/conv/resnet9_weights_MNIST.pth
-                          weights/conv/resnet9_weights_KMNIST.pth 
-                          weights/conv/resnet9_weights_FMNIST.pth
-
-    case 05: weights/spike/resnet9_weights_MNIST.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-    case 06: weights/spike/resnet9_weights_MNIST_rate.pth rate encoding spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-    case 07: cifar10 vs svhn weights/spike/resnet9_weights_CIFAR10.pth spike-ResNet9 threshold je 0.25 beta je 0.95, last neuron is LI (not LIF)
-    case 08: spikeResNet18 CIFAR10 obucavanje
-    case 10: MNIST ResNET10 novi model
-    case 11: spike CNN 1
-    '''

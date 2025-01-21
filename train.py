@@ -6,7 +6,7 @@ import torch
 import matplotlib.pyplot as plt
 from torchsummary import summary
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
 import snntorch.functional as SF
 import numpy as np
 from snntorch import utils
@@ -150,16 +150,18 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
             model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
             model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 11:
+            model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
             print("Not defined")
             return -1
 
-        if dataSet == 'CIFAR10':
-            numberOfEpochs = 350
+        if (dataSet == 'CIFAR10') or (dataSet == 'SVHN'):
+            numberOfEpochs = 175
         else:
-            numberOfEpochs = 20
+            numberOfEpochs = 40
         model = model.to(device)
         
 
@@ -170,30 +172,36 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.999))
         sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=5e-4, epochs=numberOfEpochs, steps_per_epoch=len(train_loader))
         # Training
-        startEpoch=0
+        startEpoch = 0
         if (fullTrain == True):
             if(pretrained == True):
-                weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_checkpoint_' + dataSet + '.pth'
+                # weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_checkpoint_' + dataSet + '.pth'
+                weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
                 print("Try to load checkpoint: "+weightsName)
                 try:
                     file = torch.load(weightsName)
                     model.load_state_dict(file["model"])
                     optimizer.load_state_dict(file["optimizer"])
                     sched.load_state_dict(file["lr_scheduler"])
-                    startEpoch=file["epochs"]
+                    startEpoch=file["epochs"] + 1
+                    global_step = file["global_step"]
+                    print(f"numberOfEpochs: {numberOfEpochs}, startEpoch: {startEpoch}, steps_per_epoch: {len(train_loader)}, total_steps: {sched.total_steps}")
+                    # sched._step_count = startEpoch * len(train_loader)
+                    print(f"global_step: {global_step}")
                     print("Checkpoint loaded.")
                 except:
                     print("No valid checkpoint found. Starting from scratch.")
                 print("Training started")
                 sys.stdout.flush()
 
-            H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=10)
+            # print(f"2. sched._step_count: {sched._step_count}")
+            H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
         else:
             print("Train/valid split not defined")
             return None
 
-        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weight_' + dataSet + '.pth'
-        torch.save(model, weightPath)
+        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+        torch.save(model.state_dict(), weightPath)
         print("Training done.")
         return None
 

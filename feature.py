@@ -4,11 +4,13 @@ from snntorch import spikegen
 from utils.Utils import Utils, SVHNDataset
 from torch.utils.data import DataLoader
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
+from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model
 import numpy as np
 import snntorch.functional as SF
 import os
 from sklearn.manifold import TSNE
+import matplotlib
+import matplotlib.font_manager
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from metrics.Metrics import Metrics
@@ -102,7 +104,7 @@ def feature_extraction_conv(dataSet):
     return None
 
 
-def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses):
+def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses, batchSize):
     '''
     Spiking models only
     dataSet:        the data set from which we extract feature
@@ -133,7 +135,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     numberOfClasses = numOfClasses
 
     # Batch size
-    batchSize = 12
+    batchSize = batchSize
 
     # For spiking neural network we need number of steps
     numberOfSteps = 50
@@ -159,6 +161,9 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     elif ResNetModel == 10:
         model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
+    elif ResNetModel == 11:
+        model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        featSize = 512
     elif ResNetModel == 18:
         model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
@@ -172,72 +177,85 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     model.load_state_dict(torch.load(weightsName, weights_only=True))
     model = model.to(device)
 
-    Feat_train = np.zeros((trainDataSize, featSize))
-    Prob_train = np.zeros((trainDataSize, 10))
-    Tags_train = []
-    i = 0    
-    for batch, labels in train_loader:
-        batch = batch.to(device)
-        labels = labels.to(device)
-        startIndex = i*batchSize
-        endIndex = startIndex + batchSize
-
-        s, f, p = model(batch, numberOfSteps)
-        f = f.cpu().detach().numpy()
-        p = p.cpu().detach().numpy()
-        s = s.cpu().detach().numpy()
-        s = s.sum(axis=0)
-        # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
-        features = f.sum(axis=0)
-        probs = p.max(axis=0)
-        # if i < 5:
-        #     # print(f'{i}\n{s}\n{probs}')
-        #     plotProb(p, batchSize, numberOfSteps)
-        probs = Metrics.softmax(probs)
-        # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
-        labels = labels.cpu().detach().numpy()
-        Feat_train[startIndex:endIndex, :] = features
-        Prob_train[startIndex:endIndex, :] = probs
-        Tags_train.append(labels.flatten())
-        del batch, labels, features, probs
-        i += 1
-
-    # Tags_train = np.array(Tags_train)
-    Tags_train = np.concatenate(Tags_train)
-    print("Tags_train shape is ", Tags_train.shape)
-
-    Feat_test = np.zeros((testDataSize, featSize))
-    Prob_test = np.zeros((testDataSize, 10))
-    Tags_test = []
-    i = 0
-    for batch, labels in test_loader:
-        batch = batch.to(device)
-        labels = labels.to(device)
-        startIndex = i*batchSize
-        endIndex = startIndex + batchSize
-
-        _, f, p = model(batch, numberOfSteps)
-        f = f.cpu().detach().numpy()
-        p = p.cpu().detach().numpy()
-            
-        features = f.sum(axis=0)
-        probs = p.max(axis=0)
-        labels = labels.cpu().detach().numpy()
-        Feat_test[startIndex:endIndex, :] = features
-        Prob_test[startIndex:endIndex, :] = probs
-        # Tags_test.append(labels)
-        Tags_test.append(labels.flatten())
-        del batch, labels, features, probs
-        i += 1
-
-    # Tags_test = np.array(Tags_test)
-    Tags_test = np.concatenate(Tags_test)
-    print("Tags_test shape is ", Tags_test.shape)
-
     fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
     print(fileName)
-    np.savez(fileName, arr1=Feat_train, arr2=Prob_train, arr3=Tags_train, arr4=Feat_test, arr5=Prob_test, arr6=Tags_test)
 
+    if (Utils.does_file_exists(fileName)):
+        torch.cuda.empty_cache()
+        Feat_train = np.zeros((trainDataSize, featSize))
+        Prob_train = np.zeros((trainDataSize, numberOfClasses))
+        Tags_train = []
+        i = 0   
+        with torch.no_grad(): 
+            for batch, labels in train_loader:
+                batch = batch.to(device)
+                labels = labels.to(device)
+                startIndex = i*batchSize
+                endIndex = startIndex + batchSize
+
+                s, f, p = model(batch, numberOfSteps)
+                f = f.cpu().detach().numpy()
+                p = p.cpu().detach().numpy()
+                s = s.cpu().detach().numpy()
+                s = s.sum(axis=0)
+                # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
+                features = f.sum(axis=0)
+                probs = p.max(axis=0)
+                # if i < 5:
+                #     # print(f'{i}\n{s}\n{probs}')
+                #     plotProb(p, batchSize, numberOfSteps)
+                probs = Metrics.softmax(probs)
+                # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
+                labels = labels.cpu().detach().numpy()
+                Feat_train[startIndex:endIndex, :] = features
+                Prob_train[startIndex:endIndex, :] = probs
+                Tags_train.append(labels.flatten())
+                del batch, labels, features, probs
+                i += 1
+                print(f"\rProgress: {i}", end='', flush=True)
+
+        # Tags_train = np.array(Tags_train)
+        Tags_train = np.concatenate(Tags_train)
+        print("Tags_train shape is ", Tags_train.shape)
+
+        Feat_test = np.zeros((testDataSize, featSize))
+        Prob_test = np.zeros((testDataSize, 10))
+        Tags_test = []
+        i = 0
+        with torch.no_grad():
+            for batch, labels in test_loader:
+                batch = batch.to(device)
+                labels = labels.to(device)
+                startIndex = i*batchSize
+                endIndex = startIndex + batchSize
+
+                _, f, p = model(batch, numberOfSteps)
+                f = f.cpu().detach().numpy()
+                p = p.cpu().detach().numpy()
+                    
+                features = f.sum(axis=0)
+                probs = p.max(axis=0)
+                labels = labels.cpu().detach().numpy()
+                Feat_test[startIndex:endIndex, :] = features
+                Prob_test[startIndex:endIndex, :] = probs
+                # Tags_test.append(labels)
+                Tags_test.append(labels.flatten())
+                del batch, labels, features, probs
+                i += 1
+                print(f"\rProgress: {i}", end='', flush=True)
+
+        # Tags_test = np.array(Tags_test)
+        Tags_test = np.concatenate(Tags_test)
+        print("Tags_test shape is ", Tags_test.shape)
+        fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
+        print(fileName)
+        np.savez(fileName, arr1=Feat_train, arr2=Prob_train, arr3=Tags_train, arr4=Feat_test, arr5=Prob_test, arr6=Tags_test)
+
+        del Feat_train, Prob_train, Tags_train, Feat_test, Prob_test, Tags_test
+    
+    else:
+        print("Features " + str(fileName) + "already exists.")
+    
     return None
 
 def plotProb(prob, batchSize, numOfSteps):
@@ -286,71 +304,92 @@ def plotProb(prob, batchSize, numOfSteps):
 
 
 
-def visualize_feature(case):
+def visualize_feature(Id, Ood, case):
     '''
-    plot reduced features
+        Plot reduced features Id/Ood
+    
+        Id (str):   In distribution dataset
+        Ood (str):  Out of distribution dataset  
+
+        feat_train = F['arr1']  
+        prob_train = F['arr2']  
+        tags_train = F['arr3']  
+        feat_test  = F['arr4']  
+        prob_test  = F['arr5']  
+        tags_test  = F['arr6']  
+     
     '''
 
-    tsne = TSNE(n_components=2, random_state=42)
+    fileName = 'tsne/' + str(case) + '_' + str(Id) + '_' + str(Ood) + '.npz'
+    print(fileName)
+    
+    if (Utils.does_file_exists(fileName)):
+        
+        tsne = TSNE(n_components=2, random_state=42)
+        folderName = 'features/spike/case_' + case + '/'
+        print(folderName)
+        files = os.listdir(folderName)
+        print(files)
 
-    folderName = 'features/case_' + case + '/'
-    print(folderName)
-    files = os.listdir(folderName)
-    print(files)
+        filePathId = folderName + str(Id) + '-on_' + Id.lower() + '.npz'
+        filePathOod = folderName + str(Ood) + '-on_' + Id.lower() + '.npz'
 
-    # files = [f for f in os.listdir(folderName) if os.path.isfile(os.path.join(folderName, f))]
-    # print(files)
+        features = []
+        border = 0
 
-    features = []
+        F_id = np.load(filePathId)
+        features1 = F_id['arr4']
+        border = len(features1)
 
-    border = 0
+        F_ood = np.load(filePathOod)
+        features2 = F_ood['arr1']
 
-    for i in range(len(files)):
-        fileName = files[i]
-        print(fileName)
-        filePath = folderName + fileName
-        F = np.load(filePath)
-        feat_train = F['arr1']  # In-Distribution training set features
-        prob_train = F['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
-        tags_train = F['arr3']  # In-Distribution training set labels
-        feat_test  = F['arr4']  # Out-of-Distribution training set features
-        prob_test  = F['arr5']  # Out-of-Distribution training set outputs (usually with no softmax applied)
-        tags_test  = F['arr6']  # Out-of-Distribution training set labels
+        print(f'features1.shape is {features1.shape}')
+        print(f'features2.shape is {features2.shape}')
+        features = np.vstack((features1, features2))
+        print(f'features.shape is {features.shape}')
+        features_tsne = tsne.fit_transform(features)
 
-        if i == 0:
-            features1 = feat_test
-            border = len(feat_test)
-        if i == 1:
-            features2 = feat_train
-             
+        features1_tsne = features_tsne[:border]
+        features2_tsne = features_tsne[border:]
 
-    print(f'features1.shape is {features1.shape}')
-    print(f'features2.shape is {features2.shape}')
-    features = np.vstack((features1, features2))
-    print(f'features.shape is {features.shape}')
-    features_tsne = tsne.fit_transform(features)
+        np.savez(fileName, arr1=features1_tsne, arr2=features2_tsne)
+        print(f'features_tsne shape is {features_tsne.shape}')
 
-    features1_tsne = features_tsne[:border]
-    features2_tsne = features_tsne[border:]
+    else:
+        # Load data
+        F = np.load(fileName)
+        features1_tsne = F['arr1']
+        features2_tsne = F['arr2']
 
-    np.savez('temp.npz', arr1=features1_tsne, arr2=features2_tsne)
-
-    print(f'features_tsne shape is {features_tsne.shape}')
+    # available_fonts = sorted([f.name for f in matplotlib.font_manager.fontManager.ttflist])
+    # print(available_fonts)
 
     plt.figure(figsize=(10, 8))
 
     # Plot the first set of features
-    plt.scatter(features1_tsne[:, 0], features1_tsne[:, 1], c='blue', label='Dataset 1', alpha=0.5)
+    plt.scatter(features1_tsne[:, 0], features1_tsne[:, 1], marker='.', c='blue', label=str(Id), alpha=0.5)
 
     # Plot the second set of features
-    plt.scatter(features2_tsne[:, 0], features2_tsne[:, 1], c='red', label='Dataset 2', alpha=0.5)
+    plt.scatter(features2_tsne[:, 0], features2_tsne[:, 1], marker='x', c='orange', label=str(Ood), alpha=0.5)
 
     # Add labels and legend
-    plt.xlabel('t-SNE Dimension 1')
-    plt.ylabel('t-SNE Dimension 2')
-    plt.title('t-SNE Visualization of Feature Vectors')
-    plt.legend()
-    plt.grid(True)
+    # plt.xlabel('t-SNE Dimension 1')
+    # plt.ylabel('t-SNE Dimension 2'
+
+    plt.title('t-SNE Visualization of Feature Vectors', fontname='Liberation Serif', fontsize=18)
+    plt.legend(fontsize=18)
+    plt.xlabel('')
+    plt.ylabel('')
+    plt.xticks([])
+    plt.yticks([])
+    plt.grid(False)
+
+    ax = plt.gca()  # Get current axis
+    # for spine in ax.spines.values():
+    #     spine.set_visible(False)
+    # plt.tight_layout(pad=0)
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
     # Show the plot
     plt.show()
