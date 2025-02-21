@@ -1,5 +1,5 @@
 from test import test_with_output, test_accuracy
-from feature import feature_extraction_conv, feature_extraction_spike, visualize_feature
+from feature import feature_extraction_conv, feature_extraction_spike
 from train import training
 import numpy as np
 from utils.Utils import Utils
@@ -32,41 +32,31 @@ if __name__ == "__main__":
     # Number of classes: 10
     # Batch size: 32
 
-    # Case 03:
+    # Case 03: (old)
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
     # Network model: SpikeResNet10Model (ResNetModel = 10)
     # Number of classes: 10
-    # Batch size: 16
+    # Batch size: 32
 
-    # Case 031:
+    # Case 03:
+    # This is the same case as 03, with downsampling bug fixed
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
     # Network model: SpikeResNet10ModelAlt (ResNetModel = 11)
     # Number of classes: 10
-    # Batch size: 16
+    # Batch size: 32
 
-    # Case 04:
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: SpikeResNet18Model (ResNetModel = 18)
-    # Number of classes: 18
-    # Batch size: 12
-
-    # Case 05:
-    # InDistribution: CIFAR10
-    # OutOfDistribution: 'SVHN'
-    # Network model: SpikeResNet18Model (ResNetModel = 18)
-    # Number of classes: 18
-    # Batch size: 8
 
     # Define case 
     case = '03'
-    # dataSet_ID = 'MNIST'
+    dataSet_ID = 'MNIST'
     # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
+    # dataSet_feat = ['FMNIST']
 
-    dataSet_ID = 'CIFAR10'
-    dataSet_feat = ['CIFAR10','SVHN','Food101']
+    # dataSet_ID = 'CIFAR10'
+    # dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
     batchSize = 32
@@ -85,7 +75,7 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
+    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
     
     # Test accuracy of trained model on test
     # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
@@ -95,21 +85,11 @@ if __name__ == "__main__":
     #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
     # Statistics
-    # stats = test_with_output(case=case, nameID=dataSet_ID)
-
-    # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-    # for row in formatted_stats:
-    #     print(' '.join(row))
+    stats = test_with_output(case=case, nameID=dataSet_ID)
+    formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
+    for row in formatted_stats:
+        print(' '.join(row))
 
     # Vizualizer
     # visualize_feature('FMNIST', 'MNIST', case)
 
-    # TODO: make alternative spikeResnet archs with different downsampling
-    # TODO: try different optimization approaches
-    # TODO: check the metrics, NNDR!!!
-    # TODO: check the fpr95, what about it
-    # TODO: code manually every interesting LIF node and repeat the results
-    # not sure if this is needed, mazbe do the paralellization
-    # TODO: check the rest of the apporaches, ODIN energy-based
-    # TODO make utilities for graphics
-    # TODO update feature extraction conv to enable diferent base 

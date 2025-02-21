@@ -98,8 +98,12 @@ class Metrics():
             distances:      an array of output features, 1-D 
 
         '''
+ 
 
+        # print(f"train_X: {train_X[0:2, :]}")
         centroids_X = np.array([train_X[train_Y == c].mean(axis=0) for c in range(num_classes)])
+        # print(f"centroids_X: {centroids_X}")
+        # print(f"test_X: {test_X[0:2, :]}")
 
         predictions = np.zeros(len(test_X))
         distances = np.zeros(len(test_X))

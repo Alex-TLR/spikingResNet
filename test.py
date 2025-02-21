@@ -57,6 +57,8 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
         print(f"weightsName: {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=True))
+        # file = torch.load(weightsName)
+        # model.load_state_dict(file["model"])
         model = model.to(device)
 
         # Loss function
@@ -104,14 +106,14 @@ def test_with_output(case, nameID):
     nameID:     name of the In Distribution features, example 'MNIST'
     '''
     if nameID == 'MNIST':
-        namesOOD = ['FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+        namesOOD = ['FMNIST', 'KMNIST', 'Letters']
         # namesOOD = ['FMNIST', 'KMNIST']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
-        namesOOD = ['MNIST', 'KMNIST', 'EMNIST', 'Letters']
+        namesOOD = ['MNIST', 'KMNIST', 'Letters']
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
-        namesOOD = ['MNIST', 'FMNIST', 'EMNIST', 'Letters']
+        namesOOD = ['MNIST', 'FMNIST', 'Letters']
         suffixID = '-on_kmnist'
     elif nameID == 'CIFAR10':
         namesOOD = ['SVHN', 'Food101']
@@ -121,20 +123,22 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['MSP', 'NCM']
+    methods = ['MSP', 'NCM', 'KNN']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
     ID = np.load(IDpath)
+    print(f"IDpath: {IDpath}")
     ID_feat_train = ID['arr1']  # In-Distribution training set features
     ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
     ID_tags_train = ID['arr3']  # In-Distribution training set labels
     ID_feat_test  = ID['arr4']  # In-Distribution test set features
     ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
-    ID_tags_test  = ID['arr6']  # In-Distribution test set labels
+    # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
 
     for i in range(len(namesOOD)):
         OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
+        print(f"OODpath: {OODpath}")
         OOD = np.load(OODpath)
         OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
         OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
@@ -143,7 +147,8 @@ def test_with_output(case, nameID):
         OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
         # OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
 
-        print(f"ID_feat_train.shape: {ID_feat_train.shape}, ID_feat_test.shape: {ID_feat_test.shape}, OOD_feat_train.shape: {OOD_feat_train.shape}")
+        # print(f"OOD_prob_train.shape: {OOD_prob_train.shape}, OOD_prob_test.shape: {OOD_prob_test.shape}")
+        # print(f"ID_feat_train.shape: {ID_feat_train.shape}, ID_feat_test.shape: {ID_feat_test.shape}, OOD_feat_train.shape: {OOD_feat_train.shape}")
 
         # Methodology includes the IN/OOD classification where ID are positive samples taken from ID_test_set
         # and OOD are negative samples taken from OOD_train_set (or maybe OOD_train_set + OOD_test_set)
@@ -151,25 +156,27 @@ def test_with_output(case, nameID):
         for j in range(len(methods)):
 
             # iterate trought each of classification methods and calculate the metrics
+            # This is the baseline method that uses the outputs of the network number_of_classes-D 
             if methods[j] == 'MSP':
-                # This is the baseline method that uses the outputs of the network number_of_classes-D 
+                print("MSP\n")
                 start_time = time.time() 
                 ID_labels   = np.ones((len(ID_prob_test)))
-                OOD_labels  = np.zeros((len(OOD_prob_test)))
+                OOD_labels  = np.zeros((len(OOD_prob_train)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
                 # If threshold is set to 0, what is the MSP metrics?
 
                 # Calculates the distances between row-wise max and 0 
-                print("MPS ID")
+                # print("MPS ID")
                 _ , ID_distances = Metrics.MSP(ID_prob_test, threshold)
-                print("MPS OOD")
-                _, OOD_distances = Metrics.MSP(OOD_prob_test, threshold)
+                # print("MPS OOD")
+                # OOD_prob = np.concatenate((OOD_prob_train, OOD_prob_test), axis=0)
+                _, OOD_distances = Metrics.MSP(OOD_prob_train, threshold)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
                 ID_predictions, _  = Metrics.MSP(ID_prob_test, threshold)
-                OOD_predictions, _ = Metrics.MSP(OOD_prob_test, threshold)
+                OOD_predictions, _ = Metrics.MSP(OOD_prob_train, threshold)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 print(f"threshold_tpr95: {threshold_tpr95}")
@@ -181,9 +188,9 @@ def test_with_output(case, nameID):
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"MSP Execution time: {execution_time:.4f} seconds")
 
-
+            # All other methods use features
             elif methods[j] == 'NCM':
-                # All other methods use features
+                print("NCM\n")
                 start_time = time.time()
                 number_classes = ID_prob_train.shape[1]
                 ID_labels = np.ones((len(ID_prob_test)))
@@ -198,6 +205,10 @@ def test_with_output(case, nameID):
                 threshold = threshold_tpr95
                 ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes)
                 OOD_predictions, _ = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes)
+                # ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_labels, ID_feat_test, threshold, number_classes)
+                # OOD_predictions, _ = Metrics.NCM(ID_feat_train, OOD_labels, OOD_feat_train, threshold, number_classes)
+                # print(f"ID_predictions: {ID_predictions[0:100]}")
+                # print(f"OOD_predictions: {OOD_predictions[0:100]}")
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 print(f"threshold_tpr95: {threshold_tpr95}")
@@ -211,6 +222,7 @@ def test_with_output(case, nameID):
 
 
             elif methods[j] == 'KNN':
+                print("KNN\n")
                 start_time = time.time()
                 number_neighbors = 5 
                 ID_labels = np.ones((len(ID_prob_test)))
