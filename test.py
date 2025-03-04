@@ -2,7 +2,8 @@ import numpy as np
 import time 
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
-from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
+from models.plain import spikeLinearNet1
 import torch 
 import snntorch.functional as SF 
 
@@ -37,9 +38,11 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         beta = 0.95
         threshold = 0.25
 
-                # Define model
+        # Define model
         if ResNetModel == 1:
             model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 2:
+            model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
@@ -48,6 +51,8 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        if ResNetModel == 21:
+            model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
             print("Not defined")
             return -1
@@ -123,7 +128,7 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['MSP', 'NCM', 'KNN']
+    methods = ['MSP', 'NCM']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
@@ -142,10 +147,10 @@ def test_with_output(case, nameID):
         OOD = np.load(OODpath)
         OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
         OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
-        # OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
-        # OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
+        OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
+        OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
         OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
-        # OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
+        OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
 
         # print(f"OOD_prob_train.shape: {OOD_prob_train.shape}, OOD_prob_test.shape: {OOD_prob_test.shape}")
         # print(f"ID_feat_train.shape: {ID_feat_train.shape}, ID_feat_test.shape: {ID_feat_test.shape}, OOD_feat_train.shape: {OOD_feat_train.shape}")

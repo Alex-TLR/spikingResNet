@@ -309,28 +309,38 @@ class Utils():
             print(files)
 
             filePathId = folderName + str(Id) + '-on_' + Id.lower() + '.npz'
-            filePathOod = folderName + str(Ood) + '-on_' + Id.lower() + '.npz'
+            if Ood is not None:
+                filePathOod = folderName + str(Ood) + '-on_' + Id.lower() + '.npz'
 
             features = []
             border = 0
 
             F_id = np.load(filePathId)
-            features1 = F_id['arr4']
-            border = len(features1)
+            features1 = F_id['arr1']
 
-            F_ood = np.load(filePathOod)
-            features2 = F_ood['arr1']
+            if Ood is not None:
+                border = len(features1)
+                F_ood = np.load(filePathOod)
+                features2 = F_ood['arr1']
 
             print(f'features1.shape is {features1.shape}')
-            print(f'features2.shape is {features2.shape}')
-            features = np.vstack((features1, features2))
+
+            if Ood is not None:
+                print(f'features2.shape is {features2.shape}')
+                features = np.vstack((features1, features2))
+            else:
+                features = features1 
             print(f'features.shape is {features.shape}')
             features_tsne = tsne.fit_transform(features)
 
-            features1_tsne = features_tsne[:border]
-            features2_tsne = features_tsne[border:]
+            if Ood is not None:
+                features1_tsne = features_tsne[:border]
+                features2_tsne = features_tsne[border:]
 
-            np.savez(fileName, arr1=features1_tsne, arr2=features2_tsne)
+            if Ood is not None:
+                np.savez(fileName, arr1=features1_tsne, arr2=features2_tsne)
+            else:
+                np.savez(fileName, arr1=features_tsne)
             print(f'features_tsne shape is {features_tsne.shape}')
 
         else:
@@ -344,11 +354,14 @@ class Utils():
 
         plt.figure(figsize=(10, 8))
 
-        # Plot the first set of features
-        plt.scatter(features1_tsne[:, 0], features1_tsne[:, 1], marker='.', c='blue', label=str(Id), alpha=0.5)
+        if Ood is not None:
+            # Plot the first set of features
+            plt.scatter(features1_tsne[:, 0], features1_tsne[:, 1], marker='.', c='blue', label=str(Id), alpha=0.5)
+            # Plot the second set of features
+            plt.scatter(features2_tsne[:, 0], features2_tsne[:, 1], marker='x', c='orange', label=str(Ood), alpha=0.5)
+        else:
+            plt.scatter(features_tsne[:, 0], features_tsne[:, 1], marker='.', c='blue', label=str(Id), alpha=0.5)
 
-        # Plot the second set of features
-        plt.scatter(features2_tsne[:, 0], features2_tsne[:, 1], marker='x', c='orange', label=str(Ood), alpha=0.5)
 
         # Add labels and legend
         # plt.xlabel('t-SNE Dimension 1')

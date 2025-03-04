@@ -72,7 +72,7 @@ class Metrics():
 
         s = Metrics.softmax(test_data)
         max_probs = np.max(s, axis=1)
-        np.set_printoptions(threshold=np.inf)
+        # np.set_printoptions(threshold=np.inf)
         # print(f"test_data {test_data[0:10]}")
         # print(f"softmax {s[0:10]}")
         # print(f"softmax sum {np.sum(s[0:50], axis=1)}")

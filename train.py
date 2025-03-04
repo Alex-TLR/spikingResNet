@@ -6,7 +6,8 @@ import torch
 import matplotlib.pyplot as plt
 from torchsummary import summary
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2,  SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
+from models.plain import spikeLinearNet1
 import snntorch.functional as SF
 import numpy as np
 from snntorch import utils
@@ -146,6 +147,8 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         # Define model
         if ResNetModel == 1:
             model = spikeConvNN1(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 2:
+            model = spikeConvNN2(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
@@ -154,12 +157,14 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
             model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        if ResNetModel == 21:
+            model = spikeLinearNet1(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
             print("Not defined")
             return -1
 
         if (dataSet == 'CIFAR10') or (dataSet == 'SVHN'):
-            numberOfEpochs = 175
+            numberOfEpochs = 100
         else:
             numberOfEpochs = 40
         model = model.to(device)
@@ -167,10 +172,12 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
 
         # Loss function
         loss_fn = SF.ce_rate_loss()
-        # Optimizer
-        optimizer = torch.optim.Adam(model.parameters(), lr=5e-4, betas=(0.9, 0.999), weight_decay=wDecay)
-        # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.999))
-        sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=5e-4, epochs=numberOfEpochs, steps_per_epoch=len(train_loader))
+        # Optimizer for gray 5e-4
+        # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
+        optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
+        # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
+        sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-4, epochs=numberOfEpochs, steps_per_epoch=len(train_loader))
+        # sched = None
         # Training
         startEpoch = 0
         if (fullTrain == True):
@@ -184,10 +191,10 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
                     optimizer.load_state_dict(file["optimizer"])
                     sched.load_state_dict(file["lr_scheduler"])
                     startEpoch=file["epochs"] + 1
-                    global_step = file["global_step"]
+                    # global_step = file["global_step"]
                     print(f"numberOfEpochs: {numberOfEpochs}, startEpoch: {startEpoch}, steps_per_epoch: {len(train_loader)}, total_steps: {sched.total_steps}")
-                    # sched._step_count = startEpoch * len(train_loader)
-                    print(f"global_step: {global_step}")
+                    sched._step_count = startEpoch * len(train_loader)
+                    # print(f"global_step: {global_step}")
                     print("Checkpoint loaded.")
                 except:
                     print("No valid checkpoint found. Starting from scratch.")

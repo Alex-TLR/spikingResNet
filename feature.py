@@ -4,7 +4,8 @@ from snntorch import spikegen
 from utils.Utils import Utils, SVHNDataset
 from torch.utils.data import DataLoader
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model
+from models.plain import spikeLinearNet1
 import numpy as np
 import snntorch.functional as SF
 import os
@@ -154,6 +155,9 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     if ResNetModel == 1:
         model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 256
+    elif ResNetModel == 2:
+        model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)    
+        featSize = 300
     elif ResNetModel == 9:
         model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
@@ -165,6 +169,9 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
         featSize = 512
     elif ResNetModel == 18:
         model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        featSize = 512
+    if ResNetModel == 21:
+        model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
     else:
         print("Not defined")
@@ -206,6 +213,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
                 # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
                 features = f.sum(axis=0)
                 probs = p.max(axis=0)
+                # probs = Metrics.softmax(probs)
                 # if i == 0:
                 #     print(f'{i}\n{features}\n{probs}')
                     # plotProb(p, batchSize, numberOfSteps)

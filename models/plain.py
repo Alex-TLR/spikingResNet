@@ -1,6 +1,12 @@
 import torch 
 import torch.nn as nn
+import sys
+sys.path.append('../')
+from torchvision.utils import make_grid
+import matplotlib.pyplot as plt
 import snntorch as snn
+import snntorch.functional as SF
+from models.spikeresnet import BasicModel
 
 # out_size = (in_size - kernel_size + 2*pad)/stride + 1
 
@@ -11,6 +17,46 @@ import snntorch as snn
 #         leaky_lif2
 #         out_conv3 = 128 x 4 x 4
 #         leaky_lif3
+
+class spikeLinearNet1(BasicModel):
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, image_size=28):
+        super().__init__(numberOfClasses)
+
+        self.image_size = image_size
+        self.num_channels = numberOfChannels
+
+        self.flat = nn.Flatten()
+        self.fc1 = nn.Linear(self.num_channels * self.image_size * self.image_size, 512)
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        self.fc2 = nn.Linear(512, numberOfClasses)
+        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+
+    def forward(self, x, num_steps):
+
+    # Initialize hidden states and outputs at t=0
+        mem1 = self.lif1.init_leaky()
+        mem2 = self.lif2.init_leaky()
+        
+        feat_trace = []
+        prob_trace = []
+        spik_trace = []
+
+        for _ in range(num_steps):
+            # print(f"x.shape: {x.shape}")
+            x = x.view(-1, self.num_channels * self.image_size * self.image_size)
+            # print(f"x.shape: {x.shape}")
+            cur1 = self.fc1(x)
+            spk1, mem1 = self.lif1(cur1, mem1)
+            cur2 = self.fc2(spk1)
+            spk2, mem2 = self.lif2(cur2, mem2)
+
+            feat_trace.append(spk1)
+            prob_trace.append(mem2)
+            spik_trace.append(spk2)
+
+            return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
+
+
 
 
 class spikeConvNN1(nn.Module):
