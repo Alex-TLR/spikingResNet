@@ -11,6 +11,7 @@ __pycache__
 weights_old
 weights/spike_old
 features
+figures
 tsne
 *.out
 *.log

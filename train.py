@@ -13,6 +13,7 @@ import numpy as np
 from snntorch import utils
 from snntorch import spikegen
 import sys
+import time 
 
 
 def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain=False, pretrained=False):
@@ -29,7 +30,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
-    print(f"Image size: {channels, rows, cols}")
+    # print(f"Image size: {channels, rows, cols}")
     sys.stdout.flush() 
 
     # Define batch size
@@ -182,7 +183,6 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         startEpoch = 0
         if (fullTrain == True):
             if(pretrained == True):
-                # weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_checkpoint_' + dataSet + '.pth'
                 weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
                 print("Try to load checkpoint: "+weightsName)
                 try:
@@ -191,18 +191,19 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
                     optimizer.load_state_dict(file["optimizer"])
                     sched.load_state_dict(file["lr_scheduler"])
                     startEpoch=file["epochs"] + 1
-                    # global_step = file["global_step"]
                     print(f"numberOfEpochs: {numberOfEpochs}, startEpoch: {startEpoch}, steps_per_epoch: {len(train_loader)}, total_steps: {sched.total_steps}")
                     sched._step_count = startEpoch * len(train_loader)
-                    # print(f"global_step: {global_step}")
                     print("Checkpoint loaded.")
                 except:
                     print("No valid checkpoint found. Starting from scratch.")
                 print("Training started")
                 sys.stdout.flush()
 
-            # print(f"2. sched._step_count: {sched._step_count}")
+            start_time = time.time()
             H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
+            print(f"Training time: {execution_time:.4f} seconds")
         else:
             print("Train/valid split not defined")
             return None

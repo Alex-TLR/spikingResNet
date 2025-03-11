@@ -6,6 +6,7 @@ from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, Sp
 from models.plain import spikeLinearNet1
 import torch 
 import snntorch.functional as SF 
+import matplotlib.pyplot as plt
 
 def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     '''
@@ -13,10 +14,10 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     '''
 
     # Load database
-    print(f"dataSet: {dataSet}")
+    # print(f"dataSet: {dataSet}")
     dataset_train, dataset_test = Utils.load_data(dataSet)
     testSize = len(dataset_test)
-    print(f"Number of test set images is: {testSize}")
+    # print(f"Number of test set images is: {testSize}")
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
@@ -60,7 +61,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         # Load weights
         torch.cuda.empty_cache()
         weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
-        print(f"weightsName: {weightsName}")
+        # print(f"weightsName: {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         # file = torch.load(weightsName)
         # model.load_state_dict(file["model"])
@@ -69,7 +70,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         # Loss function
         loss_fn = SF.ce_rate_loss()
 
-        print("Check test images.")
+        # print("Check test images.")
         testAcc = np.zeros((1,testSize))
         testLen = 0
         testAccList = []
@@ -128,15 +129,17 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['MSP', 'NCM']
+    methods = ['MSP', 'SD', 'NCM']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
     ID = np.load(IDpath)
-    print(f"IDpath: {IDpath}")
+    print(f"\nIDpath: {IDpath}")
+    ID_spik_train = ID['arr0']  # In-Distribution training set spikes
     ID_feat_train = ID['arr1']  # In-Distribution training set features
     ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
     ID_tags_train = ID['arr3']  # In-Distribution training set labels
+    ID_spik_test  = ID['arr7']  # In-Distribution test set spikes
     ID_feat_test  = ID['arr4']  # In-Distribution test set features
     ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
     # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
@@ -145,9 +148,11 @@ def test_with_output(case, nameID):
         OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
         print(f"OODpath: {OODpath}")
         OOD = np.load(OODpath)
+        OOD_spik_train = OOD['arr0']  # Out-of-Distribution training set spikes
         OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
         OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
         OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
+        OOD_spik_test  = OOD['arr7']  # Out-of-Distribution test set spikes
         OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
         OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
         OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
@@ -163,21 +168,34 @@ def test_with_output(case, nameID):
             # iterate trought each of classification methods and calculate the metrics
             # This is the baseline method that uses the outputs of the network number_of_classes-D 
             if methods[j] == 'MSP':
-                print("MSP\n")
+                print("MSP")
                 start_time = time.time() 
                 ID_labels   = np.ones((len(ID_prob_test)))
                 OOD_labels  = np.zeros((len(OOD_prob_train)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
+                # print(f"test_labels: {test_labels.shape}")
                 threshold = 0
-                # If threshold is set to 0, what is the MSP metrics?
 
-                # Calculates the distances between row-wise max and 0 
-                # print("MPS ID")
+                # Calculates the distances between row-wise max probabilities and 0,
+                # only to check the acctual max of probabilities (predictions are not
+                # important in this step). 
                 _ , ID_distances = Metrics.MSP(ID_prob_test, threshold)
-                # print("MPS OOD")
-                # OOD_prob = np.concatenate((OOD_prob_train, OOD_prob_test), axis=0)
                 _, OOD_distances = Metrics.MSP(OOD_prob_train, threshold)
+                # OOD_prob = np.concatenate((OOD_prob_train, OOD_prob_test), axis=0)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
+                # plot test_label and test_distances
+
+                # plt.figure(figsize=(10, 6))
+                # plt.plot(test_distances[0:20000], alpha=0.5, label="Distances")
+                # plt.plot(test_labels[0:20000], linewidth=2, label="Labels")
+                # plt.title("MSP")
+                # plt.xlabel("Sample")
+                # plt.ylabel("Distance")
+                # plt.grid(True)
+                # plt.legend()
+                # plt.show()
+
+
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
                 ID_predictions, _  = Metrics.MSP(ID_prob_test, threshold)
@@ -193,9 +211,54 @@ def test_with_output(case, nameID):
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"MSP Execution time: {execution_time:.4f} seconds")
 
-            # All other methods use features
+            elif methods[j] == 'SD':
+                print("Spike distance")
+                print("Keep output spike pattern, numOfClasses-D")
+                start_time = time.time() 
+                number_classes = ID_prob_train.shape[1]
+                ID_labels   = np.ones((len(ID_prob_test)))
+                OOD_labels  = np.zeros((len(OOD_prob_train)))
+                test_labels = np.concatenate((ID_labels, OOD_labels))
+                # print(f"test_labels: {test_labels.shape}")
+                threshold = 0
+
+                # Calculates the distances between row-wise max probabilities and 0,
+                # only to check the acctual max of probabilities (predictions are not
+                # important in this step). 
+                _ , ID_distances = Metrics.SD(ID_spik_train, ID_tags_train, ID_spik_test, threshold, number_classes)
+                _, OOD_distances = Metrics.SD(ID_spik_train, ID_tags_train, OOD_spik_train, threshold, number_classes)
+                # OOD_prob = np.concatenate((OOD_prob_train, OOD_prob_test), axis=0)
+                test_distances = np.concatenate((ID_distances, OOD_distances))
+                # plot test_label and test_distances
+
+                # plt.figure(figsize=(10, 6))
+                # plt.plot(test_distances[0:20000], alpha=0.5, label="Distances")
+                # plt.plot(test_labels[0:20000], linewidth=2, label="Labels")
+                # plt.title("MSP")
+                # plt.xlabel("Sample")
+                # plt.ylabel("Distance")
+                # plt.grid(True)
+                # plt.legend()
+                # plt.show()
+
+
+                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+                threshold = threshold_tpr95
+                ID_predictions, _  = Metrics.SD(ID_spik_train, ID_tags_train, ID_spik_test, threshold, number_classes)
+                OOD_predictions, _ = Metrics.SD(ID_spik_train, ID_tags_train, OOD_spik_train, threshold, number_classes)
+                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                print(f"SD (spike distance) Execution time: {execution_time:.4f} seconds")
+
             elif methods[j] == 'NCM':
-                print("NCM\n")
+                print("NCM")
                 start_time = time.time()
                 number_classes = ID_prob_train.shape[1]
                 ID_labels = np.ones((len(ID_prob_test)))
@@ -208,6 +271,16 @@ def test_with_output(case, nameID):
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
+                # plt.figure(figsize=(10, 6))
+                # plt.plot(test_distances[0:20000], alpha=0.5, label="Distances")
+                # plt.plot(test_labels[0:20000], linewidth=2, label="Labels")
+                # plt.title("NCM")
+                # plt.xlabel("Sample")
+                # plt.ylabel("Distance")
+                # plt.grid(True)
+                # plt.legend()
+                # plt.show()
+
                 ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes)
                 OOD_predictions, _ = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes)
                 # ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_labels, ID_feat_test, threshold, number_classes)
@@ -312,5 +385,6 @@ def test_with_output(case, nameID):
                 pass
 
         del OOD, OOD_feat_train, OOD_prob_train, OOD_prob_test
+        print()
 
     return stats

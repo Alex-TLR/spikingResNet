@@ -75,38 +75,38 @@ class Utils():
 
         if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST') and (database_name != 'Letters') and (database_name != 'Food101'):
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
-            print(command_train)
+            # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
-            print(command_test)
+            # print(command_test)
         elif database_name == 'SVHN':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', target_transform = transformData)'
-            print(command_train)
+            # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', target_transform = transformData)'
-            print(command_test)
+            # print(command_test)
         elif database_name == 'Places365':
             command_train = Name + '(root = \'data/' + name + '/\', download=False, split = \'train-standard\', small = True, target_transform = transformData)'
-            print(command_train)
+            # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=False, split = \'val\', small = True, target_transform = transformData)'
-            print(command_test)
+            # print(command_test)
         elif database_name == 'EMNIST':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = True, transform = transformData)'
-            print(command_train)
+            # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = False, transform = transformData)'
-            print(command_test)
+            # print(command_test)
         elif database_name == 'Letters':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData)'
-            print(command_train)
+            # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData)'
-            print(command_test)
+            # print(command_test)
         elif database_name == 'Food101':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData)'
-            print(command_train)
+            # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData)'
-            print(command_test)
+            # print(command_test)
         else:
             print(f"Wrong data srt name.")
         
-        print(command_train)
+        # print(command_train)
         dataset_train = eval(command_train)
         dataset_test = eval(command_test)
 
@@ -124,13 +124,13 @@ class Utils():
             train_tensor = dataset.data[0]
             imageSize = train_tensor.shape
         elif (name == 'Food101'):
-            print(dataset[0])
+            # print(dataset[0])
             train_tensor, _ = dataset[0]
             imageSize = train_tensor.shape
         else:
             train_tensor, _ = dataset[0]
             imageSize = train_tensor.size()
-        print(f'Image size: {imageSize[0]}, {imageSize[1]}, {imageSize[2]}')
+        # print(f'Image size: {imageSize[0]}, {imageSize[1]}, {imageSize[2]}')
 
         return imageSize[0], imageSize[1], imageSize[2]
     
@@ -191,8 +191,8 @@ class Utils():
         else:
             train_data = dataset_train
             test_data = dataset_test
-            print("Train data length ", len(train_data))
-            print("Test data length ", len(test_data))
+            # print("Train data length ", len(train_data))
+            # print("Test data length ", len(test_data))
             if dataset_name == 'SVHN':
                 train_data = SVHNDataset(data=dataset_train.data, labels=dataset_train.labels)
                 test_data = SVHNDataset(data=dataset_test.data, labels=dataset_test.labels)
@@ -252,7 +252,7 @@ class Utils():
         '''
 
         fpr, tpr, thresholds = roc_curve(test_Y, test_dist, pos_label = positive_label, drop_intermediate = drop)
-        # print(f"thresholds: {thresholds.min()}, {thresholds.max()}")
+        print(f"thresholds: {thresholds.min()}, {thresholds.max()}")
         # Plot ROC curve
         # plt.figure()
         # plt.plot(fpr, tpr, marker='o', linestyle='-', color='b')
@@ -268,7 +268,7 @@ class Utils():
         dtpr95 = np.absolute(tpr-0.95)
         th_tpr95 = thresholds[dtpr95.argmin()]
 
-        print(f"Utils, th_tpr80: {th_tpr80}, th_tpr95: {th_tpr95}")
+        # print(f"Utils, th_tpr80: {th_tpr80}, th_tpr95: {th_tpr95}")
 
         return th_tpr80, th_tpr95
 

@@ -8,15 +8,6 @@ import snntorch as snn
 import snntorch.functional as SF
 from models.spikeresnet import BasicModel
 
-# out_size = (in_size - kernel_size + 2*pad)/stride + 1
-
-# case 1: in_size   = 1 x 28 x 28
-#         out_conv1 = 32 x 14 x 14
-#         leaky_lif1 
-#         out_conv2 = 64 x 7 x 7
-#         leaky_lif2
-#         out_conv3 = 128 x 4 x 4
-#         leaky_lif3
 
 class spikeLinearNet1(BasicModel):
     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, image_size=28):
@@ -26,9 +17,10 @@ class spikeLinearNet1(BasicModel):
         self.num_channels = numberOfChannels
 
         self.flat = nn.Flatten()
-        self.fc1 = nn.Linear(self.num_channels * self.image_size * self.image_size, 512)
+        self.fc1 = nn.Linear(self.num_channels * self.image_size * self.image_size, 512, bias=False)
         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.fc2 = nn.Linear(512, numberOfClasses)
+        self.fc2 = nn.Linear(512, numberOfClasses, bias=False)
+        # self.lif2 = snn.Leaky(beta=beta)
         self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
 
     def forward(self, x, num_steps):
@@ -58,7 +50,7 @@ class spikeLinearNet1(BasicModel):
 
 
 
-
+# the old architecture
 class spikeConvNN1(nn.Module):
     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
         # it was set to init threshold value 0.2

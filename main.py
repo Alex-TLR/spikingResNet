@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
-    batchSize = 40
+    batchSize = 64
     numberOfClasses = 10
     ResNetModel = 21
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -86,10 +86,10 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
+    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
     
     # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # Feature extraction
     for i in range(len(dataSet_feat)):
@@ -102,5 +102,5 @@ if __name__ == "__main__":
         print(' '.join(row))
 
     # Vizualizer
-    Utils.visualize_feature('FMNIST', 'KMNIST', case)
+    # Utils.visualize_feature('FMNIST', 'KMNIST', case)
 

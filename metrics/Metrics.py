@@ -2,6 +2,7 @@ from sklearn.metrics import roc_curve
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import average_precision_score, precision_recall_curve, auc
 from sklearn.metrics import roc_auc_score
+from sklearn.neighbors import NearestCentroid
 import math
 from scipy.spatial import distance
 from sklearn.neighbors import KNeighborsClassifier
@@ -58,25 +59,24 @@ class Metrics():
     @staticmethod
     def MSP(test_data, threshold):
         '''
-        Calculates the Maximum Softmax Probability metrics of input 
-        features, regarding the threshold value.
+        Calculates the Maximum Softmax Probability (MSP) metrics of input 
+        features, regarding the threshold value. MSP finds maximum softmax
+        row-wise, and checks if it is larger then threshold.
+
+        Large sofmtax values indicates larger probability that feature vector
+        belongs to the In-distribution pattern.
 
         Inputs:
-            test_data:      matrix of input row-wise features
-            threshold:      threshold value
+            test_data:      Matrix of input row-wise features
+            threshold:      Threshold value
 
         Outputs:
-            predictions:    an array of predicted labels
-            max_probs:      an array of output features, 1-D 
+            predictions:    Array of predicted labels
+            max_probs:      Array of output features, 1-D 
         '''
 
         s = Metrics.softmax(test_data)
         max_probs = np.max(s, axis=1)
-        # np.set_printoptions(threshold=np.inf)
-        # print(f"test_data {test_data[0:10]}")
-        # print(f"softmax {s[0:10]}")
-        # print(f"softmax sum {np.sum(s[0:50], axis=1)}")
-        # print(f"max_probs {max_probs[0:50]}")
         predictions = (max_probs > threshold).astype(np.int32)
         return predictions, max_probs
     
@@ -103,20 +103,62 @@ class Metrics():
         # print(f"train_X: {train_X[0:2, :]}")
         centroids_X = np.array([train_X[train_Y == c].mean(axis=0) for c in range(num_classes)])
         # print(f"centroids_X: {centroids_X}")
+
+        # clf = NearestCentroid()
+        # clf.fit(train_X, train_Y)
+        # print(f"clf: {clf.centroids_}")
         # print(f"test_X: {test_X[0:2, :]}")
 
         predictions = np.zeros(len(test_X))
         distances = np.zeros(len(test_X))
+        epsilon = 1e-10
+        p = 100
 
         for i in range(len(test_X)):
             dist = np.zeros(num_classes)
             for j in range(num_classes):
-                dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2))
+                # dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2))
+                dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p)
             distances[i] = -dist.min()
+
+        # print(f"distances: {distances.shape}")
+        # distances = (distances - distances.min()) / (distances.max() - distances.min())
+            
+        for i in range(len(test_X)):    
             predictions[i] = 1 if distances[i] > threshold else 0
 
         return predictions, distances
     
+    @staticmethod
+    def SD(train_X, train_Y, test_X, threshold, num_classes):
+        '''
+        Spike distance
+        '''
+        centroids_X = np.array([train_X[train_Y == c].mean(axis=0) for c in range(num_classes)])
+        predictions = np.zeros(len(test_X))
+        distances = np.zeros(len(test_X))
+        p = 100
+        epsilon = 1e-10
+
+        for i in range(len(test_X)):
+            dist = np.zeros(num_classes)
+            for j in range(num_classes):
+                # dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2)) # euclidian
+                # dist[j] = np.sum(np.abs(centroids_X[j] - test_X[i])) # Manhattan
+                # dist[j] = 1 - np.dot(centroids_X[j], test_X[i]) / (np.linalg.norm(centroids_X[j]) * np.linalg.norm(test_X[i])) # cosine
+                dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p) # minkovwski
+                # dist[j] = np.max(np.abs(centroids_X[j] - test_X[i])) #cebisevljev
+                # dist[j] = np.sum((centroids_X[j] + epsilon) * np.log((centroids_X[j] + epsilon) / (test_X[i] + epsilon))) # Kullback-Leibler
+                # dist[j] = np.sum(np.abs(centroids_X[j] - test_X[i])) / np.sum(centroids_X[j] + test_X[i]) # Bray-Curtis Dissimilarity
+            distances[i] = -dist.min()
+
+        # print(f"distances: {distances.shape}")
+        # distances = (distances - distances.min()) / (distances.max() - distances.min())
+            
+        for i in range(len(test_X)):    
+            predictions[i] = 1 if distances[i] > threshold else 0
+
+        return predictions, distances
 
     @staticmethod
     def KNN(train_X, train_Y, test_X, threshold, number_neighbors):

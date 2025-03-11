@@ -25,9 +25,9 @@ def feature_extraction_conv(dataSet):
     device = Utils.get_device()
 
     trainDataSize = len(dataset_train)
-    print("Train data size: ", trainDataSize)
+    # print("Train data size: ", trainDataSize)
     testDataSize = len(dataset_test)
-    print("Test data size: ", testDataSize)
+    # print("Test data size: ", testDataSize)
 
     # Number of classes
     numberOfClasses = 10
@@ -116,20 +116,20 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     numOfChannels:  number of input channels
     '''
 
-    print(dataSet_feat)
+    # print(dataSet_feat)
     dataset_train, dataset_test = Utils.load_data(dataSet_feat)
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_feat)
-    print(f"Image size: {channels, rows, cols}")
+    # print(f"Image size: {channels, rows, cols}")
 
     device = Utils.get_device()
 
     trainDataSize = len(dataset_train)
-    print("Train data size: ", trainDataSize)
+    # print("Train data size: ", trainDataSize)
     testDataSize = len(dataset_test)
-    print("Test data size: ", testDataSize)
-    print(f"Network models is {ResNetModel}")
+    # print("Test data size: ", testDataSize)
+    # print(f"Network models is {ResNetModel}")
 
     # Number of classes
     numberOfClasses = numOfClasses
@@ -182,16 +182,17 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
     # weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
     model.load_state_dict(torch.load(weightsName, weights_only=True))
-    print(f"Features: weightsName {weightsName}")
+    # print(f"Features: weightsName {weightsName}")
     # file = torch.load(weightsName)
     # model.load_state_dict(file["model"])
     model = model.to(device)
 
     fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
-    print(fileName)
+    # print(fileName)
 
     if (Utils.does_file_exists(fileName)):
         torch.cuda.empty_cache()
+        Spik_train = np.zeros((trainDataSize, numberOfClasses))
         Feat_train = np.zeros((trainDataSize, featSize))
         Prob_train = np.zeros((trainDataSize, numberOfClasses))
         Tags_train = []
@@ -205,21 +206,24 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
                 startIndex = i*batchSize
                 endIndex = startIndex + batchSize
 
-                _, f, p = model(batch, numberOfSteps)
+                s, f, p = model(batch, numberOfSteps)
+                s = s.cpu().detach().numpy()
                 f = f.cpu().detach().numpy()
                 p = p.cpu().detach().numpy()
                 # s = s.cpu().detach().numpy()
                 # s = s.sum(axis=0)
                 # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
+                spikes = s.sum(axis=0)
                 features = f.sum(axis=0)
                 probs = p.max(axis=0)
-                # probs = Metrics.softmax(probs)
+                probs = Metrics.softmax(probs)
                 # if i == 0:
                 #     print(f'{i}\n{features}\n{probs}')
                     # plotProb(p, batchSize, numberOfSteps)
                 # probs = Metrics.softmax(probs)
                 # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
                 labels = labels.cpu().detach().numpy()
+                Spik_train[startIndex:endIndex, :] = spikes
                 Feat_train[startIndex:endIndex, :] = features
                 Prob_train[startIndex:endIndex, :] = probs
                 Tags_train.append(labels.flatten())
@@ -231,10 +235,12 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
 
         # Tags_train = np.array(Tags_train)
         Tags_train = np.concatenate(Tags_train)
-        print("Tags_train shape is ", Tags_train.shape)
+        print()
+        # print("Tags_train shape is ", Tags_train.shape)
 
+        Spik_test = np.zeros((testDataSize, numberOfClasses))
         Feat_test = np.zeros((testDataSize, featSize))
-        Prob_test = np.zeros((testDataSize, 10))
+        Prob_test = np.zeros((testDataSize, numberOfClasses))
         Tags_test = []
         i = 0
         with torch.no_grad():
@@ -246,16 +252,19 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
                 startIndex = i*batchSize
                 endIndex = startIndex + batchSize
 
-                _, f, p = model(batch, numberOfSteps)
+                s, f, p = model(batch, numberOfSteps)
+                s = s.cpu().detach().numpy()
                 f = f.cpu().detach().numpy()
                 p = p.cpu().detach().numpy()
-                    
+
+                spikes = s.sum(axis=0)    
                 features = f.sum(axis=0)
                 probs = p.max(axis=0)
-                # probs = Metrics.softmax(probs)
+                probs = Metrics.softmax(probs)
                 # if i == 0:
                 #     print(f'{i}\n{features}\n{probs}')
                 labels = labels.cpu().detach().numpy()
+                Spik_test[startIndex:endIndex, :] = spikes
                 Feat_test[startIndex:endIndex, :] = features
                 Prob_test[startIndex:endIndex, :] = probs
                 # Tags_test.append(labels)
@@ -268,14 +277,16 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
 
         # Tags_test = np.array(Tags_test)
         Tags_test = np.concatenate(Tags_test)
-        print("Tags_test shape is ", Tags_test.shape)
+        # print("Tags_test shape is ", Tags_test.shape)
         fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
-        print(fileName)
-        np.savez(fileName, arr1=Feat_train, arr2=Prob_train, arr3=Tags_train, arr4=Feat_test, arr5=Prob_test, arr6=Tags_test)
+        # print(fileName)
+        print()
+        np.savez(fileName, arr0=Spik_train, arr1=Feat_train, arr2=Prob_train, arr3=Tags_train, arr7=Spik_test, arr4=Feat_test, arr5=Prob_test, arr6=Tags_test)
 
-        del Feat_train, Prob_train, Tags_train, Feat_test, Prob_test, Tags_test
+        del Spik_train, Feat_train, Prob_train, Tags_train, Spik_test, Feat_test, Prob_test, Tags_test
     
     else:
+        # pass
         print("Features " + str(fileName) + "already exists.")
     
     return None
