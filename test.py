@@ -2,6 +2,7 @@ import numpy as np
 import time 
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
+from clustering.Clustering import Clustering
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
 from models.plain import spikeLinearNet1
 import torch 
@@ -143,6 +144,9 @@ def test_with_output(case, nameID):
     ID_feat_test  = ID['arr4']  # In-Distribution test set features
     ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
     # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
+    number_classes = ID_prob_train.shape[1]
+    clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
+    print(f"Clustering ID base: {clusters}")
 
     for i in range(len(namesOOD)):
         OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'

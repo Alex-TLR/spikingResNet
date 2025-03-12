@@ -92,8 +92,8 @@ if __name__ == "__main__":
     # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # Feature extraction
-    for i in range(len(dataSet_feat)):
-        feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
+    # for i in range(len(dataSet_feat)):
+    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
     # Statistics
     stats = test_with_output(case=case, nameID=dataSet_ID)
