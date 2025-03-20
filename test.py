@@ -144,9 +144,9 @@ def test_with_output(case, nameID):
     ID_feat_test  = ID['arr4']  # In-Distribution test set features
     ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
     # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
-    # number_classes = ID_prob_train.shape[1]
-    # clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
-    # print(f"Clustering ID base: {clusters}")
+    number_classes = ID_prob_train.shape[1]
+    clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
+    print(f"Clustering ID base: {clusters}")
 
     for i in range(len(namesOOD)):
         OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
