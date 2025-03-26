@@ -2,7 +2,7 @@ import numpy as np
 import time 
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
-from clustering.Clustering import Clustering
+# from clustering.Clustering import Clustering
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
 from models.plain import spikeLinearNet1
 import torch 
@@ -117,7 +117,7 @@ def test_with_output(case, nameID):
         # namesOOD = ['FMNIST', 'KMNIST']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
-        namesOOD = ['MNIST', 'KMNIST', 'Letters']
+        namesOOD = ['MNIST']
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
         namesOOD = ['MNIST', 'FMNIST', 'Letters']
@@ -130,7 +130,7 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['MSP', 'SD', 'NCM']
+    methods = ['MSP', 'NCM', "KMEANS"]
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
@@ -145,8 +145,8 @@ def test_with_output(case, nameID):
     ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
     # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
     number_classes = ID_prob_train.shape[1]
-    clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
-    print(f"Clustering ID base: {clusters}")
+    # clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
+    # print(f"Clustering ID base: {clusters}")
 
     for i in range(len(namesOOD)):
         OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
@@ -384,6 +384,48 @@ def test_with_output(case, nameID):
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"MD Execution time: {execution_time:.4f} seconds")
+
+            elif methods[j] == 'KMEANS':
+                print("KMEANS Clustering")
+                start_time = time.time()
+                number_classes = ID_prob_train.shape[1]
+                ID_labels = np.ones((len(ID_prob_test)))
+                OOD_labels = np.zeros((len(OOD_prob_train)))
+                test_labels = np.concatenate((ID_labels, OOD_labels))
+                threshold = 0
+                ncpc = 5
+
+                _, ID_distances  = Metrics.kmeans(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
+                _, OOD_distances = Metrics.kmeans(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+                test_distances = np.concatenate((ID_distances, OOD_distances))
+                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+                threshold = threshold_tpr95
+                # plt.figure(figsize=(10, 6))
+                # plt.plot(test_distances[0:20000], alpha=0.5, label="Distances")
+                # plt.plot(test_labels[0:20000], linewidth=2, label="Labels")
+                # plt.title("NCM")
+                # plt.xlabel("Sample")
+                # plt.ylabel("Distance")
+                # plt.grid(True)
+                # plt.legend()
+                # plt.show()
+
+                ID_predictions, _  = Metrics.kmeans(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
+                OOD_predictions, _ = Metrics.kmeans(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+                # ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_labels, ID_feat_test, threshold, number_classes)
+                # OOD_predictions, _ = Metrics.NCM(ID_feat_train, OOD_labels, OOD_feat_train, threshold, number_classes)
+                # print(f"ID_predictions: {ID_predictions[0:100]}")
+                # print(f"OOD_predictions: {OOD_predictions[0:100]}")
+                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                print(f"KMEANS Execution time: {execution_time:.4f} seconds")
 
             else:
                 pass
