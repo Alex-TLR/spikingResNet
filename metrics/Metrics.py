@@ -6,6 +6,7 @@ from sklearn.neighbors import NearestCentroid
 import math
 from scipy.spatial import distance
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cluster import k_means
 import time 
 import numpy as np
 
@@ -102,7 +103,7 @@ class Metrics():
 
         # print(f"train_X: {train_X[0:2, :]}")
         centroids_X = np.array([train_X[train_Y == c].mean(axis=0) for c in range(num_classes)])
-        # print(f"centroids_X: {centroids_X}")
+        print(f"centroids_X: {centroids_X}")
 
         # clf = NearestCentroid()
         # clf.fit(train_X, train_Y)
@@ -302,3 +303,40 @@ class Metrics():
                 prediction.append(0)
 
         return prediction, C
+
+
+    @staticmethod
+    def kmeans(data: np.ndarray, labels: np.ndarray, ncpc, y_test, threshold):
+        num_classes = len(set(labels))
+        
+        clusters = np.zeros((num_classes * ncpc, data.shape[1]))
+
+        for i in range(num_classes):
+            clusters[i: i + ncpc] = k_means(data[labels == i], ncpc)[0]
+        
+        print(clusters)
+
+        return predictions(y_test, clusters, threshold), get_dist(y_test, clusters)
+
+
+def get_dist(data, centroids):
+    distances = np.zeros(len(data))
+    epsilon = 1e-10
+    p = 100
+
+    for i in range(len(data)):
+        dist = np.zeros(10)
+        for j in range(10):
+            # dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2))
+            dist[j] = np.power(np.sum(np.abs(centroids[j] - data[i])**p), 1/p)
+        distances[i] = -dist.min()
+    
+    return distances
+
+
+def predictions(data, centroids, threshold):
+    distances = get_dist(data, centroids)
+
+    predictions = [1 if x > threshold else 0 for x in distances]
+
+    return predictions
