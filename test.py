@@ -53,7 +53,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        if ResNetModel == 21:
+        elif ResNetModel == 21:
             model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
             print("Not defined")
@@ -117,7 +117,7 @@ def test_with_output(case, nameID):
         # namesOOD = ['FMNIST', 'KMNIST']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
-        namesOOD = ['MNIST']
+        namesOOD = ['MNIST', 'KMNIST', 'Letters']
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
         namesOOD = ['MNIST', 'FMNIST', 'Letters']
@@ -130,7 +130,7 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['MSP', 'NCM', "KMEANS"]
+    methods = ['NCM', 'KNN', 'KMEANS']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
@@ -206,14 +206,14 @@ def test_with_output(case, nameID):
                 OOD_predictions, _ = Metrics.MSP(OOD_prob_train, threshold)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                print(f"threshold_tpr95: {threshold_tpr95}")
-                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                # print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
-                print(f"MSP Execution time: {execution_time:.4f} seconds")
+                print(f"MSP Execution time: {execution_time:.4f} seconds.\n")
 
             elif methods[j] == 'SD':
                 print("Spike distance")
@@ -252,14 +252,14 @@ def test_with_output(case, nameID):
                 OOD_predictions, _ = Metrics.SD(ID_spik_train, ID_tags_train, OOD_spik_train, threshold, number_classes)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                print(f"threshold_tpr95: {threshold_tpr95}")
-                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                # print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
-                print(f"SD (spike distance) Execution time: {execution_time:.4f} seconds")
+                print(f"SD (spike distance) Execution time: {execution_time:.4f} seconds.\n")
 
             elif methods[j] == 'NCM':
                 print("NCM")
@@ -287,24 +287,20 @@ def test_with_output(case, nameID):
 
                 ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes)
                 OOD_predictions, _ = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes)
-                # ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_labels, ID_feat_test, threshold, number_classes)
-                # OOD_predictions, _ = Metrics.NCM(ID_feat_train, OOD_labels, OOD_feat_train, threshold, number_classes)
-                # print(f"ID_predictions: {ID_predictions[0:100]}")
-                # print(f"OOD_predictions: {OOD_predictions[0:100]}")
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                print(f"threshold_tpr95: {threshold_tpr95}")
-                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                # print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
-                print(f"NCM Execution time: {execution_time:.4f} seconds")
+                print(f"NCM Execution time: {execution_time:.4f} seconds.\n")
 
 
             elif methods[j] == 'KNN':
-                print("KNN\n")
+                print("KNN")
                 start_time = time.time()
                 number_neighbors = 5 
                 ID_labels = np.ones((len(ID_prob_test)))
@@ -321,14 +317,14 @@ def test_with_output(case, nameID):
                 OOD_predictions, _ = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                print(f"threshold_tpr95: {threshold_tpr95}")
-                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                # print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
-                print(f"KNN Execution time: {execution_time:.4f} seconds")
+                print(f"KNN Execution time: {execution_time:.4f} seconds.\n")
 
 
             elif methods[j] == 'NNDR':
@@ -386,40 +382,28 @@ def test_with_output(case, nameID):
                 print(f"MD Execution time: {execution_time:.4f} seconds")
 
             elif methods[j] == 'KMEANS':
-                print("KMEANS Clustering")
+                print("K-MEANS Clustering")
                 start_time = time.time()
                 number_classes = ID_prob_train.shape[1]
                 ID_labels = np.ones((len(ID_prob_test)))
                 OOD_labels = np.zeros((len(OOD_prob_train)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
-                ncpc = 5
+                ncpc = 3
 
-                _, ID_distances  = Metrics.kmeans(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-                _, OOD_distances = Metrics.kmeans(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+                _, ID_distances  = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
+                _, OOD_distances = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
-                # plt.figure(figsize=(10, 6))
-                # plt.plot(test_distances[0:20000], alpha=0.5, label="Distances")
-                # plt.plot(test_labels[0:20000], linewidth=2, label="Labels")
-                # plt.title("NCM")
-                # plt.xlabel("Sample")
-                # plt.ylabel("Distance")
-                # plt.grid(True)
-                # plt.legend()
-                # plt.show()
 
-                ID_predictions, _  = Metrics.kmeans(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-                OOD_predictions, _ = Metrics.kmeans(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
-                # ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_labels, ID_feat_test, threshold, number_classes)
-                # OOD_predictions, _ = Metrics.NCM(ID_feat_train, OOD_labels, OOD_feat_train, threshold, number_classes)
-                # print(f"ID_predictions: {ID_predictions[0:100]}")
-                # print(f"OOD_predictions: {OOD_predictions[0:100]}")
+                ID_predictions, _  = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
+                OOD_predictions, _ = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                print(f"threshold_tpr95: {threshold_tpr95}")
-                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                # print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 

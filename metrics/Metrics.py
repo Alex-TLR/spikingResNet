@@ -103,12 +103,7 @@ class Metrics():
 
         # print(f"train_X: {train_X[0:2, :]}")
         centroids_X = np.array([train_X[train_Y == c].mean(axis=0) for c in range(num_classes)])
-        print(f"centroids_X: {centroids_X}")
-
-        # clf = NearestCentroid()
-        # clf.fit(train_X, train_Y)
-        # print(f"clf: {clf.centroids_}")
-        # print(f"test_X: {test_X[0:2, :]}")
+        # print(f"centroids_X: {centroids_X}")
 
         predictions = np.zeros(len(test_X))
         distances = np.zeros(len(test_X))
@@ -118,12 +113,15 @@ class Metrics():
         for i in range(len(test_X)):
             dist = np.zeros(num_classes)
             for j in range(num_classes):
-                # dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2))
-                dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p)
+                dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2))
+                # dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p)
             distances[i] = -dist.min()
 
         # print(f"distances: {distances.shape}")
         # distances = (distances - distances.min()) / (distances.max() - distances.min())
+
+        # max_dist = np.max(distances)
+        # distances = np.array([1 - e/max_dist for e in distances])
             
         for i in range(len(test_X)):    
             predictions[i] = 1 if distances[i] > threshold else 0
@@ -306,7 +304,7 @@ class Metrics():
 
 
     @staticmethod
-    def kmeans(data: np.ndarray, labels: np.ndarray, ncpc, y_test, threshold):
+    def KMEANS(data: np.ndarray, labels: np.ndarray, ncpc, y_test, threshold):
         num_classes = len(set(labels))
         
         clusters = np.zeros((num_classes * ncpc, data.shape[1]))
@@ -314,29 +312,37 @@ class Metrics():
         for i in range(num_classes):
             clusters[i: i + ncpc] = k_means(data[labels == i], ncpc)[0]
         
-        print(clusters)
+        # print(clusters)
 
         return predictions(y_test, clusters, threshold), get_dist(y_test, clusters)
 
 
-def get_dist(data, centroids):
-    distances = np.zeros(len(data))
+def get_dist(features, centroids):
+    '''
+        Calculate distance of each feature samples from centroids.
+    '''
+    # TODO: Test different distances/metrics other than Euclidian
+    # TODO: Replace 10 with number of classes
+
+    distances = np.zeros(len(features))
     epsilon = 1e-10
     p = 100
 
-    for i in range(len(data)):
+    for i in range(len(features)):
         dist = np.zeros(10)
         for j in range(10):
-            # dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2))
-            dist[j] = np.power(np.sum(np.abs(centroids[j] - data[i])**p), 1/p)
+            dist[j] = np.sqrt(np.sum((centroids[j] - features[i])**2))
+            # dist[j] = np.power(np.sum(np.abs(centroids[j] - data[i])**p), 1/p)
         distances[i] = -dist.min()
     
     return distances
 
 
 def predictions(data, centroids, threshold):
+    '''
+        Make Id/Ood predictions regarding the given distances and threshold
+    '''
+
     distances = get_dist(data, centroids)
-
     predictions = [1 if x > threshold else 0 for x in distances]
-
     return predictions

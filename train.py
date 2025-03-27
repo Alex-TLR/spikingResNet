@@ -158,7 +158,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
             model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        if ResNetModel == 21:
+        elif ResNetModel == 21:
             model = spikeLinearNet1(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         else:
             print("Not defined")

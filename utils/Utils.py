@@ -5,7 +5,7 @@ from torchvision.utils import make_grid
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, precision_recall_curve
 import os
 from sklearn.manifold import TSNE
 
@@ -237,7 +237,7 @@ class Utils():
     
 
     @staticmethod
-    def find_threshold(test_Y, test_dist, positive_label, drop = True): 
+    def find_threshold(test_labels, test_dist, positive_label, drop = True): 
         '''
         Find threshold values input values
 
@@ -251,8 +251,9 @@ class Utils():
             th_tpr95:       threshold for which TPR is 95 percent
         '''
 
-        fpr, tpr, thresholds = roc_curve(test_Y, test_dist, pos_label = positive_label, drop_intermediate = drop)
-        print(f"thresholds: {thresholds.min()}, {thresholds.max()}")
+        test_dist = np.array(test_dist)
+        fpr, tpr, thresholds = roc_curve(test_labels, test_dist, pos_label = positive_label, drop_intermediate = drop)
+        # print(f"thresholds: {thresholds.min()}, {thresholds.max()}")
         # Plot ROC curve
         # plt.figure()
         # plt.plot(fpr, tpr, marker='o', linestyle='-', color='b')
@@ -268,6 +269,11 @@ class Utils():
         dtpr95 = np.absolute(tpr-0.95)
         th_tpr95 = thresholds[dtpr95.argmin()]
 
+        # predictions = np.zeros(len(test_dist))
+        # for i in range(len(test_dist)):    
+        #     predictions[i] = 0 if test_dist[i] < th_tpr95 else 1
+
+        # print(f"Result: {np.sum(a == b for a, b in zip(test_labels, predictions) if a == 1)  / len(predictions[test_labels == 1])}")
         # print(f"Utils, th_tpr80: {th_tpr80}, th_tpr95: {th_tpr95}")
 
         return th_tpr80, th_tpr95

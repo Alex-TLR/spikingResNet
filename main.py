@@ -62,7 +62,7 @@ if __name__ == "__main__":
     # Batch size: 40
 
     # Define case 
-    case = '05'
+    case = '04'
     dataSet_ID = 'FMNIST'
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     modelType = 'spike'
     batchSize = 64
     numberOfClasses = 10
-    ResNetModel = 21
+    ResNetModel = 2
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
