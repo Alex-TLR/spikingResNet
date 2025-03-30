@@ -6,9 +6,10 @@ from sklearn.neighbors import NearestCentroid
 import math
 from scipy.spatial import distance
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cluster import k_means
+from sklearn.cluster import k_means, DBSCAN
 import time 
 import numpy as np
+from scipy.spatial.distance import cdist
 
 class Metrics():
 
@@ -158,6 +159,61 @@ class Metrics():
             predictions[i] = 1 if distances[i] > threshold else 0
 
         return predictions, distances
+    
+    @staticmethod
+    def DBSCAN(train_X, test_X, threshold):
+        '''
+        Density-Based Spatial Clustering of Applications with Noise
+        '''
+
+        predictions = np.zeros(len(test_X))
+
+        # Apply dbscan to training data
+        dbscan = DBSCAN(eps=200, min_samples=5)
+        predictated_labels = dbscan.fit_predict(train_X)
+        print(f"predictated_labels: {predictated_labels.shape}")
+
+        # Identify core points
+        core_samples_mask = predictated_labels != -1  # Ignore noise (-1)
+        core_points = train_X[core_samples_mask]
+        print(f"core_points: {core_points}")
+
+        # Compute cluster centers
+        unique_clusters = np.unique(predictated_labels[core_samples_mask])
+        cluster_centers = np.array([train_X[predictated_labels == c].mean(axis=0) for c in unique_clusters])
+        print(f"DBSCAN: {cluster_centers}")
+        print(f"DBSCAN: {cluster_centers.shape}")
+        if cluster_centers.ndim == 1:
+            cluster_centers = cluster_centers.reshape(1, -1)
+
+        print(f"cluster_centers: {cluster_centers.shape}")
+
+        # Compute distance of each test sample from the nearest cluster center
+        # distances = cdist(test_X, cluster_centers, metric='euclidean')  # Pairwise distance
+        distances = np.zeros(len(test_X))
+
+        for i in range(len(test_X)):
+            dist = np.zeros(len(cluster_centers))
+            for j in range(len(cluster_centers)):
+                dist[j] = np.sqrt(np.sum((cluster_centers[j] - test_X[i])**2))
+                # dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p)
+            distances[i] = -dist.min()
+
+
+
+        print(f"distances: {distances}")
+        print(f"distances: {distances.shape}")
+        # nearest_distances = np.min(distances, axis=1)  # Minimum distance to any cluster center
+
+        # (Optional) Convert distances to scores (e.g., negative distance for ROC analysis)
+        # distances = -nearest_distances  # Higher score means closer to a cluster
+         
+        for i in range(len(test_X)):    
+            predictions[i] = 1 if distances[i] > threshold else 0
+
+        print(f"predictions: {predictions}")
+
+        return predictions, distances
 
     @staticmethod
     def KNN(train_X, train_Y, test_X, threshold, number_neighbors):
@@ -205,28 +261,80 @@ class Metrics():
             distances:      an array of output features, 1-D 
         '''
 
+        # neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
+        # neigh.fit(train_X, train_Y)
+
+        # # predictions = neigh.predict(test_X)
+        # neigh_dist, neigh_ind = neigh.kneighbors(test_X, return_distance = True)
+        # print(f"neigh_dist: {neigh_dist.shape}, neigh_ind: {neigh_ind.shape}")
+
+        # predictions = np.full(test_X.shape[0], fill_value=-1)  # Default prediction as -1 (for rejected matches)
+        # distances = np.zeros(test_X.shape[0])
+
+        # # distances = []
+        # # m = []
+        # for i in range(len(neigh_dist)):
+        #     differing_neighbor_index = None
+        #     for j in range(len(neigh_dist[i])):
+        #         if(train_Y[neigh_ind[i][j]] != train_Y[neigh_ind[i][0]]):
+        #             differing_neighbor_index = j
+        #             break
+
+        # for i in range(test_X.shape[0]):
+        #     if number_neighbors > 1 and neigh_dist[i, 1] > 0:  # Avoid division by zero
+        #         ratio = neigh_dist[i, 0] / neigh_dist[i, 1]  # NNDR computation
+        #         if ratio < threshold:  # Accept match if ratio is below threshold
+        #             predictions[i] = train_Y[neigh_ind[i, 0]]  # Assign the nearest neighbor's label
+        #     else:
+        #         predictions[i] = train_Y[neigh_ind[i, 0]]  # If only 1 neighbor, assign it directly
+
+
+        # # for i in range(len(neigh_dist)):
+        # #     distances.append(-neigh_dist[i][0]/neigh_dist[i][m[i]])
+
+        # if differing_neighbor_index is None:
+        #     distances[i] = -10000  # No differing class found
+        # else:
+        #     distances[i] = -neigh_dist[i][0] / neigh_dist[i][differing_neighbor_index]
+
+        # if(distances[i] > threshold):
+        #     predictions[i] = 1
+        # else:
+        #     predictions[i] = 0
+
+        # return predictions, distances
+
+        br = 0
+        distances = []
+        m = []
         neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
         neigh.fit(train_X, train_Y)
 
-        predictions = neigh.predict(test_X)
+        prediction = neigh.predict(test_X)
         neigh_dist, neigh_ind = neigh.kneighbors(test_X, return_distance = True)
-
-        distances = []
-        m = []
+        print(type(neigh_dist[0][0]))
         for i in range(len(neigh_dist)):
             for j in range(len(neigh_dist[i])):
                 if(train_Y[neigh_ind[i][j]] != train_Y[neigh_ind[i][0]]):
                     m.append(j)
                     break
-            
-        for i in range(len(neigh_dist)):
-            distances.append(-neigh_dist[i][0]/neigh_dist[i][m[i]])
-        if(distances[i] > threshold):
-            predictions[i] = 1
-        else:
-            predictions[i] = 0
 
-        return predictions, distances
+        for i in range(len(neigh_dist)):
+            if(neigh_dist[i][m[i]]==0):
+                print("NaN")
+                print(i)
+                print(neigh_dist[i][0])
+                print(neigh_dist[i])
+                br=br+1
+                neigh_dist[i][m[i]] = 1e-20
+            distances.append(-neigh_dist[i][0]/neigh_dist[i][m[i]])
+
+            if(distances[i] > threshold):
+                prediction[i] = 1
+            else:
+                prediction[i] = 0
+        print(br)
+        return prediction, distances
     
 
     @staticmethod
@@ -315,6 +423,18 @@ class Metrics():
         # print(clusters)
 
         return predictions(y_test, clusters, threshold), get_dist(y_test, clusters)
+    
+    @staticmethod
+    def KMEANSFull(data: np.ndarray, labels: np.ndarray, ncpc, y_test, threshold):
+        num_classes = len(set(labels))
+        
+        clusters = np.zeros((ncpc, data.shape[1]))
+
+        clusters = k_means(data, ncpc)[0]
+        
+        print(f"clusters: {clusters.shape}")
+
+        return predictions(y_test, clusters, threshold), get_dist(y_test, clusters)
 
 
 def get_dist(features, centroids):
@@ -328,9 +448,11 @@ def get_dist(features, centroids):
     epsilon = 1e-10
     p = 100
 
+    num_centroids = len(centroids)
+
     for i in range(len(features)):
-        dist = np.zeros(10)
-        for j in range(10):
+        dist = np.zeros(num_centroids)
+        for j in range(num_centroids):
             dist[j] = np.sqrt(np.sum((centroids[j] - features[i])**2))
             # dist[j] = np.power(np.sum(np.abs(centroids[j] - data[i])**p), 1/p)
         distances[i] = -dist.min()

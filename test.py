@@ -117,7 +117,7 @@ def test_with_output(case, nameID):
         # namesOOD = ['FMNIST', 'KMNIST']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
-        namesOOD = ['MNIST', 'KMNIST', 'Letters']
+        namesOOD = ['MNIST', 'KMNIST', 'Letters']   
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
         namesOOD = ['MNIST', 'FMNIST', 'Letters']
@@ -130,7 +130,7 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['NCM', 'KNN', 'KMEANS']
+    methods = ['NCM', 'KNN', 'KMEANS-Full', 'MD']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
@@ -302,7 +302,7 @@ def test_with_output(case, nameID):
             elif methods[j] == 'KNN':
                 print("KNN")
                 start_time = time.time()
-                number_neighbors = 5 
+                number_neighbors = 10 
                 ID_labels = np.ones((len(ID_prob_test)))
                 OOD_labels = np.zeros((len(OOD_prob_train)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
@@ -329,7 +329,7 @@ def test_with_output(case, nameID):
 
             elif methods[j] == 'NNDR':
                 start_time = time.time()
-                number_neighbors = 10000 
+                number_neighbors = 11000 
                 ID_labels = np.ones((len(ID_prob_test)))
                 OOD_labels = np.zeros((len(OOD_prob_train)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
@@ -389,7 +389,7 @@ def test_with_output(case, nameID):
                 OOD_labels = np.zeros((len(OOD_prob_train)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
-                ncpc = 3
+                ncpc = 1
 
                 _, ID_distances  = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
                 _, OOD_distances = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
@@ -410,6 +410,67 @@ def test_with_output(case, nameID):
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"KMEANS Execution time: {execution_time:.4f} seconds")
+
+            elif methods[j] == 'KMEANS-Full':
+                print("K-MEANS Full Clustering")
+                start_time = time.time()
+                number_classes = ID_prob_train.shape[1]
+                ID_labels = np.ones((len(ID_prob_test)))
+                OOD_labels = np.zeros((len(OOD_prob_train)))
+                test_labels = np.concatenate((ID_labels, OOD_labels))
+                threshold = 0
+                ncpc = 30
+
+                _, ID_distances  = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
+                _, OOD_distances = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+                test_distances = np.concatenate((ID_distances, OOD_distances))
+                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+                threshold = threshold_tpr95
+                print(f"threshold_tpr95: {threshold_tpr95}")
+
+                ID_predictions, _  = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
+                OOD_predictions, _ = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+
+                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                # print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                print(f"KMEANS Full Execution time: {execution_time:.4f} seconds")
+
+            elif methods[j] == 'DBSCAN':
+                print("DBSCAN")
+                start_time = time.time()
+                number_classes = ID_prob_train.shape[1]
+                ID_labels = np.ones((len(ID_prob_test)))
+                OOD_labels = np.zeros((len(OOD_prob_train)))
+                test_labels = np.concatenate((ID_labels, OOD_labels))
+                threshold = 0
+
+                _, ID_distances  = Metrics.DBSCAN(ID_feat_train, ID_feat_test, threshold)
+                _, OOD_distances = Metrics.DBSCAN(ID_feat_train, OOD_feat_train, threshold)
+                test_distances = np.concatenate((ID_distances, OOD_distances))
+                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+                threshold = threshold_tpr95
+                print(f"threshold_tpr95: {threshold_tpr95}")
+
+                ID_predictions, _  = Metrics.DBSCAN(ID_feat_train, ID_feat_test, threshold)
+                OOD_predictions, _ = Metrics.DBSCAN(ID_feat_train, OOD_feat_train, threshold)
+
+                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                # print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                print(f"DBSCAN Execution time: {execution_time:.4f} seconds")
 
             else:
                 pass

@@ -203,6 +203,8 @@ class BasicModel(nn.Module):
         history = []
         current_step = 0
 
+        accumulation_steps = 8 
+
         for i in range(startEpoch, nEpochs):
             # model.train()
             # Define lists to store training loss and accuracy
@@ -223,6 +225,14 @@ class BasicModel(nn.Module):
                 # Update weights
                 loss.backward()
                 nn.utils.clip_grad_value_(model.parameters(), gd)
+
+                # Perform optimizer step only after accumulation_steps batches
+                # if (batch_idx + 1) % accumulation_steps == 0 or (batch_idx + 1) == len(train_load):
+                #     opt.step()
+                #     opt.zero_grad()  # Reset gradients after update
+                    
+                #     if sched is not None:
+                #         sched.step()  # Update learning rate scheduler
                 # Update opt
                 opt.step()
                 if sched is not None:

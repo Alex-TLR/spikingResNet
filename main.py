@@ -61,18 +61,25 @@ if __name__ == "__main__":
     # Number of classes: 10
     # Batch size: 40
 
+    # Case 06:
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: SpikeResNet18Model (ResNetModel = 18)
+    # Number of classes: 18
+    # Batch size: 40
+
     # Define case 
-    case = '04'
-    dataSet_ID = 'FMNIST'
+    case = '06'
+    dataSet_ID = 'MNIST'
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
-    # dataSet_ID = 'SVHN'
+    # dataSet_ID = 'CIFAR10'
     # dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
-    batchSize = 64
+    batchSize = 8
     numberOfClasses = 10
-    ResNetModel = 2
+    ResNetModel = 18
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -86,14 +93,14 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
     
     # Test accuracy of trained model on test
-    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # Feature extraction
-    # for i in range(len(dataSet_feat)):
-    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
+    for i in range(len(dataSet_feat)):
+        feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
     # Statistics
     stats = test_with_output(case=case, nameID=dataSet_ID)
