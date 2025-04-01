@@ -130,6 +130,66 @@ class Metrics():
         return predictions, distances
     
     @staticmethod
+    def AGGLO(train_X, train_Y, test_X, clusters, threshold, number_classes):
+        '''
+        Distances after agglomerative clustering
+
+        Inputs:
+            train_X:        matrix with train features
+            train_Y:        an array with train labels
+            test_X:         matrix with test features
+            clusters:       list of cluster per class
+
+        Outputs:
+            predictions:    an array of predicted labels
+            distances:      an array of output features, 1-D 
+
+        '''
+
+        # for cluster_index in np.unique(clusterizationPerClass[class_index].labels_):
+        # # We can compute the mean or the median of the neuron frecuencies for that cluster
+        # if option == 'median': 
+        #     avgPerCluster.append(np.median(spikesFrecsOneClass[np.where(clusterizationPerClass[class_index].labels_ == cluster_index)[0]],axis=0))
+        # elif option == 'mean':
+        #     avgPerCluster.append(np.mean(spikesFrecsOneClass[np.where(clusterizationPerClass[class_index].labels_ == cluster_index)[0]],axis=0))
+        # avgPerCluster = np.array(avgPerCluster)
+
+        # avgPerCluster = []
+        # for cluster_index in np.unique(clusterizationPerClass[class_index].labels_):
+        #     # We can compute the mean or the median of the neuron frecuencies for that cluster
+        #     if option == 'median': 
+        #         avgPerCluster.append(np.median(spikesFrecsOneClass[np.where(clusterizationPerClass[class_index].labels_ == cluster_index)[0]],axis=0))
+        #     elif option == 'mean':
+        #         avgPerCluster.append(np.mean(spikesFrecsOneClass[np.where(clusterizationPerClass[class_index].labels_ == cluster_index)[0]],axis=0))
+        #     avgPerCluster = np.array(avgPerCluster)
+ 
+        averagePerClass = []
+        for i in range(number_classes):
+            averageCluster = []
+            for cluster_index in np.unique(clusters[i].labels_):
+                averageCluster.append(np.median(train_X[np.where(clusters[i].labels_ == cluster_index)[0]], axis=0))
+            averagePerClass.append(np.array(averageCluster))
+
+        predictions = np.zeros(len(test_X))
+        distances = np.zeros(len(test_X))
+
+        distances = get_dist(test_X, np.row_stack(averagePerClass))
+        print(f"distances.shape: {distances.shape}")
+        print(f"test_X.shape: {test_X.shape}")
+        print(f"Number of clusters: {np.sum(i.shape[0] for i in averagePerClass)}")
+
+        # for i in range(len(test_X)):
+        #     dist = np.zeros(number_classes)
+        #     for j in range(number_classes):
+        #         dist[j] = np.sqrt(np.sum((averageCluster[j] - test_X[i])**2))
+        #     distances[i] = dist.min()
+            
+        for i in range(len(test_X)):    
+            predictions[i] = 1 if distances[i] > threshold else 0
+
+        return predictions, distances
+    
+    @staticmethod
     def SD(train_X, train_Y, test_X, threshold, num_classes):
         '''
         Spike distance
@@ -453,9 +513,10 @@ def get_dist(features, centroids):
     for i in range(len(features)):
         dist = np.zeros(num_centroids)
         for j in range(num_centroids):
-            dist[j] = np.sqrt(np.sum((centroids[j] - features[i])**2))
+            # dist[j] = np.sqrt(np.sum((centroids[j] - features[i])**2))
             # dist[j] = np.power(np.sum(np.abs(centroids[j] - data[i])**p), 1/p)
-        distances[i] = -dist.min()
+            dist[j] = np.sum(np.abs(centroids[j] - features[i]))
+        distances[i] = dist.min()
     
     return distances
 

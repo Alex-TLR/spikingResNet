@@ -102,34 +102,44 @@ if __name__ == "__main__":
     # Batch size: 40
 
     # Define case
-    match args.case:
-        case '06':
-            case = '06'
-            dataSet_ID = 'CIFAR10'
-            dataSet_feat = ['CIFAR10','SVHN','Food101'] 
-        case '07':
-            case = '07'
-            dataSet_ID = 'SVHN'
-            dataSet_feat = ['CIFAR10','SVHN','Food101']
-        case '08':
-            case = '08'
-            dataSet_ID = 'MNIST'
-            dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
-        case '09':
-            case = '09'
-            dataSet_ID = 'FMNIST'
-            dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
-        case '10':
-            case = '10'
-            dataSet_ID = 'KMNIST'
-            dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
+    # match args.case:
+    #     case '06':
+    #         case = '06'
+    #         dataSet_ID = 'CIFAR10'
+    #         dataSet_feat = ['CIFAR10','SVHN','Food101'] 
+    #     case '07':
+    #         case = '07'
+    #         dataSet_ID = 'SVHN'
+    #         dataSet_feat = ['CIFAR10','SVHN','Food101']
+    #     case '08':
+    #         case = '08'
+    #         dataSet_ID = 'MNIST'
+    #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
+    #     case '09':
+    #         case = '09'
+    #         dataSet_ID = 'FMNIST'
+    #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
+    #     case '10':
+    #         case = '10'
+    #         dataSet_ID = 'KMNIST'
+    #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
+
+    # Define case 
+    case = '04'
+    dataSet_ID = 'MNIST'
+    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
+
     # dataSet_ID = 'CIFAR10'
     # dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
-    batchSize = args.batch_size
-    numberOfClasses = args.num_classes
-    ResNetModel = args.model
+    # batchSize = args.batch_size
+    # numberOfClasses = args.num_classes
+    # ResNetModel = args.model
+
+    batchSize = 64
+    numberOfClasses = 10
+    ResNetModel = 2
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -143,23 +153,35 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    if args.mode == 'train':
-        dataSet_ID = args.dataset_ID
-        training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=args.epochs, fullTrain=True, pretrained=args.pretrained)
-    if args.mode == 'test':
-        # Test accuracy of trained model on test
-        test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    
+    # Davor
+    # if args.mode == 'train':
+    #     dataSet_ID = args.dataset_ID
+    #     training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=args.epochs, fullTrain=True, pretrained=args.pretrained)
+    # if args.mode == 'test':
+    #     # Test accuracy of trained model on test
+    #     test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
         
-        # Feature extraction
-        for i in range(len(dataSet_feat)):
-            feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
+    #     # Feature extraction
+    #     for i in range(len(dataSet_feat)):
+    #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
+    #############################3
 
-        # Statistics
-        stats = test_with_output(case=case, nameID=dataSet_ID)
-        formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-        for row in formatted_stats:
-            print(' '.join(row))
+    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
+    
+    # Test accuracy of trained model on test
+    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    
+    # Feature extraction
+    # for i in range(len(dataSet_feat)):
+    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
-        # Vizualizer
-        # Utils.visualize_feature('FMNIST', 'KMNIST', case)
+    # Statistics
+    stats = test_with_output(case=case, nameID=dataSet_ID)
+    formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
+    for row in formatted_stats:
+        print(' '.join(row))
+
+    # Vizualizer
+    # Utils.visualize_feature('FMNIST', 'KMNIST', case)
 

@@ -36,7 +36,7 @@ class Clustering():
 # distance_for_clustering: Range of distance values for clustering (default is (800, 3000)).
 
         # Create distance thresholds
-        distance_thresholds = np.linspace(10, 100, 5)
+        distance_thresholds = np.linspace(200, 5000, 25)
         silhScoresPerClass = []
         clusterLabels = []
 
@@ -51,7 +51,7 @@ class Clustering():
             silh_scores = []
             for dist in distance_thresholds:
                 # define cluster model
-                cluster_model = AgglomerativeClustering(n_clusters=None,metric='manhattan',linkage='average',distance_threshold=dist)
+                cluster_model = AgglomerativeClustering(n_clusters=None, metric='manhattan', linkage='average', distance_threshold=dist)
                 cluster_model.fit(features[labels == i])
                 clusterLabels.append(cluster_model.labels_)
                 feat_c = features[labels == i]
@@ -62,6 +62,7 @@ class Clustering():
                 except:
                     silh_scores.append(0)
                 print(f"silh_scores: {silh_scores}")
+                print(f"\rProgress: {i}, {dist}", end='', flush=True)
             silhScoresPerClass.append(silh_scores)
 
             # ovo bi trebalo da moze mnogo jednostavnije
@@ -86,7 +87,7 @@ class Clustering():
         # Create the clusters by extracting the labels for every sample
         clusters_per_class = []
         for i in range(numClasses):
-            cluster_model = AgglomerativeClustering(n_clusters=None,metric='manhattan',linkage='complete',distance_threshold=opt_dist_thr_per_class[i])
+            cluster_model = AgglomerativeClustering(n_clusters=None, metric='manhattan', linkage='complete', distance_threshold=opt_dist_thr_per_class[i])
             cluster_model.fit(features[labels == i])
             # Save the cluster models
             clusters_per_class.append(cluster_model)

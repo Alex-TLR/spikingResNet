@@ -2,12 +2,13 @@ import numpy as np
 import time 
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
-# from clustering.Clustering import Clustering
+from clustering.Clustering import Clustering
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
 from models.plain import spikeLinearNet1
 import torch 
 import snntorch.functional as SF 
 import matplotlib.pyplot as plt
+import pickle
 
 def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     '''
@@ -130,7 +131,8 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['NCM', 'KNN', 'KMEANS-Full', 'MD']
+    # methods = ['NCM', 'KNN', 'KMEANS-Full', 'MD']
+    methods = ['AGGLO']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
@@ -342,6 +344,52 @@ def test_with_output(case, nameID):
                 threshold = threshold_tpr95
                 ID_predictions, _  = Metrics.NNDR(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
                 OOD_predictions, _ = Metrics.NNDR(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
+                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                print(f"threshold_tpr95: {threshold_tpr95}")
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                print(f"NNDR Execution time: {execution_time:.4f} seconds")
+
+            elif methods[j] == 'AGGLO':
+                start_time = time.time()
+                number_classes = ID_prob_train.shape[1]
+                ID_labels = np.ones((len(ID_prob_test)))
+                OOD_labels = np.zeros((len(OOD_prob_train)))
+                test_labels = np.concatenate((ID_labels, OOD_labels))
+                threshold = 0
+
+                # total = 0
+                # for ii in range(number_classes):
+                #     samples = ID_feat_train[ID_tags_train == ii]
+                #     print(f"number of samples of class {ii} is {samples.shape}")
+                #     total += samples.shape[0]
+                # print(f"total: {total}")
+
+
+                # Find clusters (centroids) per class
+                clusterName = 'clustering/cluster_1.npy'
+                if (Utils.does_file_exists(clusterName)):
+                    clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
+                    print(f"Cluster per class: {len(clusters)}")
+                    np.save(clusterName, clusters, allow_pickle=True)
+                else:
+                    # Load cluster
+                    clusters = np.load(clusterName, allow_pickle=True)
+
+                # Meadian
+
+                _, ID_distances  = Metrics.AGGLO(ID_feat_train, ID_tags_train, ID_feat_test, clusters, threshold, number_classes)
+                _, OOD_distances = Metrics.AGGLO(ID_feat_train, ID_tags_train, OOD_feat_train, clusters, threshold, number_classes)
+                test_distances = np.concatenate((ID_distances, OOD_distances))
+                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+                threshold = threshold_tpr95
+                ID_predictions, _  = Metrics.AGGLO(ID_feat_train, ID_tags_train, ID_feat_test, clusters, threshold, number_classes)
+                OOD_predictions, _ = Metrics.AGGLO(ID_feat_train, ID_tags_train, OOD_feat_train, clusters, threshold, number_classes)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 print(f"threshold_tpr95: {threshold_tpr95}")
