@@ -63,7 +63,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         torch.cuda.empty_cache()
         weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
         # print(f"weightsName: {weightsName}")
-        model.load_state_dict(torch.load(weightsName, weights_only=True))
+        model.load_state_dict(torch.load(weightsName, weights_only=False))
         # file = torch.load(weightsName)
         # model.load_state_dict(file["model"])
         model = model.to(device)

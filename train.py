@@ -13,10 +13,11 @@ import numpy as np
 from snntorch import utils
 from snntorch import spikegen
 import sys
-import time 
+import time
+import traceback
 
 
-def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain=False, pretrained=False):
+def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, pretrained=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
@@ -46,13 +47,9 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
 
     # Define training parameters
     # Number of classes
-    if ((dataSet == 'MNIST') or (dataSet == 'KMNIST') or (dataSet == 'FMNIST')):
-        numberOfClasses = 10
-    elif ((dataSet == 'CIFAR10') or (dataSet == 'SVHN')):
-        numberOfClasses = 10
-    else:
-        numberOfClasses = numOfClasses
+    numberOfClasses = numOfClasses
 
+    numberOfEpochs = epochs
     # Number of channels
     numberOfChannels = channels
 
@@ -163,13 +160,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         else:
             print("Not defined")
             return -1
-
-        if (dataSet == 'CIFAR10') or (dataSet == 'SVHN'):
-            numberOfEpochs = 200
-        else:
-            numberOfEpochs = 40
         model = model.to(device)
-        
 
         # Loss function
         loss_fn = SF.ce_rate_loss()
@@ -177,11 +168,12 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
         # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
         optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
         # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
-        sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-4, epochs=numberOfEpochs, steps_per_epoch=len(train_loader))
+        sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-4, epochs=epochs, steps_per_epoch=len(train_loader))
         # sched = None
         # Training
         startEpoch = 0
         if (fullTrain == True):
+            print(pretrained)
             if(pretrained == True):
                 weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
                 print("Try to load checkpoint: "+weightsName)
@@ -192,9 +184,10 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, fullTrain
                     sched.load_state_dict(file["lr_scheduler"])
                     startEpoch=file["epochs"] + 1
                     print(f"numberOfEpochs: {numberOfEpochs}, startEpoch: {startEpoch}, steps_per_epoch: {len(train_loader)}, total_steps: {sched.total_steps}")
-                    sched._step_count = startEpoch * len(train_loader)
+                    #sched._step_count = startEpoch * len(train_loader)
                     print("Checkpoint loaded.")
-                except:
+                except Exception:
+                    traceback.print_exc()
                     print("No valid checkpoint found. Starting from scratch.")
                 print("Training started")
                 sys.stdout.flush()

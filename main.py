@@ -5,7 +5,39 @@ import numpy as np
 from utils.Utils import Utils
 # To enable downloading some datasets from pytorch
 import ssl
+import argparse
 
+def get_parser():
+    parser = argparse.ArgumentParser(description="SpikingResNet Training Configuration")
+
+    # General parameters
+    parser.add_argument('--seed', type=int, default=42, help="Random seed for reproducibility")
+    parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cuda', help="Device to run training on")
+    parser.add_argument('--mode', type=str, default='test', help="train or test mode")
+
+    # Dataset parameters
+    parser.add_argument('--dataset_ID', type=str, default='CIFAR10', help="Dataset to use")
+    parser.add_argument('--case', type=str, default='06', help="Case identifier for the experiment")
+    parser.add_argument('--num_workers', type=int, default=4, help="Number of workers for data loading")
+
+    # Model parameters
+    parser.add_argument('--model', type=int, default=18, help="Model architecture")
+    parser.add_argument('--num_classes', type=int, default=10, help="Number of output classes")
+
+    # Training parameters
+    parser.add_argument('--epochs', type=int, default=200, help="Number of training epochs")
+    parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training and validation")
+    parser.add_argument('--pretrained', type=bool, default=True, help="Start from checkpoint if True")
+    parser.add_argument('--learning_rate', type=float, default=0.001, help="Initial learning rate")
+    parser.add_argument('--optimizer', type=str, choices=['sgd', 'adam', 'adamw'], default='adam', help="Optimizer to use")
+    parser.add_argument('--momentum', type=float, default=0.9, help="Momentum for SGD optimizer")
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help="Weight decay (L2 regularization)")
+
+    # Scheduler parameters
+    parser.add_argument('--scheduler', type=str, choices=['step', 'cosine', 'none'], default='cosine', help="Learning rate scheduler")
+    parser.add_argument('--step_size', type=int, default=30, help="Step size for step scheduler")
+ 
+    return parser
 
 if __name__ == "__main__":
     # Define defaut arguments and call training
@@ -17,7 +49,8 @@ if __name__ == "__main__":
 
     ResNetModel 1:  Convolutional neural network based on Conv2D, and LIFs
     '''
-
+    parser=get_parser()
+    args = parser.parse_args()
     # Case 01:
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
@@ -68,18 +101,35 @@ if __name__ == "__main__":
     # Number of classes: 18
     # Batch size: 40
 
-    # Define case 
-    case = '06'
-    dataSet_ID = 'MNIST'
-    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
-
+    # Define case
+    match args.case:
+        case '06':
+            case = '06'
+            dataSet_ID = 'CIFAR10'
+            dataSet_feat = ['CIFAR10','SVHN','Food101'] 
+        case '07':
+            case = '07'
+            dataSet_ID = 'SVHN'
+            dataSet_feat = ['CIFAR10','SVHN','Food101']
+        case '08':
+            case = '08'
+            dataSet_ID = 'MNIST'
+            dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
+        case '09':
+            case = '09'
+            dataSet_ID = 'FMNIST'
+            dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
+        case '10':
+            case = '10'
+            dataSet_ID = 'KMNIST'
+            dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
     # dataSet_ID = 'CIFAR10'
     # dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
-    batchSize = 8
-    numberOfClasses = 10
-    ResNetModel = 18
+    batchSize = args.batch_size
+    numberOfClasses = args.num_classes
+    ResNetModel = args.model
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -93,21 +143,23 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
-    
-    # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
-    
-    # Feature extraction
-    for i in range(len(dataSet_feat)):
-        feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
+    if args.mode == 'train':
+        dataSet_ID = args.dataset_ID
+        training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=args.epochs, fullTrain=True, pretrained=args.pretrained)
+    if args.mode == 'test':
+        # Test accuracy of trained model on test
+        test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+        
+        # Feature extraction
+        for i in range(len(dataSet_feat)):
+            feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
-    # Statistics
-    stats = test_with_output(case=case, nameID=dataSet_ID)
-    formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-    for row in formatted_stats:
-        print(' '.join(row))
+        # Statistics
+        stats = test_with_output(case=case, nameID=dataSet_ID)
+        formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
+        for row in formatted_stats:
+            print(' '.join(row))
 
-    # Vizualizer
-    # Utils.visualize_feature('FMNIST', 'KMNIST', case)
+        # Vizualizer
+        # Utils.visualize_feature('FMNIST', 'KMNIST', case)
 
