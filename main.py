@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
     # Define case 
     case = '04'
-    dataSet_ID = 'KMNIST'
+    dataSet_ID = 'MNIST'
     dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
     # dataSet_ID = 'CIFAR10'
@@ -167,14 +167,14 @@ if __name__ == "__main__":
     #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
     #############################3
 
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
+    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
     
     # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # Feature extraction
-    for i in range(len(dataSet_feat)):
-        feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
+    # for i in range(len(dataSet_feat)):
+    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
     # Statistics
     stats = test_with_output(case=case, nameID=dataSet_ID)
