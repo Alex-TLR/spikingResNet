@@ -131,8 +131,8 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    # methods = ['NCM', 'KNN', 'KMEANS-Full', 'MD']
-    methods = ['AGGLO']
+    methods = ['NCM', 'KNN', 'KMEANS-Full', 'MD']
+    # methods = ['AGGLO']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
@@ -381,15 +381,27 @@ def test_with_output(case, nameID):
                     # Load cluster
                     clusters = np.load(clusterName, allow_pickle=True)
 
-                # Meadian
+                # Calculate cluster average clusters (centroids) for train features
+                averagePerClass = []
+                for ii in range(number_classes):
+                    averageCluster = []
+                    for cluster_index in np.unique(clusters[ii].labels_):
+                        averageCluster.append(np.median(ID_feat_train[np.where(clusters[ii].labels_ == cluster_index)[0]], axis=0))
+                    averagePerClass.append(np.array(averageCluster))
 
-                _, ID_distances  = Metrics.AGGLO(ID_feat_train, ID_tags_train, ID_feat_test, clusters, threshold, number_classes)
-                _, OOD_distances = Metrics.AGGLO(ID_feat_train, ID_tags_train, OOD_feat_train, clusters, threshold, number_classes)
+                averagePerClass = np.row_stack(averagePerClass)
+
+                # Caclaulte distances per class for train data
+                # Caclulate minimum distance of 
+
+
+                _, ID_distances  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
+                _, OOD_distances = Metrics.AGGLO(OOD_feat_train, averagePerClass, threshold, number_classes)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
-                ID_predictions, _  = Metrics.AGGLO(ID_feat_train, ID_tags_train, ID_feat_test, clusters, threshold, number_classes)
-                OOD_predictions, _ = Metrics.AGGLO(ID_feat_train, ID_tags_train, OOD_feat_train, clusters, threshold, number_classes)
+                ID_predictions, _  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
+                OOD_predictions, _ = Metrics.AGGLO(OOD_feat_train, averagePerClass, threshold, number_classes)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 print(f"threshold_tpr95: {threshold_tpr95}")

@@ -55,7 +55,7 @@ class Clustering():
                 cluster_model.fit(features[labels == i])
                 clusterLabels.append(cluster_model.labels_)
                 feat_c = features[labels == i]
-                print(f"feat_c: {feat_c.shape}")
+                # print(f"feat_c: {feat_c.shape}")
                 print(f"cluster_model.labels_: {cluster_model.labels_}")
                 try:
                     silh_scores.append(silhouette_score(features[labels == i], cluster_model.labels_, metric='manhattan'))
@@ -91,7 +91,7 @@ class Clustering():
             cluster_model.fit(features[labels == i])
             # Save the cluster models
             clusters_per_class.append(cluster_model)
-            print(f"clusters_model_{i}: {cluster_model.n_clusters_}")
+            # print(f"clusters_model_{i}: {cluster_model.n_clusters_}")
 
         print(f"clusters_per_class: {clusters_per_class}")
         return clusters_per_class
