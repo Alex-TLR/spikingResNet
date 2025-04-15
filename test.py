@@ -1,6 +1,6 @@
 import numpy as np
 import time 
-from utils.Utils import Utils
+from utils.Utils import Utils, distances_from_average_clusters, get_preds_from_probs_vector, compute_thresholds, compute_precision_tpr_fpr_for_test_and_ood
 from metrics.Metrics import Metrics
 from clustering.Clustering import Clustering
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
@@ -131,7 +131,7 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['NCM', 'KNN', 'KMEANS-Full', 'MD']
+    methods = ['NCM', 'MD', 'KNN', 'KMEANS-Full', 'KMEANS']
     # methods = ['AGGLO']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
@@ -268,12 +268,12 @@ def test_with_output(case, nameID):
                 start_time = time.time()
                 number_classes = ID_prob_train.shape[1]
                 ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
+                OOD_labels = np.zeros((len(OOD_prob_test)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
 
                 _, ID_distances  = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes)
-                _, OOD_distances = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes)
+                _, OOD_distances = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_classes)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
@@ -288,7 +288,7 @@ def test_with_output(case, nameID):
                 # plt.show()
 
                 ID_predictions, _  = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes)
-                OOD_predictions, _ = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes)
+                OOD_predictions, _ = Metrics.NCM(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_classes)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 # print(f"threshold_tpr95: {threshold_tpr95}")
@@ -306,17 +306,17 @@ def test_with_output(case, nameID):
                 start_time = time.time()
                 number_neighbors = 10 
                 ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
+                OOD_labels = np.zeros((len(OOD_prob_test)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
 
                 _, ID_distances = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
-                _, OOD_distances = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
+                _, OOD_distances = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_neighbors)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
                 ID_predictions, _  = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
-                OOD_predictions, _ = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_neighbors)
+                OOD_predictions, _ = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_neighbors)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 # print(f"threshold_tpr95: {threshold_tpr95}")
@@ -372,9 +372,10 @@ def test_with_output(case, nameID):
 
 
                 # Find clusters (centroids) per class
-                clusterName = 'clustering/cluster_1.npy'
+                clusterName = 'clustering/cluster_2.npy'
                 if (Utils.does_file_exists(clusterName)):
-                    clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
+                    predictions = get_preds_from_probs_vector(ID_prob_train) 
+                    clusters = Clustering.clustering_2(ID_feat_train, predictions, number_classes)
                     print(f"Cluster per class: {len(clusters)}")
                     np.save(clusterName, clusters, allow_pickle=True)
                 else:
@@ -389,10 +390,35 @@ def test_with_output(case, nameID):
                         averageCluster.append(np.median(ID_feat_train[np.where(clusters[ii].labels_ == cluster_index)[0]], axis=0))
                     averagePerClass.append(np.array(averageCluster))
 
-                averagePerClass = np.row_stack(averagePerClass)
+                # Compute distance for each sample from centroids according to predicted class
+                ID_train_distances = distances_from_average_clusters(
+                    ID_feat_train, ID_spik_train, averagePerClass, ID_prob_train)
+                ID_distances = distances_from_average_clusters(
+                    ID_feat_test, ID_spik_test, averagePerClass, ID_prob_test)
+                OOD_distances = distances_from_average_clusters(
+                    OOD_feat_train, OOD_spik_train, averagePerClass, OOD_prob_test)
+                
+                # averagePerClass = np.row_stack(averagePerClass)
 
-                # Caclaulte distances per class for train data
-                # Caclulate minimum distance of 
+                # Compute thresholds for each class based on ID_train_distances
+                thresholds = compute_thresholds(ID_train_distances)
+                print(thresholds[:, 94])
+
+                precision, tpr_values, fpr_values = compute_precision_tpr_fpr_for_test_and_ood(
+                    ID_distances, OOD_distances, thresholds)
+                # print(precision, tpr_values, fpr_values)
+                # Appending that when FPR = 1 the TPR is also 1:
+                tpr_values_auroc = np.append(tpr_values, 1)
+                fpr_values_auroc = np.append(fpr_values, 1)
+                # Metrics
+                auroc = round(np.trapz(tpr_values_auroc,
+                              fpr_values_auroc), 2)
+                aupr = round(np.trapz(precision, tpr_values), 2)
+                fpr95 = round(fpr_values_auroc[95], 2)
+                fpr80 = round(fpr_values_auroc[80], 2)
+                print(f"auroc: {auroc}, aupr: {aupr}, fpr95: {fpr95}")
+
+                averagePerClass = np.row_stack(averagePerClass)
 
 
                 _, ID_distances  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
@@ -411,7 +437,7 @@ def test_with_output(case, nameID):
                 stats[i, len(methods)*2 + j] = fpr95 
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
-                print(f"NNDR Execution time: {execution_time:.4f} seconds")
+                print(f"AGGLO Execution time: {execution_time:.4f} seconds")
 
 
             elif methods[j] == 'MD':
@@ -419,17 +445,17 @@ def test_with_output(case, nameID):
                 number_classes = ID_prob_train.shape[1]
                 number_features = ID_feat_train.shape[1]
                 ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
+                OOD_labels = np.zeros((len(OOD_prob_test)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
 
                 _, ID_distances  = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes, number_features)
-                _, OOD_distances = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes, number_features)
+                _, OOD_distances = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_classes, number_features)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
                 ID_predictions, _  = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes, number_features)
-                OOD_predictions, _ = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_train, threshold, number_classes, number_features)
+                OOD_predictions, _ = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_classes, number_features)
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 print(f"threshold_tpr95: {threshold_tpr95}")
@@ -446,19 +472,19 @@ def test_with_output(case, nameID):
                 start_time = time.time()
                 number_classes = ID_prob_train.shape[1]
                 ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
+                OOD_labels = np.zeros((len(OOD_prob_test)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
-                ncpc = 1
+                ncpc = 5
 
                 _, ID_distances  = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-                _, OOD_distances = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+                _, OOD_distances = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_test, threshold)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
 
                 ID_predictions, _  = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-                OOD_predictions, _ = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+                OOD_predictions, _ = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_test, threshold)
 
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
@@ -476,20 +502,20 @@ def test_with_output(case, nameID):
                 start_time = time.time()
                 number_classes = ID_prob_train.shape[1]
                 ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
+                OOD_labels = np.zeros((len(OOD_prob_test)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
                 threshold = 0
-                ncpc = 30
+                ncpc = 100
 
                 _, ID_distances  = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-                _, OOD_distances = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+                _, OOD_distances = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, OOD_feat_test, threshold)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
                 threshold = threshold_tpr95
                 print(f"threshold_tpr95: {threshold_tpr95}")
 
                 ID_predictions, _  = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-                OOD_predictions, _ = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, OOD_feat_train, threshold)
+                OOD_predictions, _ = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, OOD_feat_test, threshold)
 
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)

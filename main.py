@@ -125,12 +125,12 @@ if __name__ == "__main__":
     #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
 
     # Define case 
-    case = '04'
-    dataSet_ID = 'KMNIST'
-    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
+    case = '03'
+    # dataSet_ID = 'KMNIST'
+    # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
-    # dataSet_ID = 'CIFAR10'
-    # dataSet_feat = ['CIFAR10','SVHN','Food101']
+    dataSet_ID = 'SVHN'
+    dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
     # batchSize = args.batch_size
@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
     batchSize = 64
     numberOfClasses = 10
-    ResNetModel = 2
+    ResNetModel = 11
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -167,14 +167,14 @@ if __name__ == "__main__":
     #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
     #############################3
 
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, fullTrain=True, pretrained=False)
+    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, pretrained=False)
     
     # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # Feature extraction
-    for i in range(len(dataSet_feat)):
-        feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
+    # for i in range(len(dataSet_feat)):
+    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
     # Statistics
     stats = test_with_output(case=case, nameID=dataSet_ID)
@@ -183,5 +183,5 @@ if __name__ == "__main__":
         print(' '.join(row))
 
     # Vizualizer
-    # Utils.visualize_feature('FMNIST', 'KMNIST', case)
+    # Utils.visualize_feature('CIFAR10', 'SVHN', case)
 

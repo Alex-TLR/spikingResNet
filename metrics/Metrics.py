@@ -150,9 +150,10 @@ class Metrics():
         distances = np.zeros(len(test_X))
 
         distances = get_dist(test_X, averagePerClass)
-        print(f"distances.shape: {distances.shape}")
-        print(f"test_X.shape: {test_X.shape}")
-        print(f"Number of clusters: {np.sum(i.shape[0] for i in averagePerClass)}")
+        # print(f"distances.shape: {distances.shape}")
+        # print(f"test_X.shape: {test_X.shape}")
+        # print(f"Number of clusters: {np.sum(i.shape[1] for i in averagePerClass)}")
+        print(f"Number of clusters: {averagePerClass.shape}")
 
         for i in range(len(test_X)):    
             predictions[i] = 1 if distances[i] > threshold else 0
@@ -231,8 +232,8 @@ class Metrics():
 
 
 
-        print(f"distances: {distances}")
-        print(f"distances: {distances.shape}")
+        # print(f"distances: {distances}")
+        # print(f"distances: {distances.shape}")
         # nearest_distances = np.min(distances, axis=1)  # Minimum distance to any cluster center
 
         # (Optional) Convert distances to scores (e.g., negative distance for ROC analysis)

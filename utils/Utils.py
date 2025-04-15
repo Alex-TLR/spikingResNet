@@ -322,12 +322,12 @@ class Utils():
             border = 0
 
             F_id = np.load(filePathId)
-            features1 = F_id['arr1']
+            features1 = F_id['arr4']
 
             if Ood is not None:
                 border = len(features1)
                 F_ood = np.load(filePathOod)
-                features2 = F_ood['arr1']
+                features2 = F_ood['arr4']
 
             print(f'features1.shape is {features1.shape}')
 
@@ -358,6 +358,18 @@ class Utils():
         # available_fonts = sorted([f.name for f in matplotlib.font_manager.fontManager.ttflist])
         # print(available_fonts)
 
+        plt.rcParams.update({
+            'text.usetex': True,  # Use LaTeX for rendering text
+            'font.family': 'serif',  # Set the base font to serif
+            'font.serif': ['Times New Roman'],  # Set Times New Roman (if available)
+            'mathtext.fontset': 'stix',  # Use the STIX math font family (similar to IEEE)
+            'axes.titlesize': 14,
+            'axes.labelsize': 12,
+            'xtick.labelsize': 10,
+            'ytick.labelsize': 10,
+            'figure.titlesize': 16,
+        })
+
         plt.figure(figsize=(10, 8))
 
         if Ood is not None:
@@ -372,23 +384,32 @@ class Utils():
         # Add labels and legend
         # plt.xlabel('t-SNE Dimension 1')
         # plt.ylabel('t-SNE Dimension 2'
+        # , fontname='Liberation Serif',
 
-        plt.title('t-SNE Visualization of Feature Vectors', fontname='Liberation Serif', fontsize=18)
-        plt.legend(fontsize=18)
+        if case == '03':
+            plt.title('t-SNE visualization of spike-ResNet10 feature vectors', fontsize=16)
+        elif case == '04':
+            plt.title('t-SNE visualization of spike-Conv feature vectors', fontsize=16)
+        elif case == '06':
+            plt.title('t-SNE visualization of spike-ResNet18 feature vectors', fontsize=18)
+        plt.legend(fontsize=16)
         plt.xlabel('')
         plt.ylabel('')
         plt.xticks([])
         plt.yticks([])
         plt.grid(False)
 
-        ax = plt.gca()  # Get current axis
-        # for spine in ax.spines.values():
-        #     spine.set_visible(False)
-        # plt.tight_layout(pad=0)
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+        # ax = plt.gca()  # Get current axis
+        # # for spine in ax.spines.values():
+        # #     spine.set_visible(False)
+        # # plt.tight_layout(pad=0)
+        # plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
-        # Show the plot
-        plt.show()
+        # # Show the plot
+        # plt.show()
+
+        fileName = 'tsne/' + str(case) + '_' + str(Id) + '_' + str(Ood) + '.pdf'
+        plt.savefig(fileName, format="pdf", dpi=300, bbox_inches="tight", transparent=False)
 
         # Initialize interactive mode
         # plt.ion()
@@ -441,3 +462,94 @@ class SVHNDataset(Dataset):
         
         return image, label
     
+def get_preds_from_spike_vector(spikes):
+    return spikes.argmax(axis=1)
+
+def get_preds_from_probs_vector(probs):
+    return probs.argmax(axis=1)
+
+def distances_from_average_clusters(spikes, net_outputs, clusters, prob):
+    result = [[] for i in range(len(clusters))]
+
+    preds = get_preds_from_spike_vector(net_outputs) 
+    pred2 = get_preds_from_probs_vector(prob) 
+
+    for i, spike in enumerate(spikes):
+        pred = preds[i]
+        cent = np.array(clusters[pred])
+
+        # Compute minimum distance for each test semple for corresponding class
+        min_dist = np.min(np.sum(np.abs(cent - spike), axis=1))
+        result[pred].append(min_dist)
+    
+    return [np.array(x) for x in result]
+
+# Funkcija kopirana iz rada
+def thresholds_per_class_for_each_TPR(dist_per_class):
+    num_classes = len(dist_per_class)
+    # Creation of the array with the thresholds for each TPR (class, dist_per_TPR)
+    sorted_distances_per_class = [np.sort(x) for x in dist_per_class]
+    tpr_range = np.arange(0,1,0.01)
+    tpr_range[-1] = 0.99999999 # For selecting the last item correctly
+    distance_thresholds_test = np.zeros((num_classes, len(tpr_range)))
+    for class_index in range(num_classes):
+        for index, tpr in enumerate(tpr_range):
+            distance_thresholds_test[class_index, index] = sorted_distances_per_class[class_index][int(len(sorted_distances_per_class[class_index])*tpr)]
+    
+    return distance_thresholds_test
+
+
+def compute_thresholds(dists):
+    return thresholds_per_class_for_each_TPR(dists)
+
+
+def compare_distances_per_class_to_distance_thr_per_class(distances_list_per_class, thr_distances_array):
+    '''
+    Function that creates an array of shape (tpr, InD_or_OD), where tpr has the lenght of the number of steps of the TPR list
+    and second dimensions has the total lenght of the distances_list_per_class, and cotains True if its InD and False if is OD
+    :distances_list_per_class: list with each element being an array with the distances to avg clusters of one class [array(.), array(.)]
+    :thr_distances_array: array of shape (class, dist_for_each_tpr), where first dimension is the class and the second is the distance for the TPR
+    corresponding to that position. For example, the TPR = 0.85 corresponds to the 85th position.
+    '''
+    in_or_out_distribution_per_tpr = np.zeros((len(np.transpose(thr_distances_array)),len(np.concatenate(distances_list_per_class))),dtype=bool)
+    for tpr_index ,thr_distances_per_class in enumerate(np.transpose(thr_distances_array)):
+        in_or_out_distribution_per_tpr[tpr_index] = np.concatenate([dist_one_class < thr_distances_per_class[cls_index] for cls_index, dist_one_class in enumerate(distances_list_per_class)])
+    
+    return in_or_out_distribution_per_tpr
+
+
+def compute_precision_tpr_fpr_for_test_and_ood(dist_test_per_class, dist_ood_per_class,dist_thresholds):
+    # Creation of the array with True if predicted InD (True) or OD (False)
+    in_or_out_distribution_per_tpr_test = compare_distances_per_class_to_distance_thr_per_class(dist_test_per_class, dist_thresholds)
+    in_or_out_distribution_per_tpr_test[0] = np.zeros((in_or_out_distribution_per_tpr_test.shape[1]),dtype=bool) # To fix that one element is True when TPR is 0
+    in_or_out_distribution_per_tpr_test[-1] = np.ones((in_or_out_distribution_per_tpr_test.shape[1]),dtype=bool) # To fix that last element is True when TPR is 1
+    in_or_out_distribution_per_tpr_ood = compare_distances_per_class_to_distance_thr_per_class(dist_ood_per_class, dist_thresholds)
+
+    # Creation of arrays with TP, FN and FP, TN
+    tp_fn_test = tp_fn_fp_tn_computation(in_or_out_distribution_per_tpr_test)
+    fp_tn_ood = tp_fn_fp_tn_computation(in_or_out_distribution_per_tpr_ood)
+
+    # Computing TPR, FPR and Precision
+    tpr_values = tp_fn_test[:,0] / (tp_fn_test[:,0] + tp_fn_test[:,1])
+    fpr_values = fp_tn_ood[:,0] / (fp_tn_ood[:,0] + fp_tn_ood[:,1])
+    precision  = tp_fn_test[:,0] / (tp_fn_test[:,0] + fp_tn_ood[:,0])
+
+    # Eliminating NaN value at TPR = 1
+    precision[0] = 1
+    return precision, tpr_values, fpr_values
+
+
+def tp_fn_fp_tn_computation(in_or_out_distribution_per_tpr):
+    '''
+    Function that creates an array with the number of values of tp and fp or fn and tn, depending on if the 
+    passed array is InD or OD.
+    :in_or_out_distribution_per_tpr: array with True if predicted InD and False if predicted OD, for each TPR
+    ::return: array with shape (tpr, 2) with the 2 dimensions being tp,fn if passed array is InD, and fp and tn if the passed array is OD
+    '''
+    tp_fn_fp_tn = np.zeros((len(in_or_out_distribution_per_tpr),2),dtype='uint16')
+    length_array = in_or_out_distribution_per_tpr.shape[1]
+    for index, element in enumerate(in_or_out_distribution_per_tpr):
+        n_True = int(len(element.nonzero()[0]))
+        tp_fn_fp_tn[index,0] = n_True
+        tp_fn_fp_tn[index,1] = length_array - n_True
+    return tp_fn_fp_tn
