@@ -133,7 +133,7 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['NCM', 'MD']
+    methods = ['NCM', 'MD', 'KNN']
     # methods = ['KMEANS-Full' , 'KMEANS-Full2']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
@@ -318,78 +318,22 @@ def test_with_output(case, nameID):
                 test_labels, test_predictions, test_distances = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, number_features)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
-                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 # print(f"MD Done.")
 
-
-            # elif methods[j] == 'KNN':
-            #     print("KNN")
-            #     start_time = time.time()
-            #     number_neighbors = 10 
-            #     ID_labels = np.ones((len(ID_prob_test)))
-            #     OOD_labels = np.zeros((len(OOD_prob_test)))
-            #     test_labels = np.concatenate((ID_labels, OOD_labels))
-            #     threshold = 0
-
-            #     _, ID_distances = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
-            #     _, OOD_distances = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_neighbors)
-            #     test_distances = np.concatenate((ID_distances, OOD_distances))
-            #     _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-            #     threshold = threshold_tpr95
-
-            #     ID_predictions, _  = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_neighbors)
-            #     OOD_predictions, _ = Metrics.KNN(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_neighbors)
-            #     test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-            #     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-            #     # print(f"threshold_tpr95: {threshold_tpr95}")
-            #     print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
-            #     stats[i, j] = auroc 
-            #     stats[i, len(methods) + j] = aupr
-            #     stats[i, len(methods)*2 + j] = fpr95 
-            #     end_time = time.time()  # Record end time
-            #     execution_time = end_time - start_time  # Calculate execution time
-            #     print(f"KNN Execution time: {execution_time:.4f} seconds.\n")
-
             elif methods[j] == 'KNN':
-                # this method is optimized
-                print("KNN")
-                start_time = time.time()
-                number_neighbors = 10 
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_test)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-
-                # Train KNN classifier
-                neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
-                neigh.fit(ID_feat_train, ID_tags_train)
-
-                # Calculate distances
-                ID_distances, _ = neigh.kneighbors(ID_feat_test, return_distance = True)
-                ID_distances = -np.average(ID_distances, axis=1)
-                OOD_distances, _ = neigh.kneighbors(OOD_feat_test, return_distance = True)
-                OOD_distances = -np.average(OOD_distances, axis=1)
-                
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-
-                # Predictions: (distances > threshold).astype(np.int32)
-                ID_predictions = (ID_distances > threshold).astype(np.int32)
-                OOD_predictions = (OOD_distances > threshold).astype(np.int32)
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+                print(f"KNN on {namesOOD[i]}")
+                number_neighbors = 10
+                test_labels, test_predictions, test_distances = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_neighbors)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
                 print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                print(f"KNN Execution time: {execution_time:.4f} seconds.\n")
-
 
             elif methods[j] == 'NNDR':
                 # needs revision

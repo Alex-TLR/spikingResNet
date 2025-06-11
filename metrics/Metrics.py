@@ -102,7 +102,7 @@ class Metrics():
         Outputs:
             test_labels:
             test_predictions:    an array of predicted labels
-            test_dostances:
+            test_distances:
 
         '''
  
@@ -157,8 +157,9 @@ class Metrics():
             number_classes: (int) number of classes
 
         Outputs:
-            predictions:    an array of predicted labels
-            distances:      an array of output features, 1-D 
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_distances:
         '''
 
         start_time = time.time()
@@ -196,6 +197,52 @@ class Metrics():
         end_time = time.time()  # Record end time
         execution_time = end_time - start_time  # Calculate execution time
         print(f"MD Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def KNN(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_neighbors):
+        '''
+        k Nearest Neighbor classification
+
+        Inputs:
+            ID_feat_train:  matrix with train features, used to fit the model
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_classes: (int) number of classes
+
+        Outputs:
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_distances:
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
+        neigh.fit(ID_feat_train, ID_tags_train)
+
+        # Calculate distances
+        ID_distances, _ = neigh.kneighbors(ID_feat_test, return_distance = True)
+        ID_distances = -np.average(ID_distances, axis=1)
+        OOD_distances, _ = neigh.kneighbors(OOD_feat_test, return_distance = True)
+        OOD_distances = -np.average(OOD_distances, axis=1)
+
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"KNN Execution time: {execution_time:.4f} seconds.")
 
         return test_labels, test_predictions, test_distances
     
@@ -313,34 +360,6 @@ class Metrics():
             predictions[i] = 1 if distances[i] > threshold else 0
 
         print(f"predictions: {predictions}")
-
-        return predictions, distances
-
-    @staticmethod
-    def KNN(train_X, train_Y, test_X, threshold, number_neighbors):
-        '''
-        k Nearest Neighbor classification
-
-        Inputs:
-            train_X:        matrix with train features
-            train_Y:        array with train labels
-            test_X:         matrix with test features
-            threshold:      threshold
-            num_features:   feature dimension
-
-        Outputs:
-            predictions:    an array of predicted labels
-            distances:      an array of output features, 1-D 
-        '''
-
-        neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
-        neigh.fit(train_X, train_Y)
-
-        predictions = neigh.predict(test_X)
-        neigh_dist, _ = neigh.kneighbors(test_X, return_distance = True)
-
-        distances = -np.average(neigh_dist, axis=1)
-        predictions = (distances > threshold).astype(np.int32)
 
         return predictions, distances
     
