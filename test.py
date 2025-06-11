@@ -133,7 +133,7 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['NCM']
+    methods = ['NCM', 'MD']
     # methods = ['KMEANS-Full' , 'KMEANS-Full2']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
@@ -300,7 +300,6 @@ def test_with_output(case, nameID):
                 print(f"SD (spike distance) Execution time: {execution_time:.4f} seconds.\n")
 
             elif methods[j] == 'NCM':
-                # this method is optimized
                 print(f"NCM on {namesOOD[i]}")
                 number_classes = ID_prob_train.shape[1]
                 test_labels, test_predictions, test_distances = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes)
@@ -310,8 +309,21 @@ def test_with_output(case, nameID):
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
-
                 # print(f"NCM Done.\n")
+
+            elif methods[j] == 'MD':
+                print(f"MD on {namesOOD[i]}")
+                number_classes = ID_prob_train.shape[1]
+                number_features = ID_feat_train.shape[1]
+                test_labels, test_predictions, test_distances = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, number_features)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+
+                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                # print(f"MD Done.")
+
 
             # elif methods[j] == 'KNN':
             #     print("KNN")
@@ -491,80 +503,7 @@ def test_with_output(case, nameID):
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"AGGLO Execution time: {execution_time:.4f} seconds")
 
-            # elif methods[j] == 'MD':
-            #     print("MD")
-            #     start_time = time.time()
-            #     number_classes = ID_prob_train.shape[1]
-            #     number_features = ID_feat_train.shape[1]
-            #     ID_labels = np.ones((len(ID_prob_test)))
-            #     OOD_labels = np.zeros((len(OOD_prob_test)))
-            #     test_labels = np.concatenate((ID_labels, OOD_labels))
-            #     threshold = 0
-
-            #     _, ID_distances  = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes, number_features)
-            #     _, OOD_distances = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_classes, number_features)
-            #     test_distances = np.concatenate((ID_distances, OOD_distances))
-            #     _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-            #     threshold = threshold_tpr95
-            #     ID_predictions, _  = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, threshold, number_classes, number_features)
-            #     OOD_predictions, _ = Metrics.MD(ID_feat_train, ID_tags_train, OOD_feat_test, threshold, number_classes, number_features)
-            #     test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-            #     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-            #     print(f"threshold_tpr95: {threshold_tpr95}")
-            #     print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
-            #     stats[i, j] = auroc 
-            #     stats[i, len(methods) + j] = aupr
-            #     stats[i, len(methods)*2 + j] = fpr95 
-            #     end_time = time.time()  # Record end time
-            #     execution_time = end_time - start_time  # Calculate execution time
-            #     print(f"MD Execution time: {execution_time:.4f} seconds")
-
-            elif methods[j] == 'MD':
-                # this method is optimized
-                print("MD")
-                start_time = time.time()
-                number_classes = ID_prob_train.shape[1]
-                number_features = ID_feat_train.shape[1]
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_test)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-
-                # Find a mean feature vector for each class
-                mean_vectors = np.stack([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
-
-                # Center training data by class mean
-                centered = ID_feat_train - mean_vectors[ID_tags_train]
-
-                # Covariance matrix and regularization
-                cov = np.cov(centered, rowvar=False, bias=False) + 0.001 * np.eye(number_features)
-                cov_inv = np.linalg.inv(cov)
-
-                # Compute all Mahalanobis distances in a vectorized way
-                # MDK shape: (len(ID_feat_test), num_classes)
-                ID_MDK = cdist(ID_feat_test, mean_vectors, metric='mahalanobis', VI=cov_inv) ** 2
-                OOD_MDK = cdist(OOD_feat_test, mean_vectors, metric='mahalanobis', VI=cov_inv) ** 2
-
-                ID_distances = -np.min(ID_MDK, axis=1)
-                OOD_distances = -np.min(OOD_MDK, axis=1)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-
-                ID_predictions = (ID_distances > threshold).astype(np.int32)
-                OOD_predictions = (OOD_distances > threshold).astype(np.int32)
-
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                print(f"threshold_tpr95: {threshold_tpr95}")
-                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                print(f"MD Execution time: {execution_time:.4f} seconds")
-
+            
             # elif methods[j] == 'KMEANS':
             #     print("K-MEANS Clustering")
             #     start_time = time.time()

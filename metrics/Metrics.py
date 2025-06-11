@@ -100,7 +100,9 @@ class Metrics():
             number_classes: (int) number of classes
 
         Outputs:
-            predictions:    an array of predicted labels
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_dostances:
 
         '''
  
@@ -131,6 +133,69 @@ class Metrics():
         end_time = time.time()  # Record end time
         execution_time = end_time - start_time  # Calculate execution time
         print(f"NCM Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def MD(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, number_features):
+        '''
+        Mahalanobis distance of ID and OOD feature vectors, based on the centroids
+        of the training data. Mahalanobis distance is calculated as the
+        squared distance between the feature vector and the class centroid,
+        normalized by the covariance matrix of the training data. The distance
+        is calculated for each class, and the minimum distance is used for
+        classification. If the minimum distance is larger than the threshold,
+        the feature vector is classified as OOD, otherwise it is classified as ID.
+
+        Inputs:
+            ID_feat_train:  matrix with train features, it is used to 
+                            normalize feature vectors
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_classes: (int) number of classes
+
+        Outputs:
+            predictions:    an array of predicted labels
+            distances:      an array of output features, 1-D 
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        # Find a mean feature vector for each class
+        mean_vectors = np.stack([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
+        #centroids = np.array([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
+
+        # Center training data by class mean
+        centered = ID_feat_train - mean_vectors[ID_tags_train]
+
+        # Covariance matrix and regularization
+        cov = np.cov(centered, rowvar=False, bias=False) + 0.001 * np.eye(number_features)
+        cov_inv = np.linalg.inv(cov)
+
+        # Compute all Mahalanobis distances in a vectorized way
+        # MDK shape: (len(ID_feat_test), num_classes)
+        ID_MDK = cdist(ID_feat_test, mean_vectors, metric='mahalanobis', VI=cov_inv) ** 2
+        OOD_MDK = cdist(OOD_feat_test, mean_vectors, metric='mahalanobis', VI=cov_inv) ** 2
+
+        ID_distances = -np.min(ID_MDK, axis=1)
+        OOD_distances = -np.min(OOD_MDK, axis=1)
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"MD Execution time: {execution_time:.4f} seconds.")
 
         return test_labels, test_predictions, test_distances
     
@@ -371,79 +436,6 @@ class Metrics():
                 prediction[i] = 0
         print(br)
         return prediction, distances
-    
-
-    @staticmethod
-    def MD(train_X, train_Y, test_X, threshold, num_classes, num_features):
-        '''
-        Mahalanobis distance
-
-        Inputs:
-            train_X:        matrix with train features
-            train_Y:        array with train labels
-            test_X:         matrix with test features
-            threshold:      threshold
-            num_classes:    number of classes
-            num_features:   feature dimension
-
-        Outputs:
-            predictions:    an array of predicted labels
-            distances:      an array of output features, 1-D 
-        '''
-
-        mean_vectors = np.zeros((num_classes, num_features))
-
-        b = 0
-
-        for i in range(0, num_classes):
-            for j in range(len(train_Y)):
-                if(train_Y[j] == i):
-                    b = b + 1
-                    mean_vectors[i] = mean_vectors[i] + train_X[j]
-            mean_vectors[i] = mean_vectors[i] / b
-            b = 0
-
-        # Compute the mean for each class
-        # for i in range(n_classes):
-        #     class_samples = train_X[train_Y == i]
-        #     mean_vectors[i] = class_samples.mean(axis=0)
-
-        pom = np.zeros((len(train_Y), num_features))
-
-        cov = np.zeros((num_features, num_features))
-
-        for i in range(0, num_classes):
-            for j in range(len(train_Y)):
-                if(train_Y[j] == i):
-                    pom[j] = train_X[j]-mean_vectors[i]
-
-        data = np.asmatrix(pom).transpose()
-
-        cov = np.cov(data, bias=False)
-
-        cov = cov+0.001*np.identity(num_features)
-
-        cov_inv = np.linalg.inv(cov)
-
-        MDK = np.zeros((len(test_X), num_classes))
-        C = np.zeros((len(test_X), 1))
-        arg = np.zeros((len(test_X), 1))
-        prediction = []
-
-        cov_inv = np.linalg.inv(cov)
-
-        for i in range(len(test_X)):
-            for j in range(len(mean_vectors)):
-                MDK[i][j] = math.pow(distance.mahalanobis(test_X[i], mean_vectors[j], cov_inv), 2)
-
-            C[i] = -np.min(MDK[i])
-            arg[i] = np.argmin(MDK[i])
-            if(C[i] > threshold):
-                prediction.append(1)
-            else:
-                prediction.append(0)
-
-        return prediction, C
 
 
     @staticmethod
