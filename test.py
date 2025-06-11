@@ -133,7 +133,7 @@ def test_with_output(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['NCM', 'MD', 'KNN', 'FKM']
+    methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
     # methods = ['KMEANS-Full' , 'KMEANS-Full2']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
@@ -338,7 +338,7 @@ def test_with_output(case, nameID):
             elif methods[j] == 'FKM':
                 print(f"K-MEANS Full Clustering on {namesOOD[i]}")
                 number_neighbors = 100
-                test_labels, test_predictions, test_distances = Metrics.FKM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_neighbors)
+                test_labels, test_predictions, test_distances = Metrics.FKM(ID_feat_train, ID_feat_test, OOD_feat_test, number_neighbors)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
                 print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
@@ -346,6 +346,19 @@ def test_with_output(case, nameID):
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 # print(f"KMEANS Full Execution done")
+
+            elif methods[j] == 'CKM':
+                print(f"K-MEANS Clustering per Class on {namesOOD[i]}")
+                number_classes = ID_prob_train.shape[1]
+                ncpc = 5
+                test_labels, test_predictions, test_distances = Metrics.CKM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, ncpc)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                # print(f"CKM Done.")
 
             elif methods[j] == 'NNDR':
                 # needs revision
@@ -458,107 +471,6 @@ def test_with_output(case, nameID):
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"AGGLO Execution time: {execution_time:.4f} seconds")
-
-            
-            # elif methods[j] == 'KMEANS':
-            #     print("K-MEANS Clustering")
-            #     start_time = time.time()
-            #     number_classes = ID_prob_train.shape[1]
-            #     ID_labels = np.ones((len(ID_prob_test)))
-            #     OOD_labels = np.zeros((len(OOD_prob_test)))
-            #     test_labels = np.concatenate((ID_labels, OOD_labels))
-            #     threshold = 0
-            #     ncpc = 5
-
-            #     _, ID_distances  = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-            #     _, OOD_distances = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_test, threshold)
-            #     test_distances = np.concatenate((ID_distances, OOD_distances))
-            #     _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-            #     threshold = threshold_tpr95
-
-            #     ID_predictions, _  = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-            #     OOD_predictions, _ = Metrics.KMEANS(ID_feat_train, ID_tags_train, ncpc, OOD_feat_test, threshold)
-
-            #     test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-            #     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-            #     # print(f"threshold_tpr95: {threshold_tpr95}")
-            #     print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
-            #     stats[i, j] = auroc 
-            #     stats[i, len(methods) + j] = aupr
-            #     stats[i, len(methods)*2 + j] = fpr95 
-            #     end_time = time.time()  # Record end time
-            #     execution_time = end_time - start_time  # Calculate execution time
-            #     print(f"KMEANS Execution time: {execution_time:.4f} seconds")
-
-            elif methods[j] == 'KMEANS':
-                print("K-MEANS Clustering")
-                start_time = time.time()
-                number_classes = ID_prob_train.shape[1]
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_test)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-                threshold = 0
-                ncpc = 5
-
-                # Init clusters of train data
-                clusters = np.zeros((number_classes * ncpc, ID_feat_train.shape[1]))
-                # Find clusters for each class
-                for c in range(number_classes):
-                    clusters[c: c + ncpc] = k_means(ID_feat_train[ID_tags_train == c], ncpc)[0]
-
-                ID_distances  = get_dist(ID_feat_test, clusters)
-                OOD_distances = get_dist(OOD_feat_test, clusters)
-
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-
-                # ID_predictions = [1 if x > threshold else 0 for x in ID_distances]
-                # OOD_predictions = [1 if x > threshold else 0 for x in OOD_distances]
-                ID_predictions = (ID_distances > threshold).astype(np.int32)
-                OOD_predictions = (OOD_distances > threshold).astype(np.int32)
-
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                print(f"KMEANS Execution time: {execution_time:.4f} seconds")
-
-            # elif methods[j] == 'KMEANS-Full':
-            #     print("K-MEANS Full Clustering")
-            #     start_time = time.time()
-            #     number_classes = ID_prob_train.shape[1]
-            #     ID_labels = np.ones((len(ID_prob_test)))
-            #     OOD_labels = np.zeros((len(OOD_prob_test)))
-            #     test_labels = np.concatenate((ID_labels, OOD_labels))
-            #     threshold = 0
-            #     ncpc = 100
-
-            #     _, ID_distances  = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-            #     _, OOD_distances = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, OOD_feat_test, threshold)
-            #     test_distances = np.concatenate((ID_distances, OOD_distances))
-            #     _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-            #     threshold = threshold_tpr95
-            #     print(f"threshold_tpr95: {threshold_tpr95}")
-
-            #     ID_predictions, _  = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, ID_feat_test, threshold)
-            #     OOD_predictions, _ = Metrics.KMEANSFull(ID_feat_train, ID_tags_train, ncpc, OOD_feat_test, threshold)
-
-            #     test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-            #     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-            #     # print(f"threshold_tpr95: {threshold_tpr95}")
-            #     print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
-            #     stats[i, j] = auroc 
-            #     stats[i, len(methods) + j] = aupr
-            #     stats[i, len(methods)*2 + j] = fpr95 
-            #     end_time = time.time()  # Record end time
-            #     execution_time = end_time - start_time  # Calculate execution time
-            #     print(f"KMEANS Full Execution time: {execution_time:.4f} seconds")
-
 
             elif methods[j] == 'DBSCAN':
                 print("DBSCAN")

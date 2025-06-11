@@ -247,7 +247,7 @@ class Metrics():
         return test_labels, test_predictions, test_distances
     
     @staticmethod
-    def FKM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_clusters):
+    def FKM(ID_feat_train, ID_feat_test, OOD_feat_test, number_clusters):
         '''
         K-MEANS Full Clustering is done on all feature vectors, regardless on their labels.
 
@@ -272,6 +272,54 @@ class Metrics():
 
         clusters = np.zeros((number_clusters, ID_feat_train.shape[1]))
         clusters = k_means(ID_feat_train, number_clusters)[0]
+
+        ID_distances = cdist(ID_feat_test, clusters, metric='euclidean')
+        ID_distances = -np.min(ID_distances, axis=1)
+        OOD_distances = cdist(OOD_feat_test, clusters, metric='euclidean')
+        OOD_distances = -np.min(OOD_distances, axis=1)
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"FKM Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def CKM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, number_clusters_per_class):
+        '''
+        K-MEANS Full Clustering is done for each class separately, and then
+        the distances are calculated for each test feature vector.
+
+        Inputs:
+            ID_feat_train:  matrix with train features, used to fit the model
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_clusters_per_class: (int) number of clusters per class
+
+        Outputs:
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_distances:
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        clusters = np.zeros((number_classes * number_clusters_per_class, ID_feat_train.shape[1]))
+        # Find clusters for each class
+        for c in range(number_classes):
+            clusters[c: c + number_clusters_per_class] = k_means(ID_feat_train[ID_tags_train == c], number_clusters_per_class)[0]
 
         ID_distances = cdist(ID_feat_test, clusters, metric='euclidean')
         ID_distances = -np.min(ID_distances, axis=1)
