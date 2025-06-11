@@ -98,7 +98,7 @@ if __name__ == "__main__":
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
     # Network model: SpikeResNet18Model (ResNetModel = 18)
-    # Number of classes: 18
+    # Number of classes: 10
     # Batch size: 40
 
     # Define case
@@ -125,11 +125,11 @@ if __name__ == "__main__":
     #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
 
     # Define case 
-    case = '03'
+    case = '06'
     # dataSet_ID = 'KMNIST'
     # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
-    dataSet_ID = 'SVHN'
+    dataSet_ID = 'CIFAR10'
     dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
     batchSize = 64
     numberOfClasses = 10
-    ResNetModel = 11
+    ResNetModel = 18
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)

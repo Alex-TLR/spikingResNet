@@ -363,11 +363,11 @@ class Utils():
             'font.family': 'serif',  # Set the base font to serif
             'font.serif': ['Times New Roman'],  # Set Times New Roman (if available)
             'mathtext.fontset': 'stix',  # Use the STIX math font family (similar to IEEE)
-            'axes.titlesize': 14,
-            'axes.labelsize': 12,
-            'xtick.labelsize': 10,
-            'ytick.labelsize': 10,
-            'figure.titlesize': 16,
+            'axes.titlesize': 24,
+            'axes.labelsize': 24,
+            'xtick.labelsize': 18,
+            'ytick.labelsize': 18,
+            'figure.titlesize': 24,
         })
 
         plt.figure(figsize=(10, 8))
@@ -380,21 +380,20 @@ class Utils():
         else:
             plt.scatter(features_tsne[:, 0], features_tsne[:, 1], marker='.', c='blue', label=str(Id), alpha=0.5)
 
-
         # Add labels and legend
         # plt.xlabel('t-SNE Dimension 1')
         # plt.ylabel('t-SNE Dimension 2'
         # , fontname='Liberation Serif',
 
         if case == '03':
-            plt.title('t-SNE visualization of spike-ResNet10 feature vectors', fontsize=16)
+            plt.title('t-SNE visualization of spike-ResNet10 feature vectors', fontsize=24)
         elif case == '04':
-            plt.title('t-SNE visualization of spike-Conv feature vectors', fontsize=16)
+            plt.title('t-SNE visualization of spike-Conv feature vectors', fontsize=24)
         elif case == '06':
-            plt.title('t-SNE visualization of spike-ResNet18 feature vectors', fontsize=18)
+            plt.title('t-SNE visualization of spike-ResNet18 feature vectors', fontsize=24)
         plt.legend(fontsize=16)
-        plt.xlabel('')
-        plt.ylabel('')
+        plt.xlabel('t-SNE-1')
+        plt.ylabel('t-SNE-2')
         plt.xticks([])
         plt.yticks([])
         plt.grid(False)
@@ -440,6 +439,145 @@ class Utils():
         # plt.ioff()
 
         return None
+    
+    @staticmethod
+    def prediction_spikes(spikes):
+        '''
+        Function that calculates the predicted class for each sample in the batch. The sample
+        is a feature vector, i.e. spike pattern. Prediction is done as an argmax over the spike pattern.
+        The predicted class is the one with the highest spike count.
+
+        Inputs:
+            spikes (np.array): tensor with the spike patterns (batch_size, num_classes)
+
+        Outputs:
+            predicted (np.array): array with the predicted class for each sample (batch_size,)
+        '''
+        return np.argmax(spikes, axis=1)
+    
+    @staticmethod
+    def prediction_probs(probs):
+        '''
+        Function that calculates the predicted class for each sample in the batch. The sample
+        is a vectro with class probabilities. The predicted class is the one with the highest probability.
+
+        Inputs:
+            probs (np.array): tensor with the sample class probabilities (batch_size, num_classes)
+
+        Outputs:
+            predicted (np.array): array with the predicted class for each sample (batch_size,)
+        '''
+        return np.argmax(probs, axis=1)
+    
+    @staticmethod
+    def distance_from_centroids(spikes, centroids, net_outputs, prob):
+        '''
+        Function that computes the distances for each feature vector (spike pattern) from the each centroid
+        given as input parameter.
+
+        Inputs:
+            spikes (np.array): tensor with the spike patterns (batch_size, feature_size)
+            centroids (list): list of cluster centroids
+            net_outputs (np.array): tensor with the network outputs (batch_size, num_classes)
+            
+            prob (np.array): tensor with the sample class probabilities (batch_size, num_classes)
+
+        Outputs:
+            result (list): list of distances for each class
+        '''
+        
+        print(f"centroids.shape: {centroids.shape}")
+
+        # Initialize the result list with empty lists for each class
+        result = [[]] * len(centroids)
+
+        # Check if the predictions based on spikes and probabilities are the same
+        predictions_1 = Utils.prediction_spikes(net_outputs) 
+        predictions_2 = Utils.prediction_probs(prob)
+
+        compare_predictions = np.array_equal(predictions_1, predictions_2)
+        print(f"Are predictions the same: {compare_predictions}")
+
+        for i, spike in enumerate(spikes):
+            # Get the predicted class for the current spikes
+            pred = predictions_1[i]
+            cent = np.array(centroids[pred])
+
+            # Compute minimum distance for each test sample for corresponding class
+            # Euclidan distance
+            min_dist = -np.min(np.sqrt(np.sum((cent - spike) ** 2, axis=1)))
+            # Manhattan distance
+            # min_dist = np.min(np.sum(np.abs(cent - spike), axis=1))
+            result[pred].append(min_dist)
+    
+        return [np.array(x) for x in result]
+    
+    @staticmethod
+    def distance_from_class_centroids(spikes, centroids):
+        '''
+        Function that computes the distances for each feature vector (spike pattern) from 
+        all class centroids.
+
+        Used in NCM.
+
+        Inputs:
+            spikes (np.array): tensor with the spike patterns (batch_size, feature_size)
+            centroids (list): list of cluster centroids
+
+        Outputs:
+            result (list): list of distances for each class
+        '''
+
+        # Compute the squared Euclidean distances between spikes and centroids
+        # Using broadcasting to calculate distances in a vectorized manner
+        diff = spikes[:, np.newaxis, :] - centroids[np.newaxis, :, :]  # Shape: (batch_size, num_classes, feature_size)
+        # dist_squared = np.sum(diff**2, axis=2)  # Shape: (batch_size, num_classes)
+
+        # # Find the minimum distance for each spike and negate it
+        # distances = -np.sqrt(np.min(dist_squared, axis=1))  # Shape: (batch_size,)
+
+        distances = -np.min(np.linalg.norm(diff, axis=2), axis=1)      # (batch_size,)
+
+        return distances
+
+    # ### Explanation of Optimizations:
+    # 1. **Broadcasting**:
+    #    - Instead of iterating over each spike and centroid, we use NumPy's broadcasting to compute the pairwise differences between all spikes and centroids in one step.
+    #    - `spikes[:, np.newaxis, :]` expands the `spikes` array to shape `(batch_size, 1, feature_size)`.
+    #    - `centroids[np.newaxis, :, :]` expands the `centroids` array to shape `(1, num_classes, feature_size)`.
+    #    - The subtraction results in a shape of `(batch_size, num_classes, feature_size)`.
+
+    # 2. **Vectorized Squared Sum**:
+    #    - The squared Euclidean distance is computed using `np.sum(diff**2, axis=2)` for all spikes and centroids simultaneously, avoiding the inner loop.
+
+    # 3. **Efficient Minimum Calculation**:
+    #    - The minimum distance for each spike is computed using `np.min(dist_squared, axis=1)`.
+
+    # 4. **Avoid Explicit Loops**:
+    #    - By replacing the nested loops with vectorized operations, the function becomes significantly faster, especially for large datasets.
+
+    # ### Performance Improvement:
+    # - The optimized function eliminates the `O(batch_size * num_classes)` complexity of the nested loops and replaces it with efficient NumPy operations that leverage low-level optimizations.
+    # - This will result in a significant speedup, especially when `batch_size` or `num_classes` is large.
+    
+    @staticmethod
+    def id_ood_predictions(distances, threshold):
+        '''
+        Make In-distribution / Out-of-distribution predictions based on the distances and threshold.
+
+        Inputs:
+            distances (list): list of distances for each class
+            threshold (float): threshold value for classification
+
+        Outputs:
+            in_or_out_distribution (np.array): array with True if InD and False if OOD
+        '''
+
+        predictions = np.zeros(len(distances), dtype=np.int32)
+        for i in range(len(distances)):    
+            predictions[i] = 1 if distances[i] > threshold else 0
+
+        return predictions
 
 
 class SVHNDataset(Dataset):

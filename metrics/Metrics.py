@@ -3,10 +3,11 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import average_precision_score, precision_recall_curve, auc
 from sklearn.metrics import roc_auc_score
 from sklearn.neighbors import NearestCentroid
+from utils.Utils import Utils, distances_from_average_clusters
 import math
 from scipy.spatial import distance
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cluster import k_means, DBSCAN
+from sklearn.cluster import k_means, DBSCAN, KMeans
 import time 
 import numpy as np
 from scipy.spatial.distance import cdist
@@ -84,50 +85,54 @@ class Metrics():
     
 
     @staticmethod
-    def NCM(train_X, train_Y, test_X, threshold, num_classes):
+    def NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes):
         '''
-        Nearest Class Mean is the distance between test feature and the nearest
-        training class centroid.  
+        Nearest Class Mean is the distance between test feature and the 
+        nearest training class centroid.  
 
         Inputs:
-            train_X:        matrix with train features
-            train_Y:        an array with train labels
-            test_X:         matrix with test features
-            num_classes:    number of classes
+            ID_feat_train:  matrix with train features, it is used to 
+                            calculate centroids
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_classes: (int) number of classes
 
         Outputs:
             predictions:    an array of predicted labels
-            distances:      an array of output features, 1-D 
 
         '''
  
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
 
-        # print(f"train_X: {train_X[0:2, :]}")
-        centroids_X = np.array([train_X[train_Y == c].mean(axis=0) for c in range(num_classes)])
-        # print(f"centroids_X: {centroids_X}")
+        # Find centroids for each class
+        centroids = np.array([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
 
-        predictions = np.zeros(len(test_X))
-        distances = np.zeros(len(test_X))
-        epsilon = 1e-10
-        p = 100
+        # Calculate distance between each sample and the class centroids
+        ID_distances = Utils.distance_from_class_centroids(ID_feat_test, centroids)
+        OOD_distances = Utils.distance_from_class_centroids(OOD_feat_test, centroids)
 
-        for i in range(len(test_X)):
-            dist = np.zeros(num_classes)
-            for j in range(num_classes):
-                dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2))
-                # dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p)
-            distances[i] = -dist.min()
+        # Concatenate distances
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+        # print(f"threshold_tpr95: {threshold_tpr95}")
 
-        # print(f"distances: {distances.shape}")
-        # distances = (distances - distances.min()) / (distances.max() - distances.min())
+        # Make predictions based on the distances
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
 
-        # max_dist = np.max(distances)
-        # distances = np.array([1 - e/max_dist for e in distances])
-            
-        for i in range(len(test_X)):    
-            predictions[i] = 1 if distances[i] > threshold else 0
+        # Concatenate predictions
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"NCM Execution time: {execution_time:.4f} seconds.")
 
-        return predictions, distances
+        return test_labels, test_predictions, test_distances
     
     @staticmethod
     def AGGLO(test_X, averagePerClass, threshold, number_classes):
@@ -416,7 +421,6 @@ class Metrics():
 
         cov = np.cov(data, bias=False)
 
-        #print(cov)
         cov = cov+0.001*np.identity(num_features)
 
         cov_inv = np.linalg.inv(cov)
