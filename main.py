@@ -1,4 +1,4 @@
-from test import test_with_output, test_accuracy
+from test import test_metrics, test_accuracy
 from feature import feature_extraction_conv, feature_extraction_spike
 from train import training
 import numpy as np
@@ -65,18 +65,11 @@ if __name__ == "__main__":
     # Number of classes: 10
     # Batch size: 32
 
-    # Case 03: (old)
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: SpikeResNet10Model (ResNetModel = 10)
-    # Number of classes: 10
-    # Batch size: 32
-
     # Case 03:
     # This is the same case as 03, with downsampling bug fixed
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: SpikeResNet10ModelAlt (ResNetModel = 11)
+    # Network model: SpikeResNet10Model (ResNetModel = 10)
     # Number of classes: 10
     # Batch size: 32
 
@@ -126,18 +119,18 @@ if __name__ == "__main__":
 
     # Define case 
     case = '06'
-    # dataSet_ID = 'KMNIST'
-    # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
+    dataSet_ID = 'KMNIST'
+    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
-    dataSet_ID = 'CIFAR10'
-    dataSet_feat = ['CIFAR10','SVHN','Food101']
+    # dataSet_ID = 'CIFAR10'
+    # dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
     # batchSize = args.batch_size
     # numberOfClasses = args.num_classes
     # ResNetModel = args.model
 
-    batchSize = 64
+    batchSize = 4
     numberOfClasses = 10
     ResNetModel = 18
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -167,7 +160,7 @@ if __name__ == "__main__":
     #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
     #############################3
 
-    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, pretrained=False)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, pretrained=False)
     
     # Test accuracy of trained model on test
     # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
@@ -177,7 +170,7 @@ if __name__ == "__main__":
     #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
     # Statistics
-    stats = test_with_output(case=case, nameID=dataSet_ID)
+    stats = test_metrics(case=case, nameID=dataSet_ID)
     formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
     for row in formatted_stats:
         print(' '.join(row))

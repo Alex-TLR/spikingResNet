@@ -48,82 +48,32 @@ class BasicModel(nn.Module):
         sys.stdout.flush()
         return None
     
-    # def forward_pass(self, model, numSteps, data):
-    #     # mem_trace = []
-    #     # spk_trace = []
-    #     utils.reset(model)
-
-    #     for _ in range(numSteps):
-    #         spk_out, _, mem_out = model(data)
-    #         spk_trace.append(spk_out)
-    #         mem_trace.append(mem_out)
-
-    #     spk_trace = torch.stack(spk_trace)
-    #     mem_trace = torch.stack(mem_trace)
-
-    #     return spk_trace, mem_trace
-    
-    # # TODO: Fix
-    # def forward_pass_rate(self, model, numSteps, data):
-    #     mem_trace = []
-    #     spk_trace = []
-    #     utils.reset(model)
-
-    #     spike_data = spikegen.rate(data, num_steps=numSteps)
-    #     for i in range(numSteps):
-    #         spk_out, _, mem_out = model(spike_data[i])
-    #         spk_trace.append(spk_out)
-    #         mem_trace.append(mem_out)
-
-    #     spk_trace = torch.stack(spk_trace)
-    #     mem_trace = torch.stack(mem_trace)
-
-    #     return spk_trace, mem_trace
-    
-    # def accuracy_spike(self, model, numSteps, data, labels, device):
-
-    #     with torch.no_grad():
-    #         model.eval()
-    #         data = data.to(device)
-    #         labels = labels.to(device)
-    #         spikes, _ , _ = model(data, numSteps)
-    #         acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
-    #         total = spikes.size(1)
-
-    #     return acc/total
-    
     def accuracy_spike(self, model, numSteps, data, labels, device):
-
         '''
         Returns accuracy rate comparing to total batch size, and
         total accuracy count inside the batch size 
         '''
-
         with torch.no_grad():
             model.eval()
             data = data.to(device)
             labels = labels.to(device)
             spikes, _ , _ = model(data, numSteps)
-            idx = spikes.sum(dim=0).max(1)
-            sumss = spikes.sum(dim=0)
-            # print(f"spikes.shape: {spikes.shape}, data.shape: {data.shape}, labels: {labels}")
-            # print(f"labels: {labels}")
-            # print(f"spikes.size(1): {spikes.size(1)}")
-            # print(f"idex:\n{idx},\nsumss:\n{sumss}")
             acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
-            # print(f"acc: {acc}")
             total = spikes.size(1)
-
         return acc/total, acc
 
     def fit_spike(self, model, nEpochs, opt, lossF, train_load, val_load, nSteps, device):
         '''
+        Fitting function for the case when data is split to train and validation sets.
+
+        model:        spike-network model to train
         nEpochs:      number of epochs for training
         opt:          optimizer
-        lossf:        loss function
+        lossF:        loss function
         train_load:   loader for train data
         val_load:     loader for validation data
-        nSteps:       number of steps in one exitation !
+        nSteps:       number of steps in one exitation
+        device:       device to use for training (cpu or cuda)
         history:      list of statistics for all epochs (appended in each epoch)
         '''
         history = []
@@ -136,7 +86,6 @@ class BasicModel(nn.Module):
             for batch, labels in train_load:
                 batch = batch.to(device)
                 labels = labels.to(device)
-                # model.train()
                 # Generate predictions/ forward pass
                 spikes, _, _ = model(batch, nSteps)
                 # Calculate loss
@@ -191,22 +140,27 @@ class BasicModel(nn.Module):
     
     def fit_spike_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, train_load, nSteps, gd, device, checkpointPeriod=1):
         '''
+        Fitting function for the case when no validation set is used.
+
+        model:        spike-network model to train
         nEpochs:      number of epochs for training
-        sched:        schedlurer
+        ResNetModel:  ResNet model type (9 or 10 layers), gives the label of the model
+        dataSet:      dataset name (MNIST, CIFAR10, etc.)
+        sched:        scheduler
         opt:          optimizer
-        lossf:        loss function
+        lossF:        loss function
         train_load:   loader for train data
         nSteps:       number of steps in one exitation !
-        history:      list of statistics for all epochs (appended in each epoch)
         gd:           gradient clipping
+        device:       device to use for training (cpu or cuda)
+        checkpointPeriod: period of saving model weights (default is 1)
+        history:      list of statistics for all epochs (appended in each epoch)     
         '''
         history = []
         current_step = 0
 
-        accumulation_steps = 8 
-
         for i in range(startEpoch, nEpochs):
-            # model.train()
+            model.train()
             # Define lists to store training loss and accuracy
             tLoss = []
             tAcc = list()
@@ -214,7 +168,6 @@ class BasicModel(nn.Module):
             for batch_idx, (batch, labels) in enumerate(train_load):
                 batch = batch.to(device)
                 labels = labels.to(device)
-                model.train()
                 # Generate predictions/ forward pass
                 spikes, _, _ = model(batch, nSteps)
                 # Calculate loss
@@ -225,14 +178,6 @@ class BasicModel(nn.Module):
                 # Update weights
                 loss.backward()
                 nn.utils.clip_grad_value_(model.parameters(), gd)
-
-                # Perform optimizer step only after accumulation_steps batches
-                # if (batch_idx + 1) % accumulation_steps == 0 or (batch_idx + 1) == len(train_load):
-                #     opt.step()
-                #     opt.zero_grad()  # Reset gradients after update
-                    
-                #     if sched is not None:
-                #         sched.step()  # Update learning rate scheduler
                 # Update opt
                 opt.step()
                 if sched is not None:
@@ -282,6 +227,7 @@ class BasicModel(nn.Module):
 #####################
 
 # 9 layers
+# Downsampling is done with MaxPool2d
 class SpikeResNet9Model(BasicModel):
                                                                                 # Input size
     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):     # 28x28
@@ -383,142 +329,9 @@ class SpikeResNet9Model(BasicModel):
     # spk_out 10-D spikes
     # mem7 10-D memebrane voltage
 
-
 # 10 layers
+# Downsampling is done via convolutional kernel followed by leaky activation
 class SpikeResNet10Model(BasicModel):
-                                                                                # Input size
-    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):     # 32x32
-        super().__init__(numberOfClasses)
-
-        self.block1 = self.convBlock(numberOfChannels, 64)                      # 64x32x32
-        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') # 64x32x32
-
-        # The residual super-block
-        # Contains blocks with skip connections (2 conv blocks)
-        self.resBlock2_1 = self.convBlock(64, 64)                               # 64x32x32
-        self.r2_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
-        self.resBlock2_2 = self.convBlock(64, 64)                               # 64x32x32
-        self.r2_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # Downsample block
-        self.downsample3 = self.convBlock(64, 128, kernel_size=1, stride=2, padding=0)
-        self.downsample3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # The residual super-block
-        # Contains two blocks with skip connections (4 conv blocks)
-        self.resBlock4_1 = self.convBlock(64, 128, kernel_size=3, stride=2)     # 64x32x32
-        self.r4_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
-        self.resBlock4_2 = self.convBlock(128, 128)                             # 128x16x16
-        self.r4_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # Downsample block
-        self.downsample5 = self.convBlock(128, 256, kernel_size=1, stride=2, padding=0)
-        self.downsample5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # The residual super-block
-        # Contains two blocks with skip connections (2 conv blocks)
-        self.resBlock6_1 = self.convBlock(128, 256, kernel_size=3, stride=2)    # 128x16x16
-        self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
-        self.resBlock6_2 = self.convBlock(256, 256)                             # 256x8x8
-        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        # Downsample block
-        self.downsample7 = self.convBlock(256, 512, kernel_size=1, stride=2, padding=0)
-        self.downsample7 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
- 
-        # The residual super-block
-        # Contains two blocks with skip connections (2 conv blocks)
-        self.resBlock8_1 = self.convBlock(256, 512, kernel_size=3, stride=2)    # 512x4x4
-        self.r8_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
-        self.resBlock8_2 = self.convBlock(512, 512)                             # 512x4x4
-        self.r8_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
-
-        self.amax9 = nn.AdaptiveMaxPool2d(1)                                    # 512x1x1
-        self.flat = nn.Flatten()
-        self.fc9 = nn.Linear(512, numberOfClasses)
-        self.lifOut = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
-
-    def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
-        layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
-                    nn.BatchNorm2d(num_features=output)]
-        return nn.Sequential(*layers)
-    
-    def forward(self, x, numberOfSteps):
-
-        # Initialize hidden states and outputs at t=0
-        mem1 = self.lif1.init_leaky()
-        mem2_1 = self.r2_lif1.init_leaky()
-        mem2_2 = self.r2_lif2.init_leaky()
-        mem4_1 = self.r4_lif1.init_leaky()
-        mem4_2 = self.r4_lif2.init_leaky()
-        mem6_1 = self.r6_lif1.init_leaky()
-        mem6_2 = self.r6_lif2.init_leaky()
-        mem8_1 = self.r8_lif1.init_leaky()
-        mem8_2 = self.r8_lif2.init_leaky()
-        mem9 = self.lifOut.init_leaky()
-
-        feat_trace = []
-        prob_trace = []
-        spik_trace = []
-
-        for _ in range(numberOfSteps):
-
-            cur1 = self.block1(x)
-            spk1, mem1 = self.lif1(cur1, mem1)
-
-            cur2_1 = self.resBlock2_1(spk1)
-            spk2_1, mem2_1 = self.r2_lif1(cur2_1, mem2_1)
-            cur2_2 = self.resBlock2_2(spk2_1)
-            spk2_2, mem2_2 = self.r2_lif2(cur2_2, mem2_2)
-            # make skip connection, ADD :)
-            spk_r2_1 = spk2_2 + spk1
-            
-            # Block input conv (64, 128)
-            identity_4 = self.downsample3(spk_r2_1)
-
-            # print(f'identity_4.shape is {identity_4.shape}')
-            cur4_1 = self.resBlock4_1(spk_r2_1)
-            spk4_1, mem4_1 = self.r4_lif1(cur4_1, mem4_1)
-            cur4_2 = self.resBlock4_2(spk4_1)
-            spk4_2, mem4_2 = self.r4_lif2(cur4_2, mem4_2)
-            # make skip connection
-            spk_r4_1 = spk4_2 + identity_4
-
-            # Block input conv (128, 256)
-            identity_6 = self.downsample5(spk_r4_1)
-            # print(f'identity_6.shape is {identity_6.shape}')
-            cur6_1 = self.resBlock6_1(spk_r4_1)
-            spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
-            cur6_2 = self.resBlock6_2(spk6_1)
-            spk6_2, mem6_2 = self.r6_lif2(cur6_2, mem6_2)
-            # make skip connection
-            spk_r6_1 = spk6_2 + identity_6
-
-            # Block input conv (256, 512)
-            identity_8 = self.downsample7(spk_r6_1)
-            # print(f'identity_8.shape is {identity_8.shape}')
-            cur8_1 = self.resBlock8_1(spk_r6_1)
-            spk8_1, mem8_1 = self.r8_lif1(cur8_1, mem8_1)
-            cur8_2 = self.resBlock8_2(spk8_1)
-            spk8_2, mem8_2 = self.r8_lif2(cur8_2, mem8_2)
-            # make skip connection
-            spk_r8_1 = spk8_2 + identity_8
-
-            spk9 = self.amax9(spk_r8_1)
-            spk9 = self.flat(spk9)
-            cur9 = self.fc9(spk9)
-            spk_out, mem9 = self.lifOut(cur9, mem9)
-
-            feat_trace.append(spk9)
-            prob_trace.append(mem9)
-            spik_trace.append(spk_out)
-
-        # print(f'spik_trace is {spik_trace}, prob_trace is {prob_trace}')
-        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
-
-
-# 10 layers
-class SpikeResNet10ModelAlt(BasicModel):
     
     '''
     Version of spike-ResNet10 with spike block inside downsampling block
@@ -612,7 +425,7 @@ class SpikeResNet10ModelAlt(BasicModel):
             spk2_1, mem2_1 = self.r2_lif1(cur2_1, mem2_1)
             cur2_2 = self.resBlock2_2(spk2_1)
             spk2_2, mem2_2 = self.r2_lif2(cur2_2, mem2_2)
-            # make skip connection, ADD :)
+            # make skip connection, ADD
             spk_r2_1 = spk2_2 + spk1
             
             # Block input conv (64, 128)
@@ -627,7 +440,6 @@ class SpikeResNet10ModelAlt(BasicModel):
             spk_r4_1 = spk4_2 + identity_3
 
             # Block input conv (128, 256)
-            # identity_6 = self.downsample5(spk_r4_1)
             id_5 = self.downsample5(spk_r4_1)
             identity_5, mem_d5 = self.d_lif5(id_5, mem_d5)
             # print(f'identity_6.shape is {identity_6.shape}')
@@ -639,7 +451,6 @@ class SpikeResNet10ModelAlt(BasicModel):
             spk_r6_1 = spk6_2 + identity_5
 
             # Block input conv (256, 512)
-            # identity_8 = self.downsample7(spk_r6_1)
             id_7 = self.downsample7(spk_r6_1)
             identity_7, mem_d7 = self.d_lif7(id_7, mem_d7)
             # print(f'identity_8.shape is {identity_8.shape}')
@@ -662,7 +473,6 @@ class SpikeResNet10ModelAlt(BasicModel):
         # print(f'spik_trace is {spik_trace}, prob_trace is {prob_trace}')
         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
-
 # 18 layers
 class SpikeResNet18Model(BasicModel):                                           # Input size
 
@@ -673,7 +483,7 @@ class SpikeResNet18Model(BasicModel):                                           
         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')                   # 64x32x32
 
         # The residual super-block
-        # Contains two blocks with skip connections ( 4 conv blocks)
+        # Contains two blocks with skip connections (4 conv blocks)
         self.resBlock2_1 = self.convBlock(64, 64)                               # 64x32x32
         self.r2_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
         self.resBlock2_2 = self.convBlock(64, 64)                               # 64x32x32
@@ -685,6 +495,7 @@ class SpikeResNet18Model(BasicModel):                                           
         
         # Downsample block
         self.downsample3 = self.convBlock(64, 128, kernel_size=1, stride=2, padding=0)
+        self.d_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
 
         # The residual super-block
         # Contains two blocks with skip connections ( 4 conv blocks)
@@ -701,6 +512,7 @@ class SpikeResNet18Model(BasicModel):                                           
 
         # Downsample block
         self.downsample5 = self.convBlock(128, 256, kernel_size=1, stride=2, padding=0)
+        self.d_lif5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
 
         # The residual super-block
         # Contains two blocks with skip connections ( 4 conv blocks)
@@ -715,6 +527,7 @@ class SpikeResNet18Model(BasicModel):                                           
 
         # Downsample block
         self.downsample7 = self.convBlock(256, 512, kernel_size=1, stride=2, padding=0)
+        self.d_lif7 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
 
         # The residual super-block
         # Contains two blocks with skip connections ( 4 conv blocks)
@@ -760,6 +573,9 @@ class SpikeResNet18Model(BasicModel):                                           
         mem8_3 = self.r8_lif3.init_leaky()
         mem8_4 = self.r8_lif4.init_leaky()
         mem_out = self.lifOut.init_leaky()
+        mem_d3 = self.d_lif3.init_leaky()
+        mem_d5 = self.d_lif5.init_leaky()
+        mem_d7 = self.d_lif7.init_leaky()
 
         feat_trace = []
         prob_trace = []
@@ -776,7 +592,7 @@ class SpikeResNet18Model(BasicModel):                                           
             spk2_1, mem2_1 = self.r2_lif1(cur2_1, mem2_1)
             cur2_2 = self.resBlock2_2(spk2_1)
             spk2_2, mem2_2 = self.r2_lif2(cur2_2, mem2_2)
-            # make skip connection, ADD :)
+            # make skip connection, with the same size
             spk_r2_1 = spk2_2 + spk1
             # spk_r2_1 is used for skip connection
             cur2_3 = self.resBlock2_3(spk_r2_1)
@@ -788,14 +604,15 @@ class SpikeResNet18Model(BasicModel):                                           
             # print(f'spk_r2_2.shape is {spk_r2_2.shape}')
 
             # Block input conv (64, 128)
-            identity_4 = self.downsample3(spk_r2_2)
+            id_3 = self.downsample3(spk_r2_2)
+            identity_3, mem_d3 = self.d_lif3(id_3, mem_d3)
             # print(f'identity_4.shape is {identity_4.shape}')
             cur4_1 = self.resBlock4_1(spk_r2_2)
             spk4_1, mem4_1 = self.r4_lif1(cur4_1, mem4_1)
             cur4_2 = self.resBlock4_2(spk4_1)
             spk4_2, mem4_2 = self.r4_lif2(cur4_2, mem4_2)
             # make skip connection
-            spk_r4_1 = spk4_2 + identity_4
+            spk_r4_1 = spk4_2 + identity_3
             cur4_3 = self.resBlock4_3(spk_r4_1)
             spk4_3, mem4_3 = self.r4_lif3(cur4_3, mem4_3)
             cur4_4 = self.resBlock4_4(spk4_3)
@@ -804,13 +621,14 @@ class SpikeResNet18Model(BasicModel):                                           
             spk_r4_2 = spk4_4 + spk_r4_1
 
             # Block input conv (128, 256)
-            identity_6 = self.downsample5(spk_r4_2)
+            id_5 = self.downsample5(spk_r4_2)
+            identity_5, mem_d5 = self.d_lif5(id_5, mem_d5)
             cur6_1 = self.resBlock6_1(spk_r4_2)
             spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
             cur6_2 = self.resBlock6_2(spk6_1)
             spk6_2, mem6_2 = self.r6_lif2(cur6_2, mem6_2)
             # make skip connection
-            spk_r6_1 = spk6_2 + identity_6
+            spk_r6_1 = spk6_2 + identity_5
             cur6_3 = self.resBlock6_3(spk_r6_1)
             spk6_3, mem6_3 = self.r6_lif3(cur6_3, mem6_3)
             cur6_4 = self.resBlock6_4(spk6_3)
@@ -819,13 +637,14 @@ class SpikeResNet18Model(BasicModel):                                           
             spk_r6_2 = spk6_4 + spk_r6_1
 
             # Block input conv (256, 512)
-            identity_8 = self.downsample7(spk_r6_2)
+            id_7 = self.downsample7(spk_r6_2)
+            identity_7, mem_d7 = self.d_lif7(id_7, mem_d7)
             cur8_1 = self.resBlock8_1(spk_r6_2)
             spk8_1, mem8_1 = self.r8_lif1(cur8_1, mem8_1)
             cur8_2 = self.resBlock8_2(spk8_1)
             spk8_2, mem8_2 = self.r8_lif2(cur8_2, mem8_2)
             # make skip connection
-            spk_r8_1 = spk8_2 + identity_8
+            spk_r8_1 = spk8_2 + identity_7
             cur8_3 = self.resBlock8_3(spk_r8_1)
             spk8_3, mem8_3 = self.r8_lif3(cur8_3, mem8_3)
             cur8_4 = self.resBlock8_4(spk8_3)
@@ -844,22 +663,29 @@ class SpikeResNet18Model(BasicModel):                                           
 
         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
-
-class spikeConvNN3(BasicModel):
+# Good for grayscale
+class spikeConvNN1(BasicModel):
     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
         # it was set to init threshold value 0.2
         super().__init__(numberOfClasses)
 
-        self.conv1 = nn.Conv2d(numberOfChannels, 64, kernel_size=3, padding=1, stride=2)
+        self.conv1 = nn.Conv2d(numberOfChannels, 128, kernel_size=3, padding=1, stride=2)
         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.conv2 = nn.Conv2d(64, 128, kernel_size=3, padding=1, stride=2)
+        self.conv2 = nn.Conv2d(128, 256, kernel_size=3, padding=1, stride=2)
         self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.conv3 = nn.Conv2d(128, 256, kernel_size=3, padding=1, stride=2)
+        self.conv3 = nn.Conv2d(256, 512, kernel_size=3, padding=1, stride=2)
         self.lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
         self.amax = nn.AdaptiveMaxPool2d(1)
         self.flat = nn.Flatten()    
-        self.fc4 = nn.Linear(256, numberOfClasses)
+        self.fc4 = nn.Linear(512, numberOfClasses)
         self.lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
+
+        # self.fc1 = nn.Linear(50*8*8, 500)
+        # self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero")
+        # self.fc2 = nn.Linear(500, 300)
+        # self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism="zero")
+        # self.fc3 = nn.Linear(300, 10)
+        # self.lif5 = snn.Leaky(beta=beta)
 
     def forward(self, x, num_steps):
 
@@ -874,16 +700,22 @@ class spikeConvNN3(BasicModel):
         spik_trace = []
 
         for _ in range(num_steps):
+            print(f"Conv1 x.shape: {x.shape}")
             cur1 = self.conv1(x)
+            print(f"Conv1 cur1.shape: {cur1.shape}")
             spk1, mem1 = self.lif1(cur1, mem1)
 
             cur2 = self.conv2(spk1)
+            print(f"Conv1 cur2.shape: {cur2.shape}")
             spk2, mem2 = self.lif2(cur2, mem2)
 
             cur3 = self.conv3(spk2)
+            print(f"Conv1 cur3.shape: {cur3.shape}")
             spk3, mem3 = self.lif3(cur3, mem3)
-
+ 
+            print(f"Conv1 spk3.shape: {spk3.shape}")
             spk4 = self.amax(spk3)
+            print(f"Conv1 spk4.shape: {spk4.shape}")
             spk4 = self.flat(spk4)
             cur4 = self.fc4(spk4)
             spk_out, mem4 = self.lif4(cur4, mem4)
@@ -894,71 +726,8 @@ class spikeConvNN3(BasicModel):
 
         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
-# # spike convolutional network
-# class spikeConvNN1(BasicModel):
-#     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
-#         # it was set to init threshold value 0.2
-#         super().__init__(numberOfClasses)
-
-#         self.conv1 = nn.Conv2d(numberOfChannels, 64, kernel_size=3, padding=1, stride=2, bias=False)
-#         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.conv2 = nn.Conv2d(64, 256, kernel_size=3, padding=1, stride=2, bias=False)
-#         self.lif2 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero")
-#         self.conv3 = nn.Conv2d(256, 512, kernel_size=3, padding=1, stride=2, bias=False)
-#         self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero")
-#         self.amax = nn.AdaptiveMaxPool2d(1)
-#         self.flat = nn.Flatten()    
-#         self.fc4 = nn.Linear(512, 256)
-#         self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism="zero")
-#         self.fc5 = nn.Linear(256, numberOfClasses, bias=False)
-#         self.lif5 = snn.Leaky(beta=beta)
-
-#     def forward(self, x, num_steps):
-
-#         # Initialize hidden states and outputs at t=0
-#         mem1 = self.lif1.init_leaky()
-#         mem2 = self.lif2.init_leaky()
-#         mem3 = self.lif3.init_leaky()
-#         mem4 = self.lif4.init_leaky()
-#         mem5 = self.lif5.init_leaky()
-        
-#         feat_trace = []
-#         prob_trace = []
-#         spik_trace = []
-
-#         for _ in range(num_steps):
-#             cur1 = self.conv1(x)
-#             spk1, mem1 = self.lif1(cur1, mem1)
-#             # print(f"cur1.shape {cur1.shape}, spk1.shape: {spk1.shape}, mem1.shape: {mem1.shape}")
-
-#             cur2 = self.conv2(spk1)
-#             spk2, mem2 = self.lif2(cur2, mem2)
-
-#             cur3 = self.conv3(spk2)
-#             spk3, mem3 = self.lif3(cur3, mem3)
-
-#             # print(f"spk3.shape: {spk3.shape}")
-#             spk3 = self.amax(spk3)
-#             spk3 = spk3.view(-1, 512)
-#             # print(f"spk3.shape: {spk3.shape}")
-#             # spk4 = self.flat(spk4)
-
-#             cur4 = self.fc4(spk3)
-#             spk4, mem4 = self.lif4(cur4, mem4)
-
-#             cur5 = self.fc5(spk4)
-#             spk_out, mem5 = self.lif5(cur5, mem5)
-
-#             # spk_out, mem4 = self.lif4(cur4, mem4)
-
-#             feat_trace.append(spk4)
-#             prob_trace.append(mem5)
-#             spik_trace.append(spk_out)
-
-#         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
-
-
 # spike convolutional network
+# ResNetModel2
 class spikeConvNN2(BasicModel):
     '''
     Convolutional network model from:
@@ -1029,6 +798,57 @@ class spikeConvNN2(BasicModel):
             spik_trace.append(spk_out)
 
         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
+
+
+class spikeConvNN3(BasicModel):
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
+        # it was set to init threshold value 0.2
+        super().__init__(numberOfClasses)
+
+        self.conv1 = nn.Conv2d(numberOfChannels, 64, kernel_size=3, padding=1, stride=2)
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        self.conv2 = nn.Conv2d(64, 128, kernel_size=3, padding=1, stride=2)
+        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        self.conv3 = nn.Conv2d(128, 256, kernel_size=3, padding=1, stride=2)
+        self.lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        self.amax = nn.AdaptiveMaxPool2d(1)
+        self.flat = nn.Flatten()    
+        self.fc4 = nn.Linear(256, numberOfClasses)
+        self.lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
+
+    def forward(self, x, num_steps):
+
+        # Initialize hidden states and outputs at t=0
+        mem1 = self.lif1.init_leaky()
+        mem2 = self.lif2.init_leaky()
+        mem3 = self.lif3.init_leaky()
+        mem4 = self.lif4.init_leaky()
+        
+        feat_trace = []
+        prob_trace = []
+        spik_trace = []
+
+        for _ in range(num_steps):
+            cur1 = self.conv1(x)
+            spk1, mem1 = self.lif1(cur1, mem1)
+
+            cur2 = self.conv2(spk1)
+            spk2, mem2 = self.lif2(cur2, mem2)
+
+            cur3 = self.conv3(spk2)
+            spk3, mem3 = self.lif3(cur3, mem3)
+
+            spk4 = self.amax(spk3)
+            spk4 = self.flat(spk4)
+            cur4 = self.fc4(spk4)
+            spk_out, mem4 = self.lif4(cur4, mem4)
+
+            feat_trace.append(spk4)
+            prob_trace.append(mem4)
+            spik_trace.append(spk_out)
+
+        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
+
 
 # old
 # class spikeConvNN1(BasicModel):
@@ -1101,196 +921,3 @@ class spikeConvNN2(BasicModel):
 
 #         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
-
-# Good for grayscale
-class spikeConvNN1(BasicModel):
-    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
-        # it was set to init threshold value 0.2
-        super().__init__(numberOfClasses)
-
-        self.conv1 = nn.Conv2d(numberOfChannels, 128, kernel_size=3, padding=1, stride=2)
-        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.conv2 = nn.Conv2d(128, 256, kernel_size=3, padding=1, stride=2)
-        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.conv3 = nn.Conv2d(256, 512, kernel_size=3, padding=1, stride=2)
-        self.lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.amax = nn.AdaptiveMaxPool2d(1)
-        self.flat = nn.Flatten()    
-        self.fc4 = nn.Linear(512, numberOfClasses)
-        self.lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
-
-        # self.fc1 = nn.Linear(50*8*8, 500)
-        # self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero")
-        # self.fc2 = nn.Linear(500, 300)
-        # self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism="zero")
-        # self.fc3 = nn.Linear(300, 10)
-        # self.lif5 = snn.Leaky(beta=beta)
-
-    def forward(self, x, num_steps):
-
-        # Initialize hidden states and outputs at t=0
-        mem1 = self.lif1.init_leaky()
-        mem2 = self.lif2.init_leaky()
-        mem3 = self.lif3.init_leaky()
-        mem4 = self.lif4.init_leaky()
-        
-        feat_trace = []
-        prob_trace = []
-        spik_trace = []
-
-        for _ in range(num_steps):
-            print(f"Conv1 x.shape: {x.shape}")
-            cur1 = self.conv1(x)
-            print(f"Conv1 cur1.shape: {cur1.shape}")
-            spk1, mem1 = self.lif1(cur1, mem1)
-
-            cur2 = self.conv2(spk1)
-            print(f"Conv1 cur2.shape: {cur2.shape}")
-            spk2, mem2 = self.lif2(cur2, mem2)
-
-            cur3 = self.conv3(spk2)
-            print(f"Conv1 cur3.shape: {cur3.shape}")
-            spk3, mem3 = self.lif3(cur3, mem3)
- 
-            print(f"Conv1 spk3.shape: {spk3.shape}")
-            spk4 = self.amax(spk3)
-            print(f"Conv1 spk4.shape: {spk4.shape}")
-            spk4 = self.flat(spk4)
-            cur4 = self.fc4(spk4)
-            spk_out, mem4 = self.lif4(cur4, mem4)
-
-            feat_trace.append(spk4)
-            prob_trace.append(mem4)
-            spik_trace.append(spk_out)
-
-        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
-
-
-# Good for grayscale
-# the first implementation
-# class spikeConvNN1(BasicModel):
-#     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
-#         # it was set to init threshold value 0.2
-#         super().__init__(numberOfClasses)
-
-#         self.conv1 = nn.Conv2d(numberOfChannels, 128, kernel_size=4, padding=0, stride=2)
-#         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.conv2 = nn.Conv2d(128, 256, kernel_size=3, padding=0, stride=2)
-#         self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.conv3 = nn.Conv2d(256, 512, kernel_size=4, padding=1, stride=2)
-#         self.lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.amax = nn.AdaptiveMaxPool2d(1)
-#         self.flat = nn.Flatten()    
-#         self.fc4 = nn.Linear(512, numberOfClasses)
-#         self.lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
-#         # self.lif4 = snn.Leaky(beta=beta)
-
-#     def forward(self, x, num_steps):
-
-#         # Initialize hidden states and outputs at t=0
-#         mem1 = self.lif1.init_leaky()
-#         mem2 = self.lif2.init_leaky()
-#         mem3 = self.lif3.init_leaky()
-#         mem4 = self.lif4.init_leaky()
-        
-#         feat_trace = []
-#         prob_trace = []
-#         spik_trace = []
-
-#         for _ in range(num_steps):
-#             # print(f"Conv1 x.shape: {x.shape}")
-#             cur1 = self.conv1(x)
-#             # print(f"Conv1 cur1.shape: {cur1.shape}")
-#             spk1, mem1 = self.lif1(cur1, mem1)
-
-#             cur2 = self.conv2(spk1)
-#             # print(f"Conv1 cur2.shape: {cur2.shape}")
-#             spk2, mem2 = self.lif2(cur2, mem2)
-
-#             cur3 = self.conv3(spk2)
-#             # print(f"Conv1 cur3.shape: {cur3.shape}")
-#             spk3, mem3 = self.lif3(cur3, mem3)
- 
-#             # print(f"Conv1 spk3.shape: {spk3.shape}")
-#             spk4 = self.amax(spk3)
-#             # print(f"Conv1 spk4.shape: {spk4.shape}")
-#             spk4 = self.flat(spk4)
-#             # print(f"Conv1 spk4.shape: {spk4.shape}")
-#             cur4 = self.fc4(spk4)
-#             spk_out, mem4 = self.lif4(cur4, mem4)
-
-#             feat_trace.append(spk4)
-#             prob_trace.append(mem4)
-#             spik_trace.append(spk_out)
-
-#         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
-
-
-# class spikeConvNN1(BasicModel):
-#     '''
-#     Modified
-#     Convolutional network model from:
-#     https://github.com/aitor-martinez-seras/OoD_on_SNNs/blob/main/Explainable_OoD_detection_on_SNNs.ipynb
-#     https://arxiv.org/abs/2210.00894
-
-#     This is the convolutional model with two hidden layers
-#     threshold should be set to 0.25
-
-#     '''
-#     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, feature_size=28):
-
-#         super().__init__(numberOfClasses)
-#         self.features = int(((feature_size -2)/2)-2)
-#         self.averaging = int((feature_size - 2)/2)
-
-#         self.conv1 = nn.Conv2d(numberOfChannels, 32, kernel_size=3, bias=False)
-#         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.avg1 = nn.AdaptiveAvgPool2d(self.averaging)
-#         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, bias=False)
-#         self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.fc3 = nn.Linear(self.features * self.features * 64, 512, bias=False)
-#         self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero") 
-#         self.fc4 = nn.Linear(512, 256, bias=False)
-#         self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism='zero')
-#         self.fc5 = nn.Linear(256, numberOfClasses, bias=False)
-#         self.lif5 = snn.Leaky(beta=beta) # this one should be only leaky integrate, not fire
-
-#     def forward(self, x, num_steps):
-
-#         # Initialize hidden states and outputs at t=0
-#         mem1 = self.lif1.init_leaky()
-#         mem2 = self.lif2.init_leaky()
-#         mem3 = self.lif3.init_leaky()
-#         mem4 = self.lif4.init_leaky()
-#         mem5 = self.lif5.init_leaky()
-        
-#         feat_trace = []
-#         prob_trace = []
-#         spik_trace = []
-
-#         for _ in range(num_steps):
-#             cur1 = self.conv1(x)
-#             spk1, mem1 = self.lif1(cur1, mem1)
-#             # print(f"Conv1 spk1.shape: {spk1.shape}")
-#             spk1 = self.avg1(spk1)
-#             # print(f"Avg1 spk1.shape: {spk1.shape}")
-
-#             cur2 = self.conv2(spk1)
-#             spk2, mem2 = self.lif2(cur2, mem2)
-#             # print(f"Conv2 spk2.shape: {spk2.shape}")
-#             spk2 = spk2.view(-1, self.features * self.features * 64)
-
-#             cur3 = self.fc3(spk2)
-#             spk3, mem3 = self.lif3(cur3, mem3)
-
-#             cur4 = self.fc4(spk3)
-#             spk4, mem4 = self.lif4(cur4, mem4)
-
-#             cur5 = self.fc5(spk4)
-#             spk_out, mem5 = self.lif5(cur5, mem5)
-
-#             feat_trace.append(spk4)
-#             prob_trace.append(mem5)
-#             spik_trace.append(spk_out)
-
-#         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)

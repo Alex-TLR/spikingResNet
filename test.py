@@ -3,14 +3,11 @@ import time
 from utils.Utils import Utils, distances_from_average_clusters, get_preds_from_probs_vector, compute_thresholds, compute_precision_tpr_fpr_for_test_and_ood
 from metrics.Metrics import Metrics, get_dist
 from clustering.Clustering import Clustering
-from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
 from models.plain import spikeLinearNet1
 import torch 
 import snntorch.functional as SF 
 import matplotlib.pyplot as plt
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cluster import k_means, KMeans
-from scipy.spatial.distance import cdist
 
 def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     '''
@@ -50,10 +47,8 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        elif ResNetModel == 10:
+        elif ResNetModel == 1:
             model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        elif ResNetModel == 11:
-            model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 21:
@@ -108,16 +103,13 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         return None
 
 
-
-# TODO make time consumption analysis
-def test_with_output(case, nameID):
+def test_metrics(case, nameID):
     '''
     case:       for example case 01 is '01'
     nameID:     name of the In Distribution features, example 'MNIST'
     '''
     if nameID == 'MNIST':
         namesOOD = ['FMNIST', 'KMNIST', 'Letters']
-        # namesOOD = ['FMNIST', 'KMNIST']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
         namesOOD = ['MNIST', 'KMNIST', 'Letters']   

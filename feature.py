@@ -1,18 +1,14 @@
 from snntorch import utils
 import torch
 from snntorch import spikegen
-from utils.Utils import Utils, SVHNDataset
+from utils.Utils import Utils
 from torch.utils.data import DataLoader
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
 from models.plain import spikeLinearNet1
 import numpy as np
 import snntorch.functional as SF
-import os
-import matplotlib
-import matplotlib.font_manager
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from metrics.Metrics import Metrics
 
 
@@ -163,9 +159,6 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
         featSize = 512
     elif ResNetModel == 10:
         model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        featSize = 512
-    elif ResNetModel == 11:
-        model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
     elif ResNetModel == 18:
         model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)

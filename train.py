@@ -6,7 +6,7 @@ import torch
 import matplotlib.pyplot as plt
 from torchsummary import summary
 from models.resnet9 import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, spikeConvNN2,  SpikeResNet9Model, SpikeResNet10Model, SpikeResNet10ModelAlt, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2,  SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
 from models.plain import spikeLinearNet1
 import snntorch.functional as SF
 import numpy as np
@@ -150,9 +150,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        elif ResNetModel == 11:
-            model = SpikeResNet10ModelAlt(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 21:
