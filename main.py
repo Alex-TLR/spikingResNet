@@ -1,3 +1,4 @@
+import torch
 from test import test_metrics, test_accuracy
 from feature import feature_extraction_conv, feature_extraction_spike
 from train import training
@@ -66,7 +67,6 @@ if __name__ == "__main__":
     # Batch size: 32
 
     # Case 03:
-    # This is the same case as 03, with downsampling bug fixed
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
     # Network model: SpikeResNet10Model (ResNetModel = 10)
@@ -85,14 +85,26 @@ if __name__ == "__main__":
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
     # Network model: spikeLinearNet1 (ResNetModel = 21)
     # Number of classes: 10
-    # Batch size: 40
+    # Batch size: 32
 
     # Case 06:
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
     # Network model: SpikeResNet18Model (ResNetModel = 18)
     # Number of classes: 10
-    # Batch size: 40
+    # Batch size: 32
+
+    # Case 07:
+    # spike-ResNet10 model with trainable initialization
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: SpikeResNet10Model (ResNetModel = 10)
+    # Number of classes: 10
+    # Batch size: 32
+
+    # Case 08:
+    # SEW model ResNet18 test accuracy is 82.53%
+    # Network model: SEW ResNet18 (ResNetModel = 22)
 
     # Define case
     # match args.case:
@@ -119,18 +131,18 @@ if __name__ == "__main__":
 
     # Define case 
     case = '06'
-    dataSet_ID = 'KMNIST'
-    dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
+    # dataSet_ID = 'Letters'
+    # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
-    # dataSet_ID = 'CIFAR10'
-    # dataSet_feat = ['CIFAR10','SVHN','Food101']
+    dataSet_ID = 'CIFAR10'
+    dataSet_feat = ['CIFAR10','SVHN','Food101']
 
     modelType = 'spike'
     # batchSize = args.batch_size
     # numberOfClasses = args.num_classes
     # ResNetModel = args.model
 
-    batchSize = 4
+    batchSize = 16
     numberOfClasses = 10
     ResNetModel = 18
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -158,23 +170,36 @@ if __name__ == "__main__":
     #     # Feature extraction
     #     for i in range(len(dataSet_feat)):
     #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
-    #############################3
+    #############################
 
     training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, pretrained=False)
     
     # Test accuracy of trained model on test
-    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # Feature extraction
     # for i in range(len(dataSet_feat)):
     #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
 
     # Statistics
-    stats = test_metrics(case=case, nameID=dataSet_ID)
-    formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-    for row in formatted_stats:
-        print(' '.join(row))
+    # stats = test_metrics(case=case, nameID=dataSet_ID)
+    # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
+    # for row in formatted_stats:
+    #     print(' '.join(row))
 
     # Vizualizer
-    # Utils.visualize_feature('CIFAR10', 'SVHN', case)
+    # Utils.visualize_feature('Letters', 'FMNIST', case)
 
+    # Ponovljivost
+    # _seed_ = 2020
+    # import random
+    # import math
+    # random.seed(2020)
+    # torch.manual_seed(_seed_)  # use torch.manual_seed() to seed the RNG for all devices (both CPU and CUDA)
+    # torch.cuda.manual_seed_all(_seed_)
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+
+    # check out
+    
+    # **Knowledge Distillation**: When `--teacher` is enabled, the script implements teacher-student learning using KL divergence loss. This helps transfer knowledge from a pre-trained teacher network to the student model.

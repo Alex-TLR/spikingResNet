@@ -1,3 +1,4 @@
+from cProfile import label
 from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN, Places365, EMNIST, Food101
 from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
@@ -18,6 +19,9 @@ class Utils():
     def __init__(self, name):
         pass
 
+    def targetTransform(label):
+        return label - 1 
+
     @staticmethod
     def load_data(database_name):
         '''
@@ -25,14 +29,31 @@ class Utils():
         '''
 
         transformData_gray_28 = transforms.Compose([transforms.Resize((28, 28)),
-                                                    transforms.Grayscale(),
+                                                    # transforms.RandomCrop(28, padding=4),
+                                                    # transforms.RandomHorizontalFlip(),
+                                                    # transforms.Grayscale(),
                                                     transforms.ToTensor(),
-                                                    transforms.Normalize((0,), (1,))])
+                                                    transforms.Normalize((0,), (1,))
+                                                    # transforms.Normalize((0.1918,), (0.3483,))
+                                                    ])
         
+        # KMNIST transforms.Normalize((0.1918,), (0.3483,))
+
         transformData_rgb_32  = transforms.Compose([transforms.Resize((32, 32)),
                                                     transforms.ToTensor(),
                                                     transforms.Normalize((0,0,0,), (1,1,1,))])
-
+        
+        transformData_cifar10 = transforms.Compose([
+            transforms.Resize((32, 32)),                # Optional, if you want to ensure size
+            transforms.RandomCrop(32, padding=4),       # Data augmentation: random crop
+            transforms.RandomHorizontalFlip(),          # Data augmentation: random horizontal flip
+            transforms.ToTensor(),                      # Convert to tensor
+            transforms.Normalize(
+                (0.4914, 0.4822, 0.4465), 
+                (0.2023, 0.1994, 0.2010)
+            )                                           # Normalize with CIFAR10 stats
+        ])
+        
         if database_name == 'MNIST':
             name = 'mnist' 
             Name = 'MNIST'
@@ -56,7 +77,7 @@ class Utils():
         elif database_name == 'CIFAR10':
             name = 'cifar10'
             Name =  'CIFAR10'
-            transformData = transformData_rgb_32
+            transformData = transformData_cifar10
         elif database_name == 'SVHN':
             name = 'svhn'
             Name =  'SVHN'
@@ -94,10 +115,10 @@ class Utils():
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = False, transform = transformData)'
             # print(command_test)
         elif database_name == 'Letters':
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData)'
-            # print(command_train)
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData)'
-            # print(command_test)
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData, target_transform = Utils.targetTransform)'
+            print(command_train)
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData, target_transform = Utils.targetTransform)'
+            print(command_test)
         elif database_name == 'Food101':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData)'
             # print(command_train)

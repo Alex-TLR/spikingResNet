@@ -3,7 +3,7 @@ import torch
 from snntorch import spikegen
 from utils.Utils import Utils
 from torch.utils.data import DataLoader
-from models.resnet9 import ResNet9Model 
+from models.resnet import ResNet9Model 
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
 from models.plain import spikeLinearNet1
 import numpy as np
@@ -145,7 +145,8 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet_feat, True)
 
     # Loss function
-    loss_fn = SF.ce_rate_loss()
+    # loss_fn = SF.ce_rate_loss()
+    loss_fn = SF.ce_count_loss() 
 
     # Define 
     if ResNetModel == 1:
@@ -165,7 +166,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
         featSize = 512
     elif ResNetModel == 21:
         model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        featSize = 512
+        featSize = 300
     else:
         print("Feature: Not defined")
         return -1
@@ -179,6 +180,8 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     # file = torch.load(weightsName)
     # model.load_state_dict(file["model"])
     model = model.to(device)
+    model.reset_mem(batchSize, device)
+    # final_membranes = torch.load('final_membranes.pth')
 
     fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
     # print(fileName)
@@ -196,6 +199,12 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
                 #     Utils.showBatchImages(batch)
                 batch = batch.to(device)
                 labels = labels.to(device)
+                model.reset_mem(batchSize, device)
+                # model.mem1 = final_membranes['mem1'].to(device)
+                # model.mem2 = final_membranes['mem2'].to(device)
+                # model.mem3 = final_membranes['mem3'].to(device)
+                # model.mem4 = final_membranes['mem4'].to(device)
+                # model.mem5 = final_membranes['mem5'].to(device)
                 startIndex = i*batchSize
                 endIndex = startIndex + batchSize
 

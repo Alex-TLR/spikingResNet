@@ -1,3 +1,4 @@
+from xml.parsers.expat import model
 import numpy as np
 import time 
 from utils.Utils import Utils, distances_from_average_clusters, get_preds_from_probs_vector, compute_thresholds, compute_precision_tpr_fpr_for_test_and_ood
@@ -8,6 +9,26 @@ from models.plain import spikeLinearNet1
 import torch 
 import snntorch.functional as SF 
 import matplotlib.pyplot as plt
+import torch.nn as nn
+
+from spikingjelly.clock_driven import neuron, surrogate, functional
+from spikingjelly.clock_driven.model import sew_resnet
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target[None])
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].flatten().sum(dtype=torch.float32)
+            res.append(correct_k * (100.0 / batch_size))
+        return res
 
 def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     '''
@@ -36,7 +57,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
     elif modelType == 'spike':
 
         # For spiking neural network we need number of steps
-        numberOfSteps = 50
+        numberOfSteps = 4
         beta = 0.95
         threshold = 0.25
 
@@ -50,57 +71,123 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         elif ResNetModel == 1:
             model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
-            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            # model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
         elif ResNetModel == 21:
             model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 22:
+            T = 4
+            backend = 'torch'
+            model = sew_resnet.multi_step_sew_resnet18(pretrained=False, progress=True, T=T, cnf='ADD', multi_step_neuron=neuron.MultiStepIFNode, v_threshold=1., surrogate_function=surrogate.ATan(), detach_reset=True, backend=backend, num_classes=10)
+            # model = model.to(device)
         else:
             print("Not defined")
             return -1
         
         # Load weights
         torch.cuda.empty_cache()
-        weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
-        # print(f"weightsName: {weightsName}")
-        model.load_state_dict(torch.load(weightsName, weights_only=False))
-        # file = torch.load(weightsName)
-        # model.load_state_dict(file["model"])
-        model = model.to(device)
 
-        # Loss function
-        loss_fn = SF.ce_rate_loss()
+        if ResNetModel != 22:
 
-        # print("Check test images.")
-        testAcc = np.zeros((1,testSize))
-        testLen = 0
-        testAccList = []
-        testLoss = []
-        i = 0
-        print(f"Number of batches: {len(test_loader)}")
-        model.eval()
-        with torch.no_grad():
-            for batch, labels in test_loader:
-                testLen += len(batch)
-                batch = batch.to(device)
-                la = labels[0].item()
-                labels = labels.to(device)
-                # Generate predictions/ forward pass
-                spikes, _, _ = model(batch, numberOfSteps)
-                l = loss_fn(spikes, labels)
-                testLoss.append(l.item())
-                a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
-                # print(f"testLen: {testLen}, a1: {a1}, {a1.item()}, a2: {a2}, {a2.item()}")
-                testAcc[0, i] = a2.item()
-                testAccList.append(a1.item())
-                del batch, labels
-                # print(f"\rtestAcc[{i}]: {testAcc[0, i]}, label: {la}, count: {np.sum(testAcc[0, :])/(i+1)}, progress: {i}/{len(test_loader)}", end='', flush=True)
-                i += 1
-        # Test stats
-        meanA1 = np.sum(testAcc) / testSize
-        meanA2 = sum(testAccList) / len(testAccList)
-        meanL = sum(testLoss) / len(testLoss)
-        print(f'Test loss is {meanL:.2f}. Test accuracy1 is {meanA1*100:.2f}. Test accuracy2 is {meanA2*100:.2f}.')
 
-        return None
+            weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+            # print(f"weightsName: {weightsName}")
+            model.load_state_dict(torch.load(weightsName, weights_only=False))
+            # file = torch.load(weightsName)
+            # model.load_state_dict(file["model"])
+            model = model.to(device)
+
+            # final_membranes = torch.load('final_membranes.pth')
+
+            # Loss function
+            # loss_fn = SF.ce_rate_loss()
+            loss_fn = SF.ce_count_loss() 
+
+            # print("Check test images.")
+            testAcc = np.zeros((1,testSize))
+            testLen = 0
+            testAccList = []
+            # testLossSpikes = []
+            # testLossMembrane = []
+            i = 0
+            print(f"Number of batches: {len(test_loader)}")
+            model.eval()
+            
+            total_correct_spikes = 0
+            total_correct_membrane = 0
+            total_samples = 0
+            with torch.no_grad():
+                for batch, labels in test_loader:
+                    testLen += len(batch)
+                    batch = batch.to(device)
+                    la = labels[0].item()
+                    labels = labels.to(device)
+                    # model.mem1 = final_membranes['mem1'].to(device)
+                    # model.mem2 = final_membranes['mem2'].to(device)
+                    # model.mem3 = final_membranes['mem3'].to(device)
+                    # model.mem4 = final_membranes['mem4'].to(device)
+                    # model.mem5 = final_membranes['mem5'].to(device)
+                    # Generate predictions/ forward pass
+                    spikes, _, membrane = model(batch, numberOfSteps)
+                    # l_spikes = loss_fn(spikes, labels)
+                    # testLossSpikes.append(l_spikes.item())
+                    # a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
+                    # print(f"testLen: {testLen}, a1: {a1}, {a1.item()}, a2: {a2}, {a2.item()}")
+                    # testAcc[0, i] = a2.item()
+                    # testAccList.append(a1.item())
+                    # On spikes
+                    with torch.no_grad():
+                        # Use SF.accuracy_rate on the spikes from training forward pass
+                        acc_rate = SF.accuracy_rate(spikes, labels)
+                        batch_size = batch.size(0)
+                        batch_correct = (acc_rate * batch_size).item()
+                        
+                        total_correct_spikes += batch_correct
+                        total_samples += batch_size
+
+                    # On membrane
+                    mem = membrane.mean(0)
+                    predicted = torch.argmax(mem, dim=1)
+                    correct = (predicted == labels).float()
+                    total_correct_membrane += correct.sum()
+                    del batch, labels
+                    # print(f"\rtestAcc[{i}]: {testAcc[0, i]}, label: {la}, count: {(np.sum(testAcc[0, :])/(i+1)):.2f}, progress: {i}/{len(test_loader)}", end='', flush=True)
+                    print(f"\rTest accuracy on spikes: {total_correct_spikes/total_samples*100:05.2f}, Test accuracy on membrane: {total_correct_membrane/total_samples*100:05.2f}, progress: {i+1}/{len(test_loader)}", end='', flush=True)
+                    i += 1
+
+            print("\nDone.")
+            # Test stats
+            # meanA1 = np.sum(testAcc) / testSize
+            # meanA2 = sum(testAccList) / len(testAccList)
+            # meanL = sum(testLoss) / len(testLoss)
+            # print(f'\nTest loss is {meanL:.2f}. Test accuracy1 is {meanA1*100:.2f}. Test accuracy2 is {meanA2*100:.2f}.')
+
+            return None 
+    
+        else:
+            weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+            model.load_state_dict(torch.load(weightsName, weights_only=False))
+            model = model.to(device)
+            criterion = nn.CrossEntropyLoss()
+            testAccList1 = []
+            testAccList5 = []
+            testAcc = np.zeros((1,testSize))
+            with torch.no_grad():
+                for batch, labels in test_loader:
+                    image = batch.to(device, non_blocking=True)
+                    target = labels.to(device, non_blocking=True)
+                    output = model(image)
+                    output = output.mean(dim=0)
+                    loss = criterion(output, target)
+                    functional.reset_net(model)
+
+                    acc1, acc5 = accuracy(output, target, topk=(1, 5))
+                    testAccList1.append(acc1.item())
+                    testAccList5.append(acc5.item())
+                    print(f'Test accuracy1: {acc1.item():.2f}%, Test accuracy5: {acc5.item():.2f}%, Loss: {loss.item():.2f}')
+
+            print(f"Final results: Test accuracy1: {np.mean(testAccList1):.2f}%, Test accuracy5: {np.mean(testAccList5):.2f}%")
+            return None
 
 
 def test_metrics(case, nameID):
@@ -116,7 +203,9 @@ def test_metrics(case, nameID):
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
         namesOOD = ['MNIST', 'FMNIST', 'Letters']
-        suffixID = '-on_kmnist'
+    elif nameID == 'Letters':
+        namesOOD = ['MNIST', 'FMNIST', 'KMNIST']
+        suffixID = '-on_letters'
     elif nameID == 'CIFAR10':
         namesOOD = ['SVHN', 'Food101']
         suffixID = '-on_cifar10'
