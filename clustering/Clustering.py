@@ -29,14 +29,9 @@ class Clustering():
         https://github.com/aitor-martinez-seras/OoD_on_SNNs/blob/main/Explainable_OoD_detection_on_SNNs.ipynb
         '''
     
-#     subset_train_loader_clusters: Dataset object for training data (specifically the subset_train_loader).
-# preds_train_clusters: Predicted labels or classifications (likely from a model).
-# spk_count_train_clusters: Feature values for each sample (likely speaker counts or similar features).
-# size: Number of samples to consider for each class (default is 1000).
-# distance_for_clustering: Range of distance values for clustering (default is (800, 3000)).
 
         # Create distance thresholds
-        distance_thresholds = np.linspace(10, 100, 5)
+        distance_thresholds = np.linspace(200, 5000, 25)
         silhScoresPerClass = []
         clusterLabels = []
 
@@ -51,17 +46,18 @@ class Clustering():
             silh_scores = []
             for dist in distance_thresholds:
                 # define cluster model
-                cluster_model = AgglomerativeClustering(n_clusters=None,metric='manhattan',linkage='average',distance_threshold=dist)
+                cluster_model = AgglomerativeClustering(n_clusters=None, metric='manhattan', linkage='average', distance_threshold=dist)
                 cluster_model.fit(features[labels == i])
                 clusterLabels.append(cluster_model.labels_)
                 feat_c = features[labels == i]
-                print(f"feat_c: {feat_c.shape}")
+                # print(f"feat_c: {feat_c.shape}")
                 print(f"cluster_model.labels_: {cluster_model.labels_}")
                 try:
                     silh_scores.append(silhouette_score(features[labels == i], cluster_model.labels_, metric='manhattan'))
                 except:
                     silh_scores.append(0)
                 print(f"silh_scores: {silh_scores}")
+                print(f"\rProgress: {i}, {dist}", end='', flush=True)
             silhScoresPerClass.append(silh_scores)
 
             # ovo bi trebalo da moze mnogo jednostavnije
@@ -86,11 +82,74 @@ class Clustering():
         # Create the clusters by extracting the labels for every sample
         clusters_per_class = []
         for i in range(numClasses):
-            cluster_model = AgglomerativeClustering(n_clusters=None,metric='manhattan',linkage='complete',distance_threshold=opt_dist_thr_per_class[i])
+            cluster_model = AgglomerativeClustering(n_clusters=None, metric='manhattan', linkage='complete', distance_threshold=opt_dist_thr_per_class[i])
             cluster_model.fit(features[labels == i])
             # Save the cluster models
             clusters_per_class.append(cluster_model)
-            print(f"clusters_model_{i}: {cluster_model.n_clusters_}")
+            # print(f"clusters_model_{i}: {cluster_model.n_clusters_}")
+
+        print(f"clusters_per_class: {clusters_per_class}")
+        return clusters_per_class
+    
+    @staticmethod
+    def clustering_2(features, predictions, numClasses):
+        '''
+        The clustering method: 
+        https://github.com/aitor-martinez-seras/OoD_on_SNNs/blob/main/Explainable_OoD_detection_on_SNNs.ipynb
+        including predictions
+        '''
+    
+        # Create distance thresholds
+        distance_thresholds = np.linspace(500, 7000, 50)
+        silhScoresPerClass = []
+        clusterLabels = []
+
+        opt_dist_thr_per_class = []
+        opt_silh_score_values_per_class = []
+
+        # Loop trought the number of classes
+        for i in range(numClasses):
+            silh_scores = []
+            for dist in distance_thresholds:
+                # define cluster model
+                cluster_model = AgglomerativeClustering(n_clusters=None, metric='manhattan', linkage='average', distance_threshold=dist)
+                cluster_model.fit(features[predictions == i])
+                clusterLabels.append(cluster_model.labels_)
+                print(f"cluster_model.labels_: {cluster_model.labels_}")
+                try:
+                    silh_scores.append(silhouette_score(features[predictions == i], cluster_model.labels_, metric='manhattan'))
+                except:
+                    silh_scores.append(0)
+                print(f"silh_scores: {silh_scores}")
+                print(f"\rProgress: {i}, {dist}", end='', flush=True)
+            silhScoresPerClass.append(silh_scores)
+
+            # ovo bi trebalo da moze mnogo jednostavnije
+            # Iterate the inverted to catch the smallest distance value with the 
+            # greatest silhouette score
+            max_score = 0
+            max_index = 0
+            for idx, current_score in enumerate(silh_scores):
+                # Store the greatest value we encounter traveling the curve
+                # Only update the value if it is greater, not if it equal
+                if current_score > max_score: 
+                    max_index = idx
+                    max_score = current_score
+            # We append the distance treshold to a list where they are going to be
+            # stored, one for each class
+            opt_dist_thr_per_class.append(distance_thresholds[max_index])
+            opt_silh_score_values_per_class.append(silh_scores[max_index])
+
+        print(f"opt_dist_thr_per_class: {opt_dist_thr_per_class}")
+        print(f"opt_silh_score_values_per_class: {opt_silh_score_values_per_class}")
+
+        # Create the clusters by extracting the labels for every sample
+        clusters_per_class = []
+        for i in range(numClasses):
+            cluster_model = AgglomerativeClustering(n_clusters=None, metric='manhattan', linkage='complete', distance_threshold=opt_dist_thr_per_class[i])
+            cluster_model.fit(features[predictions == i])
+            # Save the cluster models
+            clusters_per_class.append(cluster_model)
 
         print(f"clusters_per_class: {clusters_per_class}")
         return clusters_per_class

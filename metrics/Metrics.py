@@ -3,10 +3,11 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import average_precision_score, precision_recall_curve, auc
 from sklearn.metrics import roc_auc_score
 from sklearn.neighbors import NearestCentroid
+from utils.Utils import Utils, distances_from_average_clusters
 import math
 from scipy.spatial import distance
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cluster import k_means, DBSCAN
+from sklearn.cluster import k_means, DBSCAN, KMeans
 import time 
 import numpy as np
 from scipy.spatial.distance import cdist
@@ -84,46 +85,286 @@ class Metrics():
     
 
     @staticmethod
-    def NCM(train_X, train_Y, test_X, threshold, num_classes):
+    def NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes):
         '''
-        Nearest Class Mean is the distance between test feature and the nearest
-        training class centroid.  
+        Nearest Class Mean is the distance between test feature and the 
+        nearest training class centroid.  
+
+        Inputs:
+            ID_feat_train:  matrix with train features, it is used to 
+                            calculate centroids
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_classes: (int) number of classes
+
+        Outputs:
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_distances:
+
+        '''
+ 
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        # Find centroids for each class
+        centroids = np.array([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
+
+        # Calculate distance between each sample and the class centroids
+        ID_distances = Utils.distance_from_class_centroids(ID_feat_test, centroids)
+        OOD_distances = Utils.distance_from_class_centroids(OOD_feat_test, centroids)
+
+        # Concatenate distances
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+        # print(f"threshold_tpr95: {threshold_tpr95}")
+
+        # Make predictions based on the distances
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+
+        # Concatenate predictions
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"NCM Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def MD(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, number_features):
+        '''
+        Mahalanobis distance of ID and OOD feature vectors, based on the centroids
+        of the training data. Mahalanobis distance is calculated as the
+        squared distance between the feature vector and the class centroid,
+        normalized by the covariance matrix of the training data. The distance
+        is calculated for each class, and the minimum distance is used for
+        classification. If the minimum distance is larger than the threshold,
+        the feature vector is classified as OOD, otherwise it is classified as ID.
+
+        Inputs:
+            ID_feat_train:  matrix with train features, it is used to 
+                            normalize feature vectors
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_classes: (int) number of classes
+
+        Outputs:
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_distances:
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        # Find a mean feature vector for each class
+        mean_vectors = np.stack([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
+        #centroids = np.array([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
+
+        # Center training data by class mean
+        centered = ID_feat_train - mean_vectors[ID_tags_train]
+
+        # Covariance matrix and regularization
+        cov = np.cov(centered, rowvar=False, bias=False) + 0.001 * np.eye(number_features)
+        cov_inv = np.linalg.inv(cov)
+
+        # Compute all Mahalanobis distances in a vectorized way
+        # MDK shape: (len(ID_feat_test), num_classes)
+        ID_MDK = cdist(ID_feat_test, mean_vectors, metric='mahalanobis', VI=cov_inv) ** 2
+        OOD_MDK = cdist(OOD_feat_test, mean_vectors, metric='mahalanobis', VI=cov_inv) ** 2
+
+        ID_distances = -np.min(ID_MDK, axis=1)
+        OOD_distances = -np.min(OOD_MDK, axis=1)
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"MD Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def KNN(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_neighbors):
+        '''
+        k Nearest Neighbor classification
+
+        Inputs:
+            ID_feat_train:  matrix with train features, used to fit the model
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_neighbors: (int) number of neighbors
+
+        Outputs:
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_distances:
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
+        neigh.fit(ID_feat_train, ID_tags_train)
+
+        # Calculate distances
+        ID_distances, _ = neigh.kneighbors(ID_feat_test, return_distance = True)
+        ID_distances = -np.average(ID_distances, axis=1)
+        OOD_distances, _ = neigh.kneighbors(OOD_feat_test, return_distance = True)
+        OOD_distances = -np.average(OOD_distances, axis=1)
+
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"KNN Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def FKM(ID_feat_train, ID_feat_test, OOD_feat_test, number_clusters):
+        '''
+        K-MEANS Full Clustering is done on all feature vectors, regardless on their labels.
+
+        Inputs:
+            ID_feat_train:  matrix with train features, used to fit the model
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_clusters: (int) number of clusters
+
+        Outputs:
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_distances:
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        clusters = np.zeros((number_clusters, ID_feat_train.shape[1]))
+        clusters = k_means(ID_feat_train, number_clusters)[0]
+
+        ID_distances = cdist(ID_feat_test, clusters, metric='euclidean')
+        ID_distances = -np.min(ID_distances, axis=1)
+        OOD_distances = cdist(OOD_feat_test, clusters, metric='euclidean')
+        OOD_distances = -np.min(OOD_distances, axis=1)
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"FKM Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def CKM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, number_clusters_per_class):
+        '''
+        K-MEANS Full Clustering is done for each class separately, and then
+        the distances are calculated for each test feature vector.
+
+        Inputs:
+            ID_feat_train:  matrix with train features, used to fit the model
+            ID_tags_train:  an array with train labels, gives the label 
+                            of each training feature
+            ID_feat_test:   matrix with ID test features
+            OOD_feat_test:  matrix with OOD test features
+            number_clusters_per_class: (int) number of clusters per class
+
+        Outputs:
+            test_labels:
+            test_predictions:    an array of predicted labels
+            test_distances:
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        clusters = np.zeros((number_classes * number_clusters_per_class, ID_feat_train.shape[1]))
+        # Find clusters for each class
+        for c in range(number_classes):
+            clusters[c: c + number_clusters_per_class] = k_means(ID_feat_train[ID_tags_train == c], number_clusters_per_class)[0]
+
+        ID_distances = cdist(ID_feat_test, clusters, metric='euclidean')
+        ID_distances = -np.min(ID_distances, axis=1)
+        OOD_distances = cdist(OOD_feat_test, clusters, metric='euclidean')
+        OOD_distances = -np.min(OOD_distances, axis=1)
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"FKM Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def AGGLO(test_X, averagePerClass, threshold, number_classes):
+        '''
+        Distances after agglomerative clustering
 
         Inputs:
             train_X:        matrix with train features
             train_Y:        an array with train labels
             test_X:         matrix with test features
-            num_classes:    number of classes
+            clusters:       list of cluster per class
 
         Outputs:
             predictions:    an array of predicted labels
             distances:      an array of output features, 1-D 
 
         '''
- 
-
-        # print(f"train_X: {train_X[0:2, :]}")
-        centroids_X = np.array([train_X[train_Y == c].mean(axis=0) for c in range(num_classes)])
-        # print(f"centroids_X: {centroids_X}")
 
         predictions = np.zeros(len(test_X))
         distances = np.zeros(len(test_X))
-        epsilon = 1e-10
-        p = 100
 
-        for i in range(len(test_X)):
-            dist = np.zeros(num_classes)
-            for j in range(num_classes):
-                dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2))
-                # dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p)
-            distances[i] = -dist.min()
+        distances = get_dist(test_X, averagePerClass)
+        # print(f"distances.shape: {distances.shape}")
+        # print(f"test_X.shape: {test_X.shape}")
+        # print(f"Number of clusters: {np.sum(i.shape[1] for i in averagePerClass)}")
+        print(f"Number of clusters: {averagePerClass.shape}")
 
-        # print(f"distances: {distances.shape}")
-        # distances = (distances - distances.min()) / (distances.max() - distances.min())
-
-        # max_dist = np.max(distances)
-        # distances = np.array([1 - e/max_dist for e in distances])
-            
         for i in range(len(test_X)):    
             predictions[i] = 1 if distances[i] > threshold else 0
 
@@ -201,8 +442,8 @@ class Metrics():
 
 
 
-        print(f"distances: {distances}")
-        print(f"distances: {distances.shape}")
+        # print(f"distances: {distances}")
+        # print(f"distances: {distances.shape}")
         # nearest_distances = np.min(distances, axis=1)  # Minimum distance to any cluster center
 
         # (Optional) Convert distances to scores (e.g., negative distance for ROC analysis)
@@ -212,34 +453,6 @@ class Metrics():
             predictions[i] = 1 if distances[i] > threshold else 0
 
         print(f"predictions: {predictions}")
-
-        return predictions, distances
-
-    @staticmethod
-    def KNN(train_X, train_Y, test_X, threshold, number_neighbors):
-        '''
-        k Nearest Neighbor classification
-
-        Inputs:
-            train_X:        matrix with train features
-            train_Y:        array with train labels
-            test_X:         matrix with test features
-            threshold:      threshold
-            num_features:   feature dimension
-
-        Outputs:
-            predictions:    an array of predicted labels
-            distances:      an array of output features, 1-D 
-        '''
-
-        neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
-        neigh.fit(train_X, train_Y)
-
-        predictions = neigh.predict(test_X)
-        neigh_dist, _ = neigh.kneighbors(test_X, return_distance = True)
-
-        distances = -np.average(neigh_dist, axis=1)
-        predictions = (distances > threshold).astype(np.int32)
 
         return predictions, distances
     
@@ -335,80 +548,6 @@ class Metrics():
                 prediction[i] = 0
         print(br)
         return prediction, distances
-    
-
-    @staticmethod
-    def MD(train_X, train_Y, test_X, threshold, num_classes, num_features):
-        '''
-        Mahalanobis distance
-
-        Inputs:
-            train_X:        matrix with train features
-            train_Y:        array with train labels
-            test_X:         matrix with test features
-            threshold:      threshold
-            num_classes:    number of classes
-            num_features:   feature dimension
-
-        Outputs:
-            predictions:    an array of predicted labels
-            distances:      an array of output features, 1-D 
-        '''
-
-        mean_vectors = np.zeros((num_classes, num_features))
-
-        b = 0
-
-        for i in range(0, num_classes):
-            for j in range(len(train_Y)):
-                if(train_Y[j] == i):
-                    b = b + 1
-                    mean_vectors[i] = mean_vectors[i] + train_X[j]
-            mean_vectors[i] = mean_vectors[i] / b
-            b = 0
-
-        # Compute the mean for each class
-        # for i in range(n_classes):
-        #     class_samples = train_X[train_Y == i]
-        #     mean_vectors[i] = class_samples.mean(axis=0)
-
-        pom = np.zeros((len(train_Y), num_features))
-
-        cov = np.zeros((num_features, num_features))
-
-        for i in range(0, num_classes):
-            for j in range(len(train_Y)):
-                if(train_Y[j] == i):
-                    pom[j] = train_X[j]-mean_vectors[i]
-
-        data = np.asmatrix(pom).transpose()
-
-        cov = np.cov(data, bias=False)
-
-        #print(cov)
-        cov = cov+0.001*np.identity(num_features)
-
-        cov_inv = np.linalg.inv(cov)
-
-        MDK = np.zeros((len(test_X), num_classes))
-        C = np.zeros((len(test_X), 1))
-        arg = np.zeros((len(test_X), 1))
-        prediction = []
-
-        cov_inv = np.linalg.inv(cov)
-
-        for i in range(len(test_X)):
-            for j in range(len(mean_vectors)):
-                MDK[i][j] = math.pow(distance.mahalanobis(test_X[i], mean_vectors[j], cov_inv), 2)
-
-            C[i] = -np.min(MDK[i])
-            arg[i] = np.argmin(MDK[i])
-            if(C[i] > threshold):
-                prediction.append(1)
-            else:
-                prediction.append(0)
-
-        return prediction, C
 
 
     @staticmethod
@@ -453,8 +592,9 @@ def get_dist(features, centroids):
     for i in range(len(features)):
         dist = np.zeros(num_centroids)
         for j in range(num_centroids):
-            dist[j] = np.sqrt(np.sum((centroids[j] - features[i])**2))
+            # dist[j] = np.sqrt(np.sum((centroids[j] - features[i])**2))
             # dist[j] = np.power(np.sum(np.abs(centroids[j] - data[i])**p), 1/p)
+            dist[j] = np.sum(np.abs(centroids[j] - features[i]))
         distances[i] = -dist.min()
     
     return distances
