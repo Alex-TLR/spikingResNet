@@ -17,6 +17,7 @@ from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
 import snntorch as snn
 import snntorch.functional as SF
+import time
 
 
 # Utility functio06ns
@@ -211,6 +212,7 @@ class BasicModel(nn.Module):
             tLoss = []
             tAcc = list()
             # for batch, labels in train_load:
+            start_time = time.time()
             for batch_idx, (batch, labels) in enumerate(train_load):
                 batch = batch.to(device)
                 labels = labels.to(device)
@@ -246,9 +248,10 @@ class BasicModel(nn.Module):
             # Training stats
             meanTA = sum(tAcc) / len(tAcc)
             meanTL = sum(tLoss) / len(tLoss)           
-
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
             # Make progress bar
-            suffixArray = ' ' + 'Training loss: ' + f'{meanTL:.2f} ' + 'Training accuracy: ' + f'{meanTA:.2f} '
+            suffixArray = ' ' + 'Training loss: ' + f'{meanTL:.2f} ' + 'Training accuracy: ' + f'{meanTA:.2f} '+ 'Time: ' + f'{execution_time:.2f} ' + 's'
 
             self.progressBar(i + 1, nEpochs, prefix = 'Progress: ', suffix = suffixArray, length = 40, fill = '#')
             currentHistory = [meanTL, meanTA]

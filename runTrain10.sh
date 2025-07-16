@@ -10,4 +10,4 @@
 #SBATCH --output=SNNResnet10-2.log
 
 CONTAINER_PATH=../container/snn.sif
-srun --ntasks=1 --cpus-per-task=8 --mem 32GB --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main10.py 
+srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --model 11 --mode train --dataset SVHN --batch_size 64 --epochs 200 --pretrained True
