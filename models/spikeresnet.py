@@ -656,7 +656,6 @@ class SpikeResNet10Model(BasicModel):
         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
 # 18 layers
-# Added spatio-temporal batch normalization
 class SpikeResNet18Model(BasicModel):  
     
     '''

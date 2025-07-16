@@ -23,7 +23,7 @@ class Utils():
         return label - 1 
 
     @staticmethod
-    def load_data(database_name):
+    def load_data(database_name, auto_aug=False):
         '''
         database_name:      Name of the database (MNIST, KMNIST, FMNIST)
         '''
@@ -43,16 +43,40 @@ class Utils():
                                                     transforms.ToTensor(),
                                                     transforms.Normalize((0,0,0,), (1,1,1,))])
         
-        transformData_cifar10 = transforms.Compose([
-            transforms.Resize((32, 32)),                # Optional, if you want to ensure size
-            transforms.RandomCrop(32, padding=4),       # Data augmentation: random crop
-            transforms.RandomHorizontalFlip(),          # Data augmentation: random horizontal flip
-            transforms.ToTensor(),                      # Convert to tensor
-            transforms.Normalize(
-                (0.4914, 0.4822, 0.4465), 
-                (0.2023, 0.1994, 0.2010)
-            )                                           # Normalize with CIFAR10 stats
-        ])
+        # Updated CIFAR10 transform with AutoAugment support
+        def get_cifar10_transforms(auto_aug=True, cutout=False, training=True):
+            if training:
+                aug = []
+                aug.append(transforms.Resize((32, 32)))
+                aug.append(transforms.RandomCrop(32, padding=4))
+                aug.append(transforms.RandomHorizontalFlip())
+                
+                if auto_aug:
+                    aug.append(CIFAR10Policy())  # Add AutoAugment policy
+                
+                aug.append(transforms.ToTensor())
+                
+                if cutout:
+                    # You'll need to implement Cutout class or import it
+                    # aug.append(Cutout(n_holes=1, length=16))
+                    pass
+                
+                aug.append(transforms.Normalize(
+                    (0.4914, 0.4822, 0.4465), 
+                    (0.2023, 0.1994, 0.2010)
+                ))
+                
+                return transforms.Compose(aug)
+            else:
+                # Test/validation transform (no augmentation)
+                return transforms.Compose([
+                    transforms.Resize((32, 32)),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        (0.4914, 0.4822, 0.4465), 
+                        (0.2023, 0.1994, 0.2010)
+                    )
+                ])
         
         if database_name == 'MNIST':
             name = 'mnist' 
@@ -77,7 +101,9 @@ class Utils():
         elif database_name == 'CIFAR10':
             name = 'cifar10'
             Name =  'CIFAR10'
-            transformData = transformData_cifar10
+            # transformData = transformData_cifar10
+            transformData_train = get_cifar10_transforms(auto_aug=auto_aug, training=True)
+            transformData_test = get_cifar10_transforms(auto_aug=False, training=False)
         elif database_name == 'SVHN':
             name = 'svhn'
             Name =  'SVHN'
@@ -94,11 +120,14 @@ class Utils():
             print("Wrong database name!")
             return -1
 
-        if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST') and (database_name != 'Letters') and (database_name != 'Food101'):
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
-            # print(command_train)
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
-            # print(command_test)
+        # if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST') and (database_name != 'Letters') and (database_name != 'Food101'):
+        #     command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
+        #     # print(command_train)
+        #     command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
+        #     # print(command_test)
+        if database_name == 'CIFAR10':
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
         elif database_name == 'SVHN':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', target_transform = transformData)'
             # print(command_train)
@@ -183,7 +212,7 @@ class Utils():
             return True
 
     @staticmethod
-    def data_loader(dataset_train, dataset_test, batchSize, dataset_name, fullTrain=False):
+    def data_loader(dataset_train, dataset_test, batchSize, dataset_name, fullTrain=False, worker_init_fn=None, generator=None):
         '''
         Define data loaders
         '''
@@ -203,9 +232,30 @@ class Utils():
             print("Train data length ", len(train_data))
             print("Valid data length ", len(val_data))
             print("Test data length ", len(test_data))
-            train_loader = DataLoader(train_data, batchSize, shuffle=True)
-            val_loader = DataLoader(val_data, batchSize)
-            test_loader = DataLoader(test_data, batchSize)
+            # train_loader = DataLoader(train_data, batchSize, shuffle=True)
+            # val_loader = DataLoader(val_data, batchSize)
+            # test_loader = DataLoader(test_data, batchSize)
+
+            # Add seeding parameters to DataLoaders
+            train_loader = DataLoader(
+                train_data, 
+                batchSize, 
+                shuffle=True,
+                worker_init_fn=worker_init_fn,
+                generator=generator
+            )
+            val_loader = DataLoader(
+                val_data, 
+                batchSize,
+                worker_init_fn=worker_init_fn,
+                generator=generator
+            )
+            test_loader = DataLoader(
+                test_data, 
+                batchSize,
+                worker_init_fn=worker_init_fn,
+                generator=generator
+            )
 
             return train_loader, val_loader, test_loader
 
@@ -217,11 +267,39 @@ class Utils():
             if dataset_name == 'SVHN':
                 train_data = SVHNDataset(data=dataset_train.data, labels=dataset_train.labels)
                 test_data = SVHNDataset(data=dataset_test.data, labels=dataset_test.labels)
-                train_loader = DataLoader(train_data, batchSize, shuffle=True)
-                test_loader = DataLoader(test_data, batchSize, shuffle=False)
+                # train_loader = DataLoader(train_data, batchSize, shuffle=True)
+                # test_loader = DataLoader(test_data, batchSize, shuffle=False)
+                train_loader = DataLoader(
+                    train_data, 
+                    batchSize, 
+                    shuffle=True,
+                    worker_init_fn=worker_init_fn,
+                    generator=generator
+                )
+                test_loader = DataLoader(
+                    test_data, 
+                    batchSize, 
+                    shuffle=False,
+                    worker_init_fn=worker_init_fn,
+                    generator=generator
+                )
             else:
-                train_loader = DataLoader(train_data, batchSize, shuffle=True)
-                test_loader = DataLoader(test_data, batchSize, shuffle=False)
+                # train_loader = DataLoader(train_data, batchSize, shuffle=True)
+                # test_loader = DataLoader(test_data, batchSize, shuffle=False)
+                train_loader = DataLoader(
+                    train_data, 
+                    batchSize, 
+                    shuffle=True,
+                    worker_init_fn=worker_init_fn,
+                    generator=generator
+                )
+                test_loader = DataLoader(
+                    test_data, 
+                    batchSize, 
+                    shuffle=False,
+                    worker_init_fn=worker_init_fn,
+                    generator=generator
+                )
 
             return train_loader, test_loader
 
@@ -643,72 +721,134 @@ def distances_from_average_clusters(spikes, net_outputs, clusters, prob):
     
     return [np.array(x) for x in result]
 
-# Funkcija kopirana iz rada
-def thresholds_per_class_for_each_TPR(dist_per_class):
-    num_classes = len(dist_per_class)
-    # Creation of the array with the thresholds for each TPR (class, dist_per_TPR)
-    sorted_distances_per_class = [np.sort(x) for x in dist_per_class]
-    tpr_range = np.arange(0,1,0.01)
-    tpr_range[-1] = 0.99999999 # For selecting the last item correctly
-    distance_thresholds_test = np.zeros((num_classes, len(tpr_range)))
-    for class_index in range(num_classes):
-        for index, tpr in enumerate(tpr_range):
-            distance_thresholds_test[class_index, index] = sorted_distances_per_class[class_index][int(len(sorted_distances_per_class[class_index])*tpr)]
-    
-    return distance_thresholds_test
 
+import random
+from PIL import Image, ImageEnhance, ImageOps
+import numpy as np
 
-def compute_thresholds(dists):
-    return thresholds_per_class_for_each_TPR(dists)
+class SubPolicy(object):
+    def __init__(self, p1, operation1, magnitude_idx1, p2, operation2, magnitude_idx2, fillcolor=(128, 128, 128)):
+        ranges = {
+            "shearX": np.linspace(0, 0.3, 10),
+            "shearY": np.linspace(0, 0.3, 10),
+            "translateX": np.linspace(0, 150 / 331, 10),
+            "translateY": np.linspace(0, 150 / 331, 10),
+            "rotate": np.linspace(0, 30, 10),
+            "color": np.linspace(0.0, 0.9, 10),
+            "posterize": np.round(np.linspace(8, 4, 10), 0).astype(int),
+            "solarize": np.linspace(256, 0, 10),
+            "contrast": np.linspace(0.0, 0.9, 10),
+            "sharpness": np.linspace(0.0, 0.9, 10),
+            "brightness": np.linspace(0.0, 0.9, 10),
+            "autocontrast": [0] * 10,
+            "equalize": [0] * 10,
+            "invert": [0] * 10
+        }
 
+        def rotate_with_fill(img, magnitude):
+            rot = img.convert("RGBA").rotate(magnitude)
+            return Image.composite(rot, Image.new("RGBA", rot.size, (128,) * 4), rot).convert(img.mode)
 
-def compare_distances_per_class_to_distance_thr_per_class(distances_list_per_class, thr_distances_array):
-    '''
-    Function that creates an array of shape (tpr, InD_or_OD), where tpr has the lenght of the number of steps of the TPR list
-    and second dimensions has the total lenght of the distances_list_per_class, and cotains True if its InD and False if is OD
-    :distances_list_per_class: list with each element being an array with the distances to avg clusters of one class [array(.), array(.)]
-    :thr_distances_array: array of shape (class, dist_for_each_tpr), where first dimension is the class and the second is the distance for the TPR
-    corresponding to that position. For example, the TPR = 0.85 corresponds to the 85th position.
-    '''
-    in_or_out_distribution_per_tpr = np.zeros((len(np.transpose(thr_distances_array)),len(np.concatenate(distances_list_per_class))),dtype=bool)
-    for tpr_index ,thr_distances_per_class in enumerate(np.transpose(thr_distances_array)):
-        in_or_out_distribution_per_tpr[tpr_index] = np.concatenate([dist_one_class < thr_distances_per_class[cls_index] for cls_index, dist_one_class in enumerate(distances_list_per_class)])
-    
-    return in_or_out_distribution_per_tpr
+        func = {
+            "shearX": lambda img, magnitude: img.transform(
+                img.size, Image.AFFINE, (1, magnitude *
+                                         random.choice([-1, 1]), 0, 0, 1, 0),
+                Image.BICUBIC, fillcolor=fillcolor),
+            "shearY": lambda img, magnitude: img.transform(
+                img.size, Image.AFFINE, (1, 0, 0, magnitude *
+                                         random.choice([-1, 1]), 1, 0),
+                Image.BICUBIC, fillcolor=fillcolor),
+            "translateX": lambda img, magnitude: img.transform(
+                img.size, Image.AFFINE, (1, 0, magnitude *
+                                         img.size[0] * random.choice([-1, 1]), 0, 1, 0),
+                fillcolor=fillcolor),
+            "translateY": lambda img, magnitude: img.transform(
+                img.size, Image.AFFINE, (1, 0, 0, 0, 1, magnitude *
+                                         img.size[1] * random.choice([-1, 1])),
+                fillcolor=fillcolor),
+            "rotate": lambda img, magnitude: rotate_with_fill(img, magnitude),
+            # "rotate": lambda img, magnitude: img.rotate(magnitude * random.choice([-1, 1])),
+            "color": lambda img, magnitude: ImageEnhance.Color(img).enhance(1 + magnitude * random.choice([-1, 1])),
+            "posterize": lambda img, magnitude: ImageOps.posterize(img, magnitude),
+            "solarize": lambda img, magnitude: ImageOps.solarize(img, magnitude),
+            "contrast": lambda img, magnitude: ImageEnhance.Contrast(img).enhance(
+                1 + magnitude * random.choice([-1, 1])),
+            "sharpness": lambda img, magnitude: ImageEnhance.Sharpness(img).enhance(
+                1 + magnitude * random.choice([-1, 1])),
+            "brightness": lambda img, magnitude: ImageEnhance.Brightness(img).enhance(
+                1 + magnitude * random.choice([-1, 1])),
+            "autocontrast": lambda img, magnitude: ImageOps.autocontrast(img),
+            "equalize": lambda img, magnitude: ImageOps.equalize(img),
+            "invert": lambda img, magnitude: ImageOps.invert(img)
+        }
 
+        # self.name = "{}_{:.2f}_and_{}_{:.2f}".format(
+        #     operation1, ranges[operation1][magnitude_idx1],
+        #     operation2, ranges[operation2][magnitude_idx2])
+        self.p1 = p1
+        self.operation1 = func[operation1]
+        self.magnitude1 = ranges[operation1][magnitude_idx1]
+        self.p2 = p2
+        self.operation2 = func[operation2]
+        self.magnitude2 = ranges[operation2][magnitude_idx2]
 
-def compute_precision_tpr_fpr_for_test_and_ood(dist_test_per_class, dist_ood_per_class,dist_thresholds):
-    # Creation of the array with True if predicted InD (True) or OD (False)
-    in_or_out_distribution_per_tpr_test = compare_distances_per_class_to_distance_thr_per_class(dist_test_per_class, dist_thresholds)
-    in_or_out_distribution_per_tpr_test[0] = np.zeros((in_or_out_distribution_per_tpr_test.shape[1]),dtype=bool) # To fix that one element is True when TPR is 0
-    in_or_out_distribution_per_tpr_test[-1] = np.ones((in_or_out_distribution_per_tpr_test.shape[1]),dtype=bool) # To fix that last element is True when TPR is 1
-    in_or_out_distribution_per_tpr_ood = compare_distances_per_class_to_distance_thr_per_class(dist_ood_per_class, dist_thresholds)
+    def __call__(self, img):
+        if random.random() < self.p1:
+            img = self.operation1(img, self.magnitude1)
+        if random.random() < self.p2:
+            img = self.operation2(img, self.magnitude2)
+        return img
 
-    # Creation of arrays with TP, FN and FP, TN
-    tp_fn_test = tp_fn_fp_tn_computation(in_or_out_distribution_per_tpr_test)
-    fp_tn_ood = tp_fn_fp_tn_computation(in_or_out_distribution_per_tpr_ood)
+class CIFAR10Policy(object):
+    """ Randomly choose one of the best 25 Sub-policies on CIFAR10.
 
-    # Computing TPR, FPR and Precision
-    tpr_values = tp_fn_test[:,0] / (tp_fn_test[:,0] + tp_fn_test[:,1])
-    fpr_values = fp_tn_ood[:,0] / (fp_tn_ood[:,0] + fp_tn_ood[:,1])
-    precision  = tp_fn_test[:,0] / (tp_fn_test[:,0] + fp_tn_ood[:,0])
+        Example:
+        >>> policy = CIFAR10Policy()
+        >>> transformed = policy(image)
 
-    # Eliminating NaN value at TPR = 1
-    precision[0] = 1
-    return precision, tpr_values, fpr_values
+        Example as a PyTorch Transform:
+        >>> transform=transforms.Compose([
+        >>>     transforms.Resize(256),
+        >>>     CIFAR10Policy(),
+        >>>     transforms.ToTensor()])
+    """
 
+    def __init__(self, fillcolor=(128, 128, 128)):
+        self.policies = [
+            SubPolicy(0.1, "invert", 7, 0.2, "contrast", 6, fillcolor),
+            SubPolicy(0.7, "rotate", 2, 0.3, "translateX", 9, fillcolor),
+            SubPolicy(0.8, "sharpness", 1, 0.9, "sharpness", 3, fillcolor),
+            SubPolicy(0.5, "shearY", 8, 0.7, "translateY", 9, fillcolor),
+            SubPolicy(0.5, "autocontrast", 8, 0.9, "equalize", 2, fillcolor),
 
-def tp_fn_fp_tn_computation(in_or_out_distribution_per_tpr):
-    '''
-    Function that creates an array with the number of values of tp and fp or fn and tn, depending on if the 
-    passed array is InD or OD.
-    :in_or_out_distribution_per_tpr: array with True if predicted InD and False if predicted OD, for each TPR
-    ::return: array with shape (tpr, 2) with the 2 dimensions being tp,fn if passed array is InD, and fp and tn if the passed array is OD
-    '''
-    tp_fn_fp_tn = np.zeros((len(in_or_out_distribution_per_tpr),2),dtype='uint16')
-    length_array = in_or_out_distribution_per_tpr.shape[1]
-    for index, element in enumerate(in_or_out_distribution_per_tpr):
-        n_True = int(len(element.nonzero()[0]))
-        tp_fn_fp_tn[index,0] = n_True
-        tp_fn_fp_tn[index,1] = length_array - n_True
-    return tp_fn_fp_tn
+            SubPolicy(0.2, "shearY", 7, 0.3, "posterize", 7, fillcolor),
+            SubPolicy(0.4, "color", 3, 0.6, "brightness", 7, fillcolor),
+            SubPolicy(0.3, "sharpness", 9, 0.7, "brightness", 9, fillcolor),
+            SubPolicy(0.6, "equalize", 5, 0.5, "equalize", 1, fillcolor),
+            SubPolicy(0.6, "contrast", 7, 0.6, "sharpness", 5, fillcolor),
+
+            SubPolicy(0.7, "color", 7, 0.5, "translateX", 8, fillcolor),
+            SubPolicy(0.3, "equalize", 7, 0.4, "autocontrast", 8, fillcolor),
+            SubPolicy(0.4, "translateY", 3, 0.2, "sharpness", 6, fillcolor),
+            SubPolicy(0.9, "brightness", 6, 0.2, "color", 8, fillcolor),
+            SubPolicy(0.5, "solarize", 2, 0.0, "invert", 3, fillcolor),
+
+            SubPolicy(0.2, "equalize", 0, 0.6, "autocontrast", 0, fillcolor),
+            SubPolicy(0.2, "equalize", 8, 0.8, "equalize", 4, fillcolor),
+            SubPolicy(0.9, "color", 9, 0.6, "equalize", 6, fillcolor),
+            SubPolicy(0.8, "autocontrast", 4, 0.2, "solarize", 8, fillcolor),
+            SubPolicy(0.1, "brightness", 3, 0.7, "color", 0, fillcolor),
+
+            SubPolicy(0.4, "solarize", 5, 0.9, "autocontrast", 3, fillcolor),
+            SubPolicy(0.9, "translateY", 9, 0.7, "translateY", 9, fillcolor),
+            SubPolicy(0.9, "autocontrast", 2, 0.8, "solarize", 3, fillcolor),
+            SubPolicy(0.8, "equalize", 8, 0.1, "invert", 3, fillcolor),
+            SubPolicy(0.7, "translateY", 9, 0.9, "autocontrast", 1, fillcolor)
+        ]
+
+    def __call__(self, img):
+        policy_idx = random.randint(0, len(self.policies) - 1)
+        return self.policies[policy_idx](img)
+
+    def __repr__(self):
+        return "AutoAugment CIFAR10 Policy"

@@ -142,7 +142,7 @@ if __name__ == "__main__":
     # numberOfClasses = args.num_classes
     # ResNetModel = args.model
 
-    batchSize = 16
+    batchSize = 64
     numberOfClasses = 10
     ResNetModel = 18
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
     #############################
 
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, pretrained=False)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=True, pretrained=False)
     
     # Test accuracy of trained model on test
     test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)

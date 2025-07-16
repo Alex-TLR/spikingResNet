@@ -1,7 +1,7 @@
 from xml.parsers.expat import model
 import numpy as np
 import time 
-from utils.Utils import Utils, distances_from_average_clusters, get_preds_from_probs_vector, compute_thresholds, compute_precision_tpr_fpr_for_test_and_ood
+from utils.Utils import Utils, distances_from_average_clusters, get_preds_from_probs_vector
 from metrics.Metrics import Metrics, get_dist
 from clustering.Clustering import Clustering
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  

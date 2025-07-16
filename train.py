@@ -16,10 +16,24 @@ import sys
 import time
 import traceback
 import math
+from utils.Utils import CIFAR10Policy
 
 from spikingjelly.clock_driven import neuron, surrogate, functional
 from spikingjelly.clock_driven.model import sew_resnet
 from torch.cuda import amp
+
+_seed_ = 1984
+import random
+import math
+random.seed(_seed_)
+np.random.seed(_seed_)
+
+torch.manual_seed(_seed_)  
+torch.cuda.manual_seed_all(_seed_) 
+torch.backends.cudnn.deterministic = True  
+torch.backends.cudnn.benchmark = False 
+import os
+os.environ['PYTHONHASHSEED'] = str(_seed_)
 
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
@@ -38,7 +52,7 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, pretrained=False):
+def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, auto_aug=False, pretrained=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
@@ -47,8 +61,13 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
     ResNetModel:    determines number of layers in model
     '''
 
+    def seed_worker(worker_id):
+        worker_seed = torch.initial_seed() % 2**32
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+
     # Load datase
-    dataset_train, dataset_test = Utils.load_data(dataSet)
+    dataset_train, dataset_test = Utils.load_data(dataSet, auto_aug=auto_aug)
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
@@ -59,10 +78,10 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
     batchSize = batchSize
     
     if (fullTrain == False):
-        train_loader, val_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, False)
+        train_loader, val_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, False, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(_seed_))
     else:
-        train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
-    
+        train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(_seed_))
+
     # Get the device
     device = Utils.get_device()
 
