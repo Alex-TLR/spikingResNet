@@ -106,6 +106,14 @@ if __name__ == "__main__":
     # SEW model ResNet18 test accuracy is 82.53%
     # Network model: SEW ResNet18 (ResNetModel = 22)
 
+    # Case 09:
+    # spike-ResNet20 model 
+    # InDistribution: MNIST
+    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
+    # Network model: SpikeResNet20Model (ResNetModel = 20)
+    # Number of classes: 10
+    # Batch size: 32
+
     # Define case
     # match args.case:
     #     case '06':
@@ -130,7 +138,7 @@ if __name__ == "__main__":
     #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
 
     # Define case 
-    case = '06'
+    case = '09'
     # dataSet_ID = 'Letters'
     # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
@@ -144,7 +152,7 @@ if __name__ == "__main__":
 
     batchSize = 128
     numberOfClasses = 10
-    ResNetModel = 18
+    ResNetModel = 20
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -172,7 +180,11 @@ if __name__ == "__main__":
     #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
     #############################
 
+<<<<<<< HEAD
     training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=300, fullTrain=True, auto_aug=True, pretrained=False)
+=======
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, auto_aug=False, pretrained=False)
+>>>>>>> 4caba3239533ca805bddf5b0b577b63a4f2ca6e2
     
     # Test accuracy of trained model on test
     test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)

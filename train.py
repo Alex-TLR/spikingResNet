@@ -6,7 +6,7 @@ import torch
 import matplotlib.pyplot as plt
 from torchsummary import summary
 from models.resnet import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, spikeConvNN2,  SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2,  SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model  
 from models.plain import spikeLinearNet1
 import snntorch.functional as SF
 import numpy as np
@@ -204,6 +204,10 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
             model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
             print(model)
             model = model.to(device)
+        elif ResNetModel == 20:
+            model = SpikeResNet20Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
+            print(model)
+            model = model.to(device)
         elif ResNetModel == 21:
             model = spikeLinearNet1(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 22:
@@ -225,10 +229,14 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
             loss_fn = nn.CrossEntropyLoss()
             # Optimizer for gray 5e-4
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
-            optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
-            # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
+            # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
+            optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
             sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-4, epochs=epochs, steps_per_epoch=len(train_loader))
+            # sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=epochs)
             # sched = None
+
+            # optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
+            # sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=epochs)
             # Training
             startEpoch = 0
             if (fullTrain == True):

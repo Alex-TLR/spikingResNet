@@ -4,7 +4,7 @@ import time
 from utils.Utils import Utils, distances_from_average_clusters, get_preds_from_probs_vector
 from metrics.Metrics import Metrics, get_dist
 from clustering.Clustering import Clustering
-from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model  
 from models.plain import spikeLinearNet1
 import torch 
 import snntorch.functional as SF 
@@ -73,6 +73,8 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         elif ResNetModel == 18:
             # model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
             model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
+        elif ResNetModel == 20:
+            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
         elif ResNetModel == 21:
             model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 22:

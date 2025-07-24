@@ -901,6 +901,276 @@ class SpikeResNet18Model(BasicModel):
 
         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
+# Resnet20
+class SpikeResNet20Model(BasicModel):  
+    
+    '''
+    Spike ResNet20 model, suitable for CIFAR
+    Skip connection are made to output spikes only (clamp to 0 or 1)
+    spatio-temporal Batch Normalization is applied after each convolutional layer
+    '''
+
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, numberOfSteps):
+        super().__init__(numberOfClasses)
+
+        self.num_steps = numberOfSteps
+  
+        # Initial layer
+        # Input [B, 3, 32, 32]
+        # Output [B, 128, 32, 32]
+        self.block1 = self.convBlock(numberOfChannels, 128)
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') # 128x32x32
+
+        # The first residual super-block (stage one)
+        # Contains three blocks with skip connections (6 conv blocks)
+        self.resBlock2_1 = self.convBlock(128, 128)                             # 128x32x32
+        self.r2_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock2_2 = self.convBlock(128, 128)                             # 128x32x32
+        self.r2_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+        self.resBlock2_3 = self.convBlock(128, 128)                             # 128x32x32
+        self.r2_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+        self.resBlock2_4 = self.convBlock(128, 128)                             # 128x32x32
+        self.r2_lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+        self.resBlock2_5 = self.convBlock(128, 128)                             # 128x32x32
+        self.r2_lif5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock2_6 = self.convBlock(128, 128)                             # 128x32x32
+        self.r2_lif6 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+        # Downsample block
+        self.downsample3 = self.convBlock(128, 256, kernel_size=1, stride=2, padding=0)
+        self.d_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+
+        # The second residual super-block (stage two)
+        # Contains three blocks with skip connections (6 conv blocks)
+        self.resBlock4_1 = self.convBlock(128, 256, kernel_size=3, stride=2)    # 256x16x16
+        self.r4_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock4_2 = self.convBlock(256, 256)                             # 256x16x16
+        self.r4_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+        self.resBlock4_3 = self.convBlock(256, 256)                             # 256x16x16
+        self.r4_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock4_4 = self.convBlock(256, 256)                             # 256x16x16
+        self.r4_lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock4_5 = self.convBlock(256, 256)                             # 256x16x16
+        self.r4_lif5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock4_6 = self.convBlock(256, 256)                             # 256x16x16
+        self.r4_lif6 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        # Downsample block
+        self.downsample5 = self.convBlock(256, 512, kernel_size=1, stride=2, padding=0)
+        self.d_lif5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+
+        # The third residual super-block (stage two)
+        # Contains three blocks with skip connections (6 conv blocks)
+        self.resBlock6_1 = self.convBlock(256, 512, kernel_size=3, stride=2)    # 512x8x8
+        self.r6_lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock6_2 = self.convBlock(512, 512)                             # 512x8x8
+        self.r6_lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')
+        self.resBlock6_3 = self.convBlock(512, 512)                             # 512x8x8
+        self.r6_lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock6_4 = self.convBlock(512, 512)                             # 512x8x8
+        self.r6_lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock6_5 = self.convBlock(512, 512)                             # 512x8x8
+        self.r6_lif5 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+        self.resBlock6_6 = self.convBlock(512, 512)                             # 512x8x8
+        self.r6_lif6 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') 
+
+        self.amax7 = nn.AdaptiveMaxPool2d(1)
+        self.flat = nn.Flatten()
+        self.fc8 = nn.Linear(512, numberOfClasses)
+        self.lifOut = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='none', output=True)
+
+    def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
+        layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
+                self.TemporalBatchNorm(num_features=output, num_steps=self.num_steps)]
+        return nn.Sequential(*layers)
+    
+    class TemporalBatchNorm(nn.Module):
+        def __init__(self, num_features, num_steps):
+            super().__init__()
+            self.bn3d = nn.BatchNorm3d(num_features)
+            self.bn2d = nn.BatchNorm2d(num_features)
+            self.num_features = num_features
+            self.num_steps = num_steps
+            self.reset_buffer()
+        
+        def reset_buffer(self):
+            """Reset temporal buffer for new forward pass"""
+            self.temporal_buffer = []
+            self.current_step = 0
+        
+        def forward(self, x):
+            # x: [batch, channels, height, width]
+            self.temporal_buffer.append(x.clone())
+            self.current_step += 1
+            
+            if self.current_step == 1:
+                # First time step: just return input (no temporal context yet)
+                return self.bn2d(x)
+                
+            else:
+                # Stack all previous time steps including current
+                temporal_x = torch.stack(self.temporal_buffer, dim=2)
+                # Apply BatchNorm3d to accumulated temporal data
+                normalized = self.bn3d(temporal_x)
+                return normalized[:, :, -1, :, :]
+            
+        # limiting memory
+        # class TemporalBatchNorm(nn.Module):
+        # def __init__(self, num_features, num_steps, max_buffer_size=10):
+        #     super().__init__()
+        #     self.bn3d = nn.BatchNorm3d(num_features)
+        #     self.bn2d = nn.BatchNorm2d(num_features)
+        #     self.num_features = num_features
+        #     self.num_steps = num_steps
+        #     self.max_buffer_size = max_buffer_size  # ✅ Limit memory usage
+        #     self.reset_buffer()
+        
+        # def reset_buffer(self):
+        #     self.temporal_buffer = []
+        #     self.current_step = 0
+        
+        # def forward(self, x):
+        #     self.temporal_buffer.append(x.clone())
+        #     self.current_step += 1
+            
+        #     #Prevent memory overflow
+        #     if len(self.temporal_buffer) > self.max_buffer_size:
+        #         self.temporal_buffer.pop(0)
+            
+        #     if self.current_step == 1:
+        #         return self.bn2d(x)
+        #     else:
+        #         temporal_x = torch.stack(self.temporal_buffer, dim=2)
+        #         normalized = self.bn3d(temporal_x)
+        #         return normalized[:, :, -1, :, :]
+    
+    def forward(self, x, numberOfSteps):
+        
+        # Reset all temporal buffers before starting new forward pass
+        for module in self.modules():
+            if isinstance(module, self.TemporalBatchNorm):
+                module.num_steps = numberOfSteps
+                module.reset_buffer()
+
+        # Initialize hidden states and outputs at t=0
+        mem1 = self.lif1.init_leaky()
+        mem2_1 = self.r2_lif1.init_leaky()
+        mem2_2 = self.r2_lif2.init_leaky()
+        mem2_3 = self.r2_lif3.init_leaky()
+        mem2_4 = self.r2_lif4.init_leaky()
+        mem2_5 = self.r2_lif5.init_leaky()
+        mem2_6 = self.r2_lif6.init_leaky()
+        mem4_1 = self.r4_lif1.init_leaky()
+        mem4_2 = self.r4_lif2.init_leaky()
+        mem4_3 = self.r4_lif3.init_leaky()
+        mem4_4 = self.r4_lif4.init_leaky()
+        mem4_5 = self.r4_lif5.init_leaky()
+        mem4_6 = self.r4_lif6.init_leaky()
+        mem6_1 = self.r6_lif1.init_leaky()
+        mem6_2 = self.r6_lif2.init_leaky()
+        mem6_3 = self.r6_lif3.init_leaky()
+        mem6_4 = self.r6_lif4.init_leaky()
+        mem6_5 = self.r6_lif5.init_leaky()
+        mem6_6 = self.r6_lif6.init_leaky()
+        mem_out = self.lifOut.init_leaky()
+        mem_d3 = self.d_lif3.init_leaky()
+        mem_d5 = self.d_lif5.init_leaky()
+
+        feat_trace = []
+        prob_trace = []
+        spik_trace = []
+
+        for _ in range(numberOfSteps):
+
+            # Initial convolution
+            cur1 = self.block1(x)
+            spk1, mem1 = self.lif1(cur1, mem1)
+            # spk1 is used for skip connection
+
+            # Block1 (layer1) input conv (16, 16)
+            cur2_1 = self.resBlock2_1(spk1)
+            spk2_1, mem2_1 = self.r2_lif1(cur2_1, mem2_1)
+            cur2_2 = self.resBlock2_2(spk2_1)
+            spk2_2, mem2_2 = self.r2_lif2(cur2_2, mem2_2)
+            # The first skip connection
+            # spk_r2_1 = spk2_2 + spk1
+            spk_r2_1 = torch.clamp(spk2_2 + spk1, max = 1)
+            # spk_r2_1 is used for skip connection
+            cur2_3 = self.resBlock2_3(spk_r2_1)
+            spk2_3, mem2_3 = self.r2_lif3(cur2_3, mem2_3)
+            cur2_4 = self.resBlock2_4(spk2_3)
+            spk2_4, mem2_4 = self.r2_lif4(cur2_4, mem2_4)
+            # The second skip connection
+            spk_r2_2 = torch.clamp(spk2_4 + spk_r2_1, max = 1)
+            # spk_r2_2 is used for skip connection
+            cur2_5 = self.resBlock2_5(spk_r2_2)
+            spk2_5, mem2_5 = self.r2_lif5(cur2_5, mem2_5)
+            cur2_6 = self.resBlock2_6(spk2_5)
+            spk2_6, mem2_6 = self.r2_lif6(cur2_6, mem2_6)
+            # The third skip connection
+            spk_r2_3 = torch.clamp(spk2_6 + spk_r2_2, max = 1)
+            # spk_r2_3 is used for skip connection
+
+            # Block2 (layer2) input conv (16, 32)
+            id_3 = self.downsample3(spk_r2_3)
+            identity_3, mem_d3 = self.d_lif3(id_3, mem_d3)
+            cur4_1 = self.resBlock4_1(spk_r2_3)
+            spk4_1, mem4_1 = self.r4_lif1(cur4_1, mem4_1)
+            cur4_2 = self.resBlock4_2(spk4_1)
+            spk4_2, mem4_2 = self.r4_lif2(cur4_2, mem4_2)
+            # The first skip connection
+            # spk_r4_1 = spk4_2 + identity_3
+            spk_r4_1 = torch.clamp(spk4_2 + identity_3, max = 1)
+            cur4_3 = self.resBlock4_3(spk_r4_1)
+            spk4_3, mem4_3 = self.r4_lif3(cur4_3, mem4_3)
+            cur4_4 = self.resBlock4_4(spk4_3)
+            spk4_4, mem4_4 = self.r4_lif4(cur4_4, mem4_4)
+            # The second skip connection
+            # spk_r4_2 = spk4_4 + spk_r4_1
+            spk_r4_2 = torch.clamp(spk4_4 + spk_r4_1, max = 1)
+            cur4_5 = self.resBlock4_5(spk_r4_2)
+            spk4_5, mem4_5 = self.r4_lif5(cur4_5, mem4_5)
+            cur4_6 = self.resBlock4_6(spk4_5)
+            spk4_6, mem4_6 = self.r4_lif6(cur4_6, mem4_6)
+            # The third skip connection
+            spk_r4_3 = torch.clamp(spk4_6 + spk_r4_2, max = 1)
+            # spk_r4_3 is used for skip connection
+
+            # Block3 (layer3) input conv (32, 64)
+            id_5 = self.downsample5(spk_r4_3)
+            identity_5, mem_d5 = self.d_lif5(id_5, mem_d5)
+            cur6_1 = self.resBlock6_1(spk_r4_3)
+            spk6_1, mem6_1 = self.r6_lif1(cur6_1, mem6_1)
+            cur6_2 = self.resBlock6_2(spk6_1)
+            spk6_2, mem6_2 = self.r6_lif2(cur6_2, mem6_2)
+            # The first skip connection
+            # spk_r6_1 = spk6_2 + identity_5
+            spk_r6_1 = torch.clamp(spk6_2 + identity_5, max = 1)
+            cur6_3 = self.resBlock6_3(spk_r6_1)
+            spk6_3, mem6_3 = self.r6_lif3(cur6_3, mem6_3)
+            cur6_4 = self.resBlock6_4(spk6_3)
+            spk6_4, mem6_4 = self.r6_lif4(cur6_4, mem6_4)
+            # The second skip connection
+            # spk_r6_2 = spk6_4 + spk_r6_1
+            spk_r6_2 = torch.clamp(spk6_4 + spk_r6_1, max = 1)
+            cur6_5 = self.resBlock6_5(spk_r6_2)
+            spk6_5, mem6_5 = self.r6_lif5(cur6_5, mem6_5)
+            cur6_6 = self.resBlock6_6(spk6_5)
+            spk6_6, mem6_6 = self.r6_lif6(cur6_6, mem6_6)
+            # The third skip connection
+            spk_r6_3 = torch.clamp(spk6_6 + spk_r6_2, max = 1)
+            # spk_r6_3 is used for the last layer
+
+            spk7 = self.amax7(spk_r6_3)
+            spk7 = self.flat(spk7)
+            cur7 = self.fc8(spk7)
+            spk_out, mem_out = self.lifOut(cur7, mem_out)
+
+            feat_trace.append(spk7)
+            prob_trace.append(mem_out)
+            spik_trace.append(spk_out)
+
+        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
+
+
 # Current implementation
 # class SpikeResNet18Model(BasicModel):                                           # Input size
 
