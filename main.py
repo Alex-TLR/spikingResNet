@@ -180,11 +180,7 @@ if __name__ == "__main__":
     #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
     #############################
 
-<<<<<<< HEAD
     training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=300, fullTrain=True, auto_aug=True, pretrained=False)
-=======
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, auto_aug=False, pretrained=False)
->>>>>>> 4caba3239533ca805bddf5b0b577b63a4f2ca6e2
     
     # Test accuracy of trained model on test
     test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
