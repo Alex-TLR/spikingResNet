@@ -153,9 +153,18 @@ class Utils():
             # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData)'
             # print(command_test)
+        elif database_name == "MNIST":
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
+        elif database_name == "FMNIST":
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
+        elif database_name == "KMNIST":
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
         else:
-            print(f"Wrong data srt name.")
-        
+            print(f"Wrong data set name.")
+
         # print(command_train)
         dataset_train = eval(command_train)
         dataset_test = eval(command_test)
@@ -376,6 +385,18 @@ class Utils():
         # print(f"Utils, th_tpr80: {th_tpr80}, th_tpr95: {th_tpr95}")
 
         return th_tpr80, th_tpr95
+
+    @staticmethod
+    def create_population_targets(labels, num_classes=10, pop_per_class=50):
+        batch_size = labels.size(0)
+        targets = torch.zeros(batch_size, num_classes * pop_per_class, device=labels.device)
+        
+        for i, label in enumerate(labels):
+            start_idx = label * pop_per_class
+            end_idx = start_idx + pop_per_class
+            targets[i, start_idx:end_idx] = 1.0
+        
+        return targets
 
 
     @staticmethod

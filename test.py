@@ -4,12 +4,13 @@ import time
 from utils.Utils import Utils, distances_from_average_clusters, get_preds_from_probs_vector
 from metrics.Metrics import Metrics, get_dist
 from clustering.Clustering import Clustering
-from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model  
 from models.plain import spikeLinearNet1
 import torch 
 import snntorch.functional as SF 
 import matplotlib.pyplot as plt
 import torch.nn as nn
+from snntorch import utils
 
 from spikingjelly.clock_driven import neuron, surrogate, functional
 from spikingjelly.clock_driven.model import sew_resnet
@@ -66,6 +67,9 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 2:
             model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        elif ResNetModel == 4:
+            model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = model.to(device)
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 1:
@@ -130,7 +134,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
                     # model.mem4 = final_membranes['mem4'].to(device)
                     # model.mem5 = final_membranes['mem5'].to(device)
                     # Generate predictions/ forward pass
-                    spikes, _, membrane = model(batch, numberOfSteps)
+                    spikes, feat, membrane = model(batch, numberOfSteps)
                     # l_spikes = loss_fn(spikes, labels)
                     # testLossSpikes.append(l_spikes.item())
                     # a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
@@ -190,6 +194,233 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
 
             print(f"Final results: Test accuracy1: {np.mean(testAccList1):.2f}%, Test accuracy5: {np.mean(testAccList5):.2f}%")
             return None
+
+
+def test_accuracy_population(dataSet, model, modelType, batchSize, numberOfClasses, ResNetModel):
+    dataset_train, dataset_test = Utils.load_data(dataSet)
+    testSize = len(dataset_test)
+    channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
+    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
+    device = Utils.get_device()
+
+    # Get image size based on dataset
+    if dataSet in ['CIFAR10', 'CIFAR100']:
+        feature_size = 32
+    elif dataSet in ['MNIST', 'FMNIST', 'KMNIST']:
+        feature_size = 28
+    else:
+        feature_size = 28
+
+    if modelType == 'spike':
+        numberOfSteps = 4  # This parameter exists but isn't used in testing
+        beta = 0.95
+        threshold = 0.25
+        
+        model = model.to(device)
+        model.eval()
+        
+        total = 0
+        acc_spikes = 0
+        acc_membrane = 0
+        
+        test_iterator = iter(test_loader)
+        
+        with torch.no_grad():
+            for data, targets in test_iterator:
+                data = data.to(device)
+                targets = targets.to(device)
+                
+                # ✅ Only reset - no manual time steps
+                utils.reset(model)
+                
+                # ✅ Single forward call (BPTT handles time internally)
+                spk_rec, mem_rec = model(data)  # [B, 500] if single time step model
+                
+                
+                # For spikes - population coding
+                acc_rate_spk = SF.accuracy_rate(
+                    spk_rec.unsqueeze(0),  # Add time dimension [1, B, 500]
+                    targets, 
+                    population_code=True, 
+                    num_classes=numberOfClasses
+                ) * spk_rec.size(0)  # Multiply by batch size to get count
+                
+                acc_spikes += acc_rate_spk
+                
+                acc_rate_mem = SF.accuracy_rate(
+                    mem_rec.unsqueeze(0),  # Add time dimension [1, B, 500]
+                    targets, 
+                    population_code=True, 
+                    num_classes=numberOfClasses
+                ) * mem_rec.size(0)  # Multiply by batch size to get count
+                
+                acc_membrane += acc_rate_mem
+                total += spk_rec.size(0)  # Add batch size
+                
+                # Progress display
+                spike_acc_pct = acc_spikes / total * 100
+                mem_acc_pct = acc_membrane / total * 100
+                print(f"\rTest accuracy on spikes: {spike_acc_pct:05.2f}%, "
+                      f"Test accuracy on membrane: {mem_acc_pct:05.2f}%, "
+                      f"progress: {total//batchSize}/{len(test_loader)}", 
+                      end='', flush=True)
+        
+        print()  # New line
+        final_spike_acc = acc_spikes / total
+        final_mem_acc = acc_membrane / total
+        
+        print(f"Final spike accuracy: {final_spike_acc*100:.2f}%")
+        print(f"Final membrane accuracy: {final_mem_acc*100:.2f}%")
+        
+        return final_spike_acc
+
+
+def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses, ResNetModel, expansion=50):
+    '''
+    check accuracy of trained model on ID test data when population coding is used with my spatio-temporal propagation
+    '''
+    # Load database
+    dataset_train, dataset_test = Utils.load_data(dataSet)
+    testSize = len(dataset_test)
+
+    # Get image size
+    channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
+
+    # Load data
+    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
+
+    # Get the device
+    device = Utils.get_device()
+
+    # Get image size based on dataset
+    if dataSet in ['CIFAR10', 'CIFAR100']:
+        feature_size = 32
+    elif dataSet in ['MNIST', 'FMNIST', 'KMNIST']:
+        feature_size = 28
+    else:
+        feature_size = 28
+
+    if modelType == 'spike':
+        # For spiking neural network we need number of steps
+        numberOfSteps = 1
+        beta = 0.95
+        threshold = 0.25
+
+        # Define model with expansion parameter
+        if ResNetModel == 2:
+            model = spikeConvNN2(
+                numberOfChannels=channels, 
+                numberOfClasses=numberOfClasses, 
+                beta=beta, 
+                threshold=threshold, 
+                expansion=expansion, 
+                feature_size=feature_size
+            )
+        # elif ResNetModel == 4:
+        #     print("This model is adapted for BPTT only.")
+        #     return -1
+        elif ResNetModel == 10:
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=50)
+            model = model.to(device)
+        elif ResNetModel == 18:
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=50)
+            model = model.to(device)
+        else:
+            print("Not defined")
+            return -1
+        
+        # Load weights
+        torch.cuda.empty_cache()
+        
+        weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+        model.load_state_dict(torch.load(weightsName, weights_only=False))
+        model = model.to(device)
+        model.eval()
+
+        print(f"Testing with expansion={expansion} ({'Population' if expansion > 1 else 'Standard'} coding)")
+        print(f"Model has expansion attribute: {hasattr(model, 'expansion')}")
+        if hasattr(model, 'expansion'):
+            print(f"Model expansion value: {model.expansion}")
+        print(f"Number of batches: {len(test_loader)}")
+
+        # ✅ Use same variables as your original test_accuracy_population
+        total = 0
+        acc_spikes = 0
+        acc_membrane = 0
+        
+        # ✅ Convert to iterator like your original
+        test_iterator = iter(test_loader)
+        
+        with torch.no_grad():
+            for data, targets in test_iterator:
+                data = data.to(device)
+                targets = targets.to(device)
+                
+                utils.reset(model)
+                
+                # ✅ Forward pass - get all three outputs
+                spikes, features, membranes = model(data, numberOfSteps)
+                
+                # ✅ NEW: Use same spike accuracy logic as fit_spike_full_train
+                batch_size = data.size(0)
+                
+                # Check if model uses population coding (same logic as training)
+                if hasattr(model, 'expansion') and model.expansion > 1:
+                    # ✅ Population coding accuracy for spikes - same as fit_spike_full_train
+                    acc_rate_spk = SF.accuracy_rate(
+                        spikes, 
+                        targets, 
+                        population_code=True, 
+                        num_classes=model.numberOfClasses
+                    )
+                    batch_correct_spk = (acc_rate_spk * batch_size).item()
+                    
+                else:
+                    # ✅ Standard coding accuracy for spikes - same as fit_spike_full_train
+                    acc_rate_spk = SF.accuracy_rate(spikes, targets)
+                    batch_correct_spk = (acc_rate_spk * batch_size).item()
+                
+                acc_spikes += batch_correct_spk
+                
+                # ✅ KEEP: Original membrane accuracy calculation (as before)
+                if expansion > 1:
+                    # Population coding mode - time average first, then population coding
+                    membranes_avg = membranes.mean(dim=0)  # [B, classes*expansion]
+                    
+                    acc_rate_mem = SF.accuracy_rate(
+                        membranes_avg.unsqueeze(0),  # Add time dimension [1, B, classes*expansion]
+                        targets, 
+                        population_code=True, 
+                        num_classes=numberOfClasses
+                    )
+                    batch_correct_mem = (acc_rate_mem * membranes_avg.size(0)).item()
+                    acc_membrane += batch_correct_mem
+                    
+                else:
+                    # Standard coding mode
+                    mem_avg = membranes.mean(0)  # [B, classes]
+                    predicted = torch.argmax(mem_avg, dim=1)
+                    correct = (predicted == targets).float().sum()
+                    acc_membrane += correct.item()
+                
+                total += batch_size
+                
+                # ✅ Progress display - same as your original
+                spike_acc_pct = acc_spikes / total * 100
+                mem_acc_pct = acc_membrane / total * 100
+                print(f"\rTest accuracy on spikes: {spike_acc_pct:05.2f}%, "
+                      f"Test accuracy on membrane: {mem_acc_pct:05.2f}%, "
+                      f"progress: {total//batchSize}/{len(test_loader)}", 
+                      end='', flush=True)
+        
+        print()  # New line
+        final_spike_acc = acc_spikes / total
+        final_mem_acc = acc_membrane / total
+        
+        print(f"Final spike accuracy: {final_spike_acc*100:.2f}%")
+        print(f"Final membrane accuracy: {final_mem_acc*100:.2f}%")
+        
+        return None
 
 
 def test_metrics(case, nameID):
