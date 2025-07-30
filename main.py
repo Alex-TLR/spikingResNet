@@ -168,7 +168,7 @@ if __name__ == "__main__":
     #############################
 
     # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, auto_aug=False, pretrained=False)
-    training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=400, fullTrain=True, auto_aug=False, pretrained=False)
+    training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=400, fullTrain=True, auto_aug=True, pretrained=False)
     
     # Test accuracy of trained model on test
     # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
