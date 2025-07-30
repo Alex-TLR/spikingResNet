@@ -9,6 +9,7 @@ SpikeResNet9Model: Spiking-Resnet9 for MNIST, from the scratch
 
 # TODO: make generic Resenet model
 
+import scipy as sp
 import torch 
 import torch.nn as nn
 import sys
@@ -19,6 +20,7 @@ import snntorch as snn
 import snntorch.functional as SF
 import time
 import numpy as np
+import snntorch.utils as utils
 
 
 # Utility functions
@@ -42,13 +44,25 @@ class BasicModel(nn.Module):
         super().__init__()
         self.numberOfClasses = nClasses
     
+    # def progressBar(self, iter, total, prefix = '', suffix = '', length = 30, fill = '#'):
+    #     percent = f'{100 * (iter / (float(total))):.1f}'
+    #     filled = int(length * iter // total)
+    #     bar = fill * filled + '_' * (length - filled) + ' ' + percent
+    #     sys.stdout.write('\r%s |%s%% %s' % (prefix, bar, suffix))
+    #     sys.stdout.flush()
+    #     return None
+    
     def progressBar(self, iter, total, prefix = '', suffix = '', length = 30, fill = '#'):
         percent = f'{100 * (iter / (float(total))):.1f}'
         filled = int(length * iter // total)
-        bar = fill * filled + '_' * (length - filled) + ' ' + percent
-        sys.stdout.write('\r%s |%s%% %s' % (prefix, bar, suffix))
-        sys.stdout.flush()
-        return None
+        bar = fill * filled + '_' * (length - filled)
+        
+        # ✅ Print with end='\r' and flush=True for proper overwriting
+        print(f'\r{prefix} |{bar}| {percent}% {suffix}', end='', flush=True)
+        
+        # ✅ Add newline at the end of training
+        if iter == total:
+            print()  # Move to next line when complete
     
     def accuracy_spike(self, model, numSteps, data, labels, device):
         '''
@@ -181,16 +195,17 @@ class BasicModel(nn.Module):
         history = []
         current_step = 0
 
-        total_correct = 0
-        total_samples = 0
         for i in range(startEpoch, nEpochs):
             model.train()
             # Define lists to store training loss and accuracy
             tLoss = []
-            tAcc = list()
-            # for batch, labels in train_load:
+            total_correct = 0
+            total_samples = 0
             start_time = time.time()
             for batch_idx, (batch, labels) in enumerate(train_load):
+                utils.reset(model)
+                # Set opt grad
+                opt.zero_grad()
                 batch = batch.to(device)
                 labels = labels.to(device)
                 # Generate predictions/ forward pass
@@ -198,8 +213,7 @@ class BasicModel(nn.Module):
                 # Calculate loss
                 loss = lossF(spikes, labels) 
                 tLoss.append(loss.detach().item())
-                # Set opt grad
-                opt.zero_grad()
+                
                 # Update weights
                 loss.backward()
                 nn.utils.clip_grad_value_(model.parameters(), gd)
@@ -209,13 +223,32 @@ class BasicModel(nn.Module):
                     sched.step()
                 # Check train accuracy
                 with torch.no_grad():
-                    # Use SF.accuracy_rate on the spikes from training forward pass
-                    acc_rate, _ = SF.accuracy_rate(spikes, labels)
                     batch_size = batch.size(0)
-                    batch_correct = (acc_rate * batch_size).item()
-                    
-                    total_correct += batch_correct
                     total_samples += batch_size
+                    spikes = spikes.detach()
+                    
+                    # Check if model uses population coding
+                    if hasattr(model, 'expansion') and model.expansion > 1:
+                        # Population coding accuracy
+                        # spikes shape: [T, B, classes*expansion]
+                        acc_rate = SF.accuracy_rate(
+                            spikes, 
+                            labels, 
+                            population_code=True, 
+                            num_classes=model.numberOfClasses
+                        )
+                        batch_correct = (acc_rate * batch_size).item()
+                        # print(f"Population coding batch accuracy: {batch_correct}")
+                        
+                    else:
+                        # Standard coding accuracy  
+                        # spikes shape: [T, B, classes]
+                        acc_rate = SF.accuracy_rate(spikes, labels)
+                        batch_correct = (acc_rate * batch_size).item()
+                
+                    total_correct += batch_correct
+                    # print(f"Total correct so far: {total_correct} out of {total_samples}")
+
                 current_step = i * len(train_load) + batch_idx
                 del batch, labels
 
@@ -497,8 +530,11 @@ class SpikeResNet10Model(BasicModel):
     SNN must be in residual and downsampling block before adding
     '''
                                                                                 # Input size
-    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):     # 32x32
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, numberOfSteps=1, expansion=1):     # 32x32
         super().__init__(numberOfClasses)
+        self.numberOfClasses = numberOfClasses
+        self.expansion = expansion 
+        self.numberOfSteps = numberOfSteps
 
         self.block1 = self.convBlock(numberOfChannels, 64)                      # 64x32x32
         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero') # 64x32x32
@@ -545,7 +581,7 @@ class SpikeResNet10Model(BasicModel):
 
         self.amax9 = nn.AdaptiveMaxPool2d(1)                                    # 512x1x1
         self.flat = nn.Flatten()
-        self.fc9 = nn.Linear(512, numberOfClasses)
+        self.fc9 = nn.Linear(512, numberOfClasses * self.expansion)  # 512x1x1 -> 10x1x1
         self.lifOut = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
 
         # self.mem1_init = nn.Parameter(torch.randn(64) * 0.01)
@@ -580,12 +616,51 @@ class SpikeResNet10Model(BasicModel):
     #     self.mem8_2 = self.mem8_2_init.unsqueeze(0).expand(batch_size, -1).to(device)
     #     self.mem9 = self.mem9_init.unsqueeze(0).expand(batch_size, -1).to(device)
 
+    # def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
+    #     layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
+    #                 nn.BatchNorm2d(num_features=output)]
+    #     return nn.Sequential(*layers)
+
     def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
         layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
-                    nn.BatchNorm2d(num_features=output)]
+                    self.TemporalBatchNorm(num_features=output, num_steps=self.numberOfSteps)]
         return nn.Sequential(*layers)
     
+    class TemporalBatchNorm(nn.Module):
+        def __init__(self, num_features, num_steps):
+            super().__init__()
+            self.bn3d = nn.BatchNorm3d(num_features)
+            self.bn2d = nn.BatchNorm2d(num_features)
+            self.num_features = num_features
+            self.num_steps = num_steps
+            self.reset_buffer()
+        
+        def reset_buffer(self):
+            """Reset temporal buffer for new forward pass"""
+            self.temporal_buffer = []
+            self.current_step = 0
+        
+        def forward(self, x):
+            # x: [batch, channels, height, width]
+            self.temporal_buffer.append(x.clone())
+            self.current_step += 1
+            
+            if self.current_step == 1:
+                # First time step: just return input (no temporal context yet)
+                return self.bn2d(x)
+                
+            else:
+                # Stack all previous time steps including current
+                temporal_x = torch.stack(self.temporal_buffer, dim=2)
+                # Apply BatchNorm3d to accumulated temporal data
+                normalized = self.bn3d(temporal_x)
+                return normalized[:, :, -1, :, :]
+    
     def forward(self, x, numberOfSteps):
+
+        for module in self.modules():
+            if isinstance(module, self.TemporalBatchNorm):
+                module.reset_buffer()
 
         mem1 = self.lif1.init_leaky()
         mem2_1 = self.r2_lif1.init_leaky()
@@ -658,8 +733,14 @@ class SpikeResNet10Model(BasicModel):
             prob_trace.append(mem9)
             spik_trace.append(spk_out)
 
+        spikes = torch.stack(spik_trace, dim=0)      # [T, B, classes*expansion]
+        features = torch.stack(feat_trace, dim=0)    # [T, B, 300]
+        membranes = torch.stack(prob_trace, dim=0)   # [T, B, classes*expansion]
+        # print(f"spikes.shape is {spikes.shape}, features.shape is {features.shape}, membranes.shape is {membranes.shape}")
+        return spikes, features, membranes
+
         # print(f'spik_trace is {spik_trace}, prob_trace is {prob_trace}')
-        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
+        # return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
 # 18 layers
 class SpikeResNet18Model(BasicModel):  
@@ -669,9 +750,10 @@ class SpikeResNet18Model(BasicModel):
     spatio-temporal Batch Normalization is applied after each convolutional layer
     '''
 
-    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, numberOfSteps):     # 32x32
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, numberOfSteps=1, expansion=1):     # 32x32
         super().__init__(numberOfClasses)
-
+        self.numberOfClasses = numberOfClasses
+        self.expansion = expansion
         self.num_steps = numberOfSteps
 
         self.block1 = self.convBlock(numberOfChannels, 64)                      # 64x32x32
@@ -739,12 +821,17 @@ class SpikeResNet18Model(BasicModel):
 
         self.amax9 = nn.AdaptiveMaxPool2d(1)
         self.flat = nn.Flatten()
-        self.fc10 = nn.Linear(512, numberOfClasses)
+        self.fc10 = nn.Linear(512, numberOfClasses * expansion)
         self.lifOut = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='none', output=True)
 
+    # def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
+    #     layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
+    #                 self.TemporalBatchNorm(num_features=output, num_steps=self.num_steps)]
+    #     return nn.Sequential(*layers)
+    
     def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
         layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
-                    self.TemporalBatchNorm(num_features=output, num_steps=self.num_steps)]
+                    nn.BatchNorm2d(num_features=output)]
         return nn.Sequential(*layers)
     
     class TemporalBatchNorm(nn.Module):
@@ -1363,6 +1450,10 @@ class SpikeResNet20Model(BasicModel):
 
 # Good for grayscale
 class spikeConvNN1(BasicModel):
+    '''
+    This is the spike convolutional neural network model 1
+    Extract good OoD features for small grayscale images
+    '''
     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
         # it was set to init threshold value 0.2
         super().__init__(numberOfClasses)
@@ -1427,22 +1518,99 @@ class spikeConvNN1(BasicModel):
 # spike convolutional network
 # ResNetModel2
 # Original solution
+class spikeConvNN2(BasicModel):
+    '''
+    Convolutional network model from:
+    https://github.com/aitor-martinez-seras/OoD_on_SNNs/blob/main/Explainable_OoD_detection_on_SNNs.ipynb
+    https://arxiv.org/abs/2210.00894
+
+    This is the convolutional model with two hidden layers
+    threshold should be set to 0.2
+
+    check the model in Norse.LIFCell alpha=100 (what does it mean)?
+    let's hold to the SNN.Leaky with beta decay
+
+    Update 15. 6. 2025:
+    Add training of the initial membrane potentials
+
+    '''
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, feature_size=28, expansion=1):
+
+        super().__init__(numberOfClasses)
+        self.numberOfClasses = numberOfClasses
+        self.expansion = expansion 
+        self.features = int(((feature_size -2)/2)-2)
+        self.averaging = int((feature_size - 2)/2)
+
+        self.conv1 = nn.Conv2d(numberOfChannels, 20, kernel_size=3, bias=False)
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        # self.lif1 = LeakySurrogate(beta=beta, threshold=threshold)
+        self.avg1 = nn.AdaptiveAvgPool2d(self.averaging)
+        self.conv2 = nn.Conv2d(20, 50, kernel_size=3, bias=False)
+        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
+        # self.lif2 = LeakySurrogate(beta=beta, threshold=threshold)
+        self.fc3 = nn.Linear(self.features * self.features * 50, 500, bias=False)
+        self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero") 
+        # self.lif3 = LeakySurrogate(beta=beta, threshold=threshold/2)
+        self.fc4 = nn.Linear(500, 300, bias=False)
+        self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism='zero')
+        # self.lif4 = LeakySurrogate(beta=beta, threshold=threshold/4)
+        self.fc5 = nn.Linear(300, numberOfClasses * expansion, bias=False)
+        self.lif5 = snn.Leaky(beta=beta) # this one should be only leaky integrate, not fire
+
+    def forward(self, x, num_steps):
+
+        # Initialize hidden states and outputs at t=0
+        mem1 = self.lif1.init_leaky()
+        mem2 = self.lif2.init_leaky()
+        mem3 = self.lif3.init_leaky()
+        mem4 = self.lif4.init_leaky()
+        mem5 = self.lif5.init_leaky()
+        
+        feat_trace = []
+        prob_trace = []
+        spik_trace = []
+
+        for _ in range(num_steps):
+            cur1 = self.conv1(x)
+            # print(f"cur1.shape: {cur1.shape}, mem1.shape: {mem1.shape}")
+            spk1, mem1 = self.lif1(cur1, mem1)
+            # print(f"Conv1 spk1.shape: {spk1.shape}")
+            spk1 = self.avg1(spk1)
+            # print(f"Avg1 spk1.shape: {spk1.shape}")
+
+            cur2 = self.conv2(spk1)
+            # print(f"cur2.shape: {cur2.shape}, mem2.shape: {mem2.shape}")
+            spk2, mem2 = self.lif2(cur2, mem2)
+            # print(f"Conv2 spk2.shape: {spk2.shape}")
+            spk2 = spk2.view(-1, self.features * self.features * 50)
+
+            cur3 = self.fc3(spk2)
+            spk3, mem3 = self.lif3(cur3, mem3)
+
+            cur4 = self.fc4(spk3)
+            spk4, mem4 = self.lif4(cur4, mem4)
+
+            cur5 = self.fc5(spk4)
+            spk_out, mem5 = self.lif5(cur5, mem5)
+
+            feat_trace.append(spk4)
+            prob_trace.append(mem5)
+            spik_trace.append(spk_out)
+
+
+        spikes = torch.stack(spik_trace, dim=0)      # [T, B, classes*expansion]
+        features = torch.stack(feat_trace, dim=0)    # [T, B, 300]
+        membranes = torch.stack(prob_trace, dim=0)   # [T, B, classes*expansion]
+        return spikes, features, membranes
+
+
+# Learnable IMP
 # class spikeConvNN2(BasicModel):
 #     '''
-#     Convolutional network model from:
-#     https://github.com/aitor-martinez-seras/OoD_on_SNNs/blob/main/Explainable_OoD_detection_on_SNNs.ipynb
-#     https://arxiv.org/abs/2210.00894
-
-#     This is the convolutional model with two hidden layers
-#     threshold should be set to 0.2
-
-#     check the model in Norse.LIFCell alpha=100 (what does it mean)?
-#     let's hold to the SNN.Leaky with beta decay
-
-#     Update 15. 6. 2025:
-#     Add training of the initial membrane potentials
-
+#     Used for IWSSIP analysis, without IMP
 #     '''
+
 #     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, feature_size=28):
 
 #         super().__init__(numberOfClasses)
@@ -1451,147 +1619,69 @@ class spikeConvNN1(BasicModel):
 
 #         self.conv1 = nn.Conv2d(numberOfChannels, 20, kernel_size=3, bias=False)
 #         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         # self.lif1 = LeakySurrogate(beta=beta, threshold=threshold)
 #         self.avg1 = nn.AdaptiveAvgPool2d(self.averaging)
 #         self.conv2 = nn.Conv2d(20, 50, kernel_size=3, bias=False)
 #         self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         # self.lif2 = LeakySurrogate(beta=beta, threshold=threshold)
 #         self.fc3 = nn.Linear(self.features * self.features * 50, 500, bias=False)
 #         self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero") 
-#         # self.lif3 = LeakySurrogate(beta=beta, threshold=threshold/2)
 #         self.fc4 = nn.Linear(500, 300, bias=False)
 #         self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism='zero')
-#         # self.lif4 = LeakySurrogate(beta=beta, threshold=threshold/4)
 #         self.fc5 = nn.Linear(300, numberOfClasses, bias=False)
 #         self.lif5 = snn.Leaky(beta=beta) # this one should be only leaky integrate, not fire
 
-#         # self.mem1_init = nn.Parameter(torch.randn(20) * 0.01)
-#         # self.mem1_init = nn.Parameter(torch.randn(20, feature_size-2, feature_size-2) * 0.01)
-#         # self.mem2_init = nn.Parameter(torch.randn(50, self.features, self.features) * 0.01)
-#         # self.mem3_init = nn.Parameter(torch.randn(500) * 0.01)
-#         # self.mem4_init = nn.Parameter(torch.randn(300) * 0.01)
-#         # self.mem5_init = nn.Parameter(torch.randn(numberOfClasses) * 0.01)
+#         self.mem1_init = nn.Parameter(torch.randn(20) * 0.01)
+#         self.mem1_init = nn.Parameter(torch.randn(20, feature_size-2, feature_size-2) * 0.01)
+#         self.mem2_init = nn.Parameter(torch.randn(50, self.features, self.features) * 0.01)
+#         self.mem3_init = nn.Parameter(torch.randn(500) * 0.01)
+#         self.mem4_init = nn.Parameter(torch.randn(300) * 0.01)
+#         self.mem5_init = nn.Parameter(torch.randn(numberOfClasses) * 0.01)
+
+#     def reset_mem(self, batch_size, device):
+#         self.mem1 = self.mem1_init.expand(batch_size, -1, -1, -1).to(device)
+#         self.mem2 = self.mem2_init.expand(batch_size, -1, -1, -1).to(device)
+#         self.mem3 = self.mem3_init.unsqueeze(0).expand(batch_size, -1).to(device)
+#         self.mem4 = self.mem4_init.unsqueeze(0).expand(batch_size, -1).to(device)
+#         self.mem5 = self.mem5_init.unsqueeze(0).expand(batch_size, -1).to(device)
 
 #     def forward(self, x, num_steps):
-
-#         # Initialize hidden states and outputs at t=0
-#         mem1 = self.lif1.init_leaky()
-#         mem2 = self.lif2.init_leaky()
-#         mem3 = self.lif3.init_leaky()
-#         mem4 = self.lif4.init_leaky()
-#         mem5 = self.lif5.init_leaky()
-#         # mem1 = self.mem1_init.unsqueeze(0).expand(x.shape[0], -1).to(x.device)
-#         # mem1 = self.mem1_init.unsqueeze(0).expand(x.shape[0], -1, -1, -1).to(x.device)
-#         # mem2 = self.mem2_init.unsqueeze(0).expand(x.shape[0], -1).to(x.device)
-#         # mem2 = self.mem2_init.unsqueeze(0).expand(x.shape[0], -1, -1, -1).to(x.device)
-#         # mem3 = self.mem3_init.unsqueeze(0).expand(x.shape[0], -1).to(x.device)
-#         # mem4 = self.mem4_init.unsqueeze(0).expand(x.shape[0], -1).to(x.device)
-#         # mem5 = self.mem5_init.unsqueeze(0).expand(x.shape[0], -1).to(x.device)
         
 #         feat_trace = []
 #         prob_trace = []
 #         spik_trace = []
 
+#         # print(f"Before inference self.mem1: {self.mem1}, self.mem2: {self.mem2}")
+
 #         for _ in range(num_steps):
 #             cur1 = self.conv1(x)
-#             # print(f"cur1.shape: {cur1.shape}, mem1.shape: {mem1.shape}")
-#             spk1, mem1 = self.lif1(cur1, mem1)
-#             # print(f"Conv1 spk1.shape: {spk1.shape}")
+#             spk1, self.mem1 = self.lif1(cur1, self.mem1)
 #             spk1 = self.avg1(spk1)
-#             # print(f"Avg1 spk1.shape: {spk1.shape}")
 
 #             cur2 = self.conv2(spk1)
-#             # print(f"cur2.shape: {cur2.shape}, mem2.shape: {mem2.shape}")
-#             spk2, mem2 = self.lif2(cur2, mem2)
-#             # print(f"Conv2 spk2.shape: {spk2.shape}")
+#             spk2, self.mem2 = self.lif2(cur2, self.mem2)
 #             spk2 = spk2.view(-1, self.features * self.features * 50)
 
 #             cur3 = self.fc3(spk2)
-#             spk3, mem3 = self.lif3(cur3, mem3)
+#             spk3, self.mem3 = self.lif3(cur3, self.mem3)
 
 #             cur4 = self.fc4(spk3)
-#             spk4, mem4 = self.lif4(cur4, mem4)
+#             spk4, self.mem4 = self.lif4(cur4, self.mem4)
 
 #             cur5 = self.fc5(spk4)
-#             spk_out, mem5 = self.lif5(cur5, mem5)
+#             spk_out, self.mem5 = self.lif5(cur5, self.mem5)
 
 #             feat_trace.append(spk4)
-#             prob_trace.append(mem5)
+#             prob_trace.append(self.mem5)
 #             spik_trace.append(spk_out)
+
+#         # print(f"After inference self.mem1: {self.mem1}, self.mem2: {self.mem2}")
 
 #         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
-# Learnable IMP
-class spikeConvNN2(BasicModel):
-
-    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, feature_size=28):
-
-        super().__init__(numberOfClasses)
-        self.features = int(((feature_size -2)/2)-2)
-        self.averaging = int((feature_size - 2)/2)
-
-        self.conv1 = nn.Conv2d(numberOfChannels, 20, kernel_size=3, bias=False)
-        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.avg1 = nn.AdaptiveAvgPool2d(self.averaging)
-        self.conv2 = nn.Conv2d(20, 50, kernel_size=3, bias=False)
-        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.fc3 = nn.Linear(self.features * self.features * 50, 500, bias=False)
-        self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero") 
-        self.fc4 = nn.Linear(500, 300, bias=False)
-        self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism='zero')
-        self.fc5 = nn.Linear(300, numberOfClasses, bias=False)
-        self.lif5 = snn.Leaky(beta=beta) # this one should be only leaky integrate, not fire
-
-        self.mem1_init = nn.Parameter(torch.randn(20) * 0.01)
-        self.mem1_init = nn.Parameter(torch.randn(20, feature_size-2, feature_size-2) * 0.01)
-        self.mem2_init = nn.Parameter(torch.randn(50, self.features, self.features) * 0.01)
-        self.mem3_init = nn.Parameter(torch.randn(500) * 0.01)
-        self.mem4_init = nn.Parameter(torch.randn(300) * 0.01)
-        self.mem5_init = nn.Parameter(torch.randn(numberOfClasses) * 0.01)
-
-    def reset_mem(self, batch_size, device):
-        self.mem1 = self.mem1_init.expand(batch_size, -1, -1, -1).to(device)
-        self.mem2 = self.mem2_init.expand(batch_size, -1, -1, -1).to(device)
-        self.mem3 = self.mem3_init.unsqueeze(0).expand(batch_size, -1).to(device)
-        self.mem4 = self.mem4_init.unsqueeze(0).expand(batch_size, -1).to(device)
-        self.mem5 = self.mem5_init.unsqueeze(0).expand(batch_size, -1).to(device)
-
-    def forward(self, x, num_steps):
-        
-        feat_trace = []
-        prob_trace = []
-        spik_trace = []
-
-        # print(f"Before inference self.mem1: {self.mem1}, self.mem2: {self.mem2}")
-
-        for _ in range(num_steps):
-            cur1 = self.conv1(x)
-            spk1, self.mem1 = self.lif1(cur1, self.mem1)
-            spk1 = self.avg1(spk1)
-
-            cur2 = self.conv2(spk1)
-            spk2, self.mem2 = self.lif2(cur2, self.mem2)
-            spk2 = spk2.view(-1, self.features * self.features * 50)
-
-            cur3 = self.fc3(spk2)
-            spk3, self.mem3 = self.lif3(cur3, self.mem3)
-
-            cur4 = self.fc4(spk3)
-            spk4, self.mem4 = self.lif4(cur4, self.mem4)
-
-            cur5 = self.fc5(spk4)
-            spk_out, self.mem5 = self.lif5(cur5, self.mem5)
-
-            feat_trace.append(spk4)
-            prob_trace.append(self.mem5)
-            spik_trace.append(spk_out)
-
-        # print(f"After inference self.mem1: {self.mem1}, self.mem2: {self.mem2}")
-
-        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
-
 
 class spikeConvNN3(BasicModel):
+    '''
+    Needs to be rechecked and redesigned, for more performance.
+    '''
     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold):
         # it was set to init threshold value 0.2
         super().__init__(numberOfClasses)
@@ -1641,76 +1731,52 @@ class spikeConvNN3(BasicModel):
         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
 
-# old
-# class spikeConvNN1(BasicModel):
-#     def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, feature_size=28):
-#         # it was set to init threshold value 0.2
-#         super().__init__(numberOfClasses)
+class spikeConvNN4(BasicModel):
+    '''
+    Let's modify an architecture a little bit. 
+    Add population coding (large number of output neurons).
+    '''
 
-#         # self.features = int(((feature_size -2)/2)-2)
-#         # self.averaging = int((feature_size - 2)/2)
+    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, feature_size=28):
 
-#         # self.conv1 = nn.Conv2d(numberOfChannels, 16, kernel_size=3)
-#         # self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         # self.max1 = nn.AdaptiveMaxPool2d((self.averaging))
-#         # self.conv2 = nn.Conv2d(16, 64, kernel_size=3)
-#         # self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         # self.fc3 = nn.Linear(self.features * self.features * 64, 512)
-#         # self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero") 
-#         # self.fc4 = nn.Linear(512, 256)
-#         # self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism='zero')  
-#         # self.fc5 = nn.Linear(256, numberOfClasses)
-#         # self.lif5 = snn.Leaky(beta=beta)
+        super().__init__(numberOfClasses)
+        self.numberOfClasses = numberOfClasses
+        self.features = int(((feature_size -2)/2)-2)
+        self.averaging = int((feature_size - 2)/2)
 
-#         self.conv1 = nn.Conv2d(numberOfChannels, 64, kernel_size=3, padding=1, stride=2, bias=False)
-#         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.conv2 = nn.Conv2d(64, 128, kernel_size=3, padding=1, stride=2, bias=False)
-#         self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.conv3 = nn.Conv2d(128, 256, kernel_size=3, padding=1, stride=2, bias=False)
-#         self.lif3 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-#         self.aavg = nn.AdaptiveAvgPool2d(1)
-#         self.flat = nn.Flatten()    
-#         self.fc4 = nn.Linear(256, numberOfClasses, bias=False)
-#         self.lif4 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero', output=True)
+        self.conv1 = nn.Conv2d(numberOfChannels, 32, kernel_size=3, bias=False)
+        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, init_hidden=True, reset_mechanism="zero")
+        self.avg1 = nn.AdaptiveAvgPool2d(self.averaging)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, bias=False)
+        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, init_hidden=True, reset_mechanism="zero")
+        self.fc3 = nn.Linear(self.features * self.features * 64, 512, bias=False)
+        self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, init_hidden=True, reset_mechanism="zero")
+        self.fc4 = nn.Linear(512, 256, bias=False)
+        self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, init_hidden=True, reset_mechanism='zero')
+        self.fc5 = nn.Linear(256, numberOfClasses * 50, bias=False)
+        self.lif5 = snn.Leaky(beta=beta, init_hidden=True, output=True) # this one should be only leaky integrate, not fire
 
-#     def forward(self, x, num_steps):
+    def forward(self, x):
+        # Single time step forward pass - let BPTT handle the time loop
+        cur1 = self.conv1(x)
+        spk1 = self.lif1(cur1)
+        spk1 = self.avg1(spk1)
 
-#         # Initialize hidden states and outputs at t=0
-#         mem1 = self.lif1.init_leaky()
-#         mem2 = self.lif2.init_leaky()
-#         mem3 = self.lif3.init_leaky()
-#         mem4 = self.lif4.init_leaky()
-#         # mem5 = self.lif5.init_leaky()
+        cur2 = self.conv2(spk1)
+        spk2 = self.lif2(cur2)
+        spk2 = spk2.view(-1, self.features * self.features * 64)
+
+        cur3 = self.fc3(spk2)
+        spk3 = self.lif3(cur3)
+
+        cur4 = self.fc4(spk3)
+        spk4 = self.lif4(cur4)
+
+        cur5 = self.fc5(spk4)
+        spk_out, mem_out = self.lif5(cur5)  # Returns tuple with output=True
         
-#         feat_trace = []
-#         prob_trace = []
-#         spik_trace = []
+        return spk_out, mem_out  # Return [B, 500], [B, 500] - single time step
 
-#         for _ in range(num_steps):
-#             cur1 = self.conv1(x)
-#             spk1, mem1 = self.lif1(cur1, mem1)
-#             # spk1 = self.max1(spk1)
-
-#             cur2 = self.conv2(spk1)
-#             spk2, mem2 = self.lif2(cur2, mem2)
-#             # spk2 = spk2.view(-1, self.features * self.features * 64)
-
-#             cur3 = self.conv3(spk2)
-#             spk3, mem3 = self.lif3(cur3, mem3)
-
-#             spk3 = self.aavg(spk3)
-#             spk3 = spk3.view(-1, 256)
-#             cur4 = self.fc4(spk3)
-#             spk4, mem4 = self.lif4(cur4, mem4)
-
-#             # cur5 = self.fc5(spk4)
-#             # spk_out, mem5 = self.lif5(cur5, mem5)
-
-#             feat_trace.append(spk3)
-#             prob_trace.append(mem4)
-#             spik_trace.append(spk4)
-
-#         return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
 
 
 

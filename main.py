@@ -1,7 +1,7 @@
 import torch
-from test import test_metrics, test_accuracy
+from test import test_metrics, test_accuracy, test_accuracy_population, test_accuracy_population_2
 from feature import feature_extraction_conv, feature_extraction_spike
-from train import training
+from train import training, training_population, training_population_2
 import numpy as np
 from utils.Utils import Utils
 # To enable downloading some datasets from pytorch
@@ -114,32 +114,19 @@ if __name__ == "__main__":
     # Number of classes: 10
     # Batch size: 32
 
-    # Define case
-    # match args.case:
-    #     case '06':
-    #         case = '06'
-    #         dataSet_ID = 'CIFAR10'
-    #         dataSet_feat = ['CIFAR10','SVHN','Food101'] 
-    #     case '07':
-    #         case = '07'
-    #         dataSet_ID = 'SVHN'
-    #         dataSet_feat = ['CIFAR10','SVHN','Food101']
-    #     case '08':
-    #         case = '08'
-    #         dataSet_ID = 'MNIST'
-    #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
-    #     case '09':
-    #         case = '09'
-    #         dataSet_ID = 'FMNIST'
-    #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
-    #     case '10':
-    #         case = '10'
-    #         dataSet_ID = 'KMNIST'
-    #         dataSet_feat = ['MNIST','FMNIST','KMNIST','Letters']
+    # Case 10:
+    # Population coding with simple spike model 
+    # BPTT
+    # spikeConvNN4 (ResNetModel = 4)
+
+    # Case 11:
+    # Population coding with simple spike model 
+    # my spatio-temporal propagation
+    # spikeConvNN2 (ResNetModel = 2)
 
     # Define case 
-    case = '09'
-    # dataSet_ID = 'Letters'
+    case = '11'
+    # dataSet_ID = 'FMNIST'
     # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
     dataSet_ID = 'CIFAR10'
@@ -152,7 +139,7 @@ if __name__ == "__main__":
 
     batchSize = 128
     numberOfClasses = 10
-    ResNetModel = 20
+    ResNetModel = 18
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -180,10 +167,12 @@ if __name__ == "__main__":
     #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
     #############################
 
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=400, fullTrain=True, auto_aug=True, pretrained=False)
+    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, auto_aug=False, pretrained=False)
+    training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=400, fullTrain=True, auto_aug=False, pretrained=False)
     
     # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     
     # Feature extraction
     # for i in range(len(dataSet_feat)):
