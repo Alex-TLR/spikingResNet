@@ -31,7 +31,7 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k * (100.0 / batch_size))
         return res
 
-def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
+def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=None, expansion=1, auto_aug=False):
     '''
     check accuracy of trained model on ID test data
     '''
@@ -96,7 +96,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
         if ResNetModel != 22:
 
 
-            weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+            weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
             # print(f"weightsName: {weightsName}")
             model.load_state_dict(torch.load(weightsName, weights_only=False))
             # file = torch.load(weightsName)
@@ -196,7 +196,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel):
             return None
 
 
-def test_accuracy_population(dataSet, model, modelType, batchSize, numberOfClasses, ResNetModel):
+def test_accuracy_population(dataSet, model, modelType, batchSize, numberOfClasses, ResNetModel, expansion=1, auto_aug=False):
     dataset_train, dataset_test = Utils.load_data(dataSet)
     testSize = len(dataset_test)
     channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
@@ -275,7 +275,7 @@ def test_accuracy_population(dataSet, model, modelType, batchSize, numberOfClass
         return final_spike_acc
 
 
-def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses, ResNetModel, expansion=50):
+def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  ResNetModel, expansion=50, auto_aug=False):
     '''
     check accuracy of trained model on ID test data when population coding is used with my spatio-temporal propagation
     '''
@@ -320,10 +320,10 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses, R
         #     print("This model is adapted for BPTT only.")
         #     return -1
         elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=50)
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
             model = model.to(device)
         elif ResNetModel == 18:
-            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=50)
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
             model = model.to(device)
         else:
             print("Not defined")
@@ -332,7 +332,8 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses, R
         # Load weights
         torch.cuda.empty_cache()
         
-        weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+        weightsName ='weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
+
         model.load_state_dict(torch.load(weightsName, weights_only=False))
         model = model.to(device)
         model.eval()

@@ -54,7 +54,7 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, auto_aug=False, pretrained=False):
+def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, auto_aug=False, expansion=1, pretrained=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
@@ -292,7 +292,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
             # }
             # torch.save(final_membranes, 'final_membranes.pth')
 
-            weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+            weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
             torch.save(model.state_dict(), weightPath)
             print("Training done.")
             return None
@@ -364,12 +364,12 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
 
                 lr_scheduler.step()
 
-            weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+            weightPath = weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
             torch.save(model.state_dict(), weightPath)
             print("Training done.")
             return None
 
-def training_population(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, auto_aug=False, pretrained=False):
+def training_population(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, auto_aug=False, expansion=1, pretrained=False):
     '''
     Training for the case: population coding + BPTT
     '''
@@ -562,13 +562,14 @@ def training_population(dataSet, modelType, batchSize, numOfClasses, ResNetModel
             print("Train/valid split not defined")
             return None
         
-        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet +'_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
+
         torch.save(model.state_dict(), weightPath)
         print("Training done.")
         print(f"Final weights saved to: {weightPath}")
     return None
 
-def training_population_2(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, auto_aug=False, pretrained=False):
+def training_population_2(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, auto_aug=False, expansion=50, pretrained=False):
     '''
     Training for the case: population coding + my spatio-temporal propagation
     '''
@@ -635,13 +636,13 @@ def training_population_2(dataSet, modelType, batchSize, numOfClasses, ResNetMod
 
         # Define model
         if ResNetModel == 2:
-            model = spikeConvNN2(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, expansion = 50)
+            model = spikeConvNN2(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, expansion = expansion)
             model = model.to(device)
         elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=50)
+            model = SpikeResNet10Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
             model = model.to(device)
         elif ResNetModel == 18:
-            model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=50)
+            model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
             model = model.to(device)
         elif ResNetModel == 4:
             print("This model is adapted for BTT only.")
@@ -728,7 +729,8 @@ def training_population_2(dataSet, modelType, batchSize, numOfClasses, ResNetMod
             print("Train/valid split not defined")
             return None
         
-        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
+        weightPath = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
+
         torch.save(model.state_dict(), weightPath)
         print("Training done.")
 
