@@ -58,9 +58,15 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
+    expansion:      defines the expansion factor for ResNet models when population coding is used
+                    in this training case ut is set to 1
     case:           case needs to contain the details of the case scenario
     fullTrain:      define if training is done on complete training set or train/valid split is used
     ResNetModel:    determines number of layers in model
+
+    This training approach use the membrane voltage for loss function
+    No population coding is used, so expansion is set to 1
+    Number of training steps is set to 4 to compare with the results from the literature
     '''
 
     def seed_worker(worker_id):
@@ -68,7 +74,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
         np.random.seed(worker_seed)
         random.seed(worker_seed)
 
-    # Load datase
+    # Load dataset
     dataset_train, dataset_test = Utils.load_data(dataSet, auto_aug=auto_aug)
 
     # Get image size
@@ -88,6 +94,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
     device = Utils.get_device()
 
     # Define training parameters
+
     # Number of classes
     numberOfClasses = numOfClasses
 
@@ -214,7 +221,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
             print(model)
             model = model.to(device)
         elif ResNetModel == 18:
-            model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
+            model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
             print(model)
             model = model.to(device)
         elif ResNetModel == 20:
@@ -232,6 +239,8 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
             print("Not defined")
             return -1
         
+
+        # TODO: remove SEW example
         if ResNetModel != 22:
 
             # For all my models except SEW ResNet
@@ -255,7 +264,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
             if (fullTrain == True):
                 print(pretrained)
                 if(pretrained == True):
-                    weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
+                    weightsName = 'weights/spike/' + 'resnet_' + str(ResNetModel) + '_' + dataSet + '_T_' + str(numberOfSteps) + '_E_' + str(expansion) + '_checkpoint_' + '.pth'
                     print("Try to load checkpoint: "+weightsName)
                     try:
                         file = torch.load(weightsName)
@@ -273,7 +282,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
                     sys.stdout.flush()
 
                 start_time = time.time()
-                # H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
+                # Regular training fits according to the membrane voltages
                 H = model.fit_membrane_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
@@ -427,7 +436,7 @@ def training_population(dataSet, modelType, batchSize, numOfClasses, ResNetModel
     elif modelType == 'spike':
 
         # For spiking neural network we need number of steps
-        numberOfSteps = 4
+        numberOfSteps = 1
         beta = 0.95
         threshold = 0.25
 
@@ -701,7 +710,7 @@ def training_population_2(dataSet, modelType, batchSize, numOfClasses, ResNetMod
         if (fullTrain == True):
             print(f"Pretrained: {pretrained}")
             if(pretrained == True):
-                weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
+                weightsName = 'weights/spike/' + 'resnet_' + str(ResNetModel) + '_' + dataSet + '_T_' + str(numberOfSteps) + '_E_' + str(expansion) + '_checkpoint_' + '.pth'
                 print("Try to load checkpoint: " + weightsName)
                 try:
                     file = torch.load(weightsName)

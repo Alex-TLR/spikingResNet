@@ -72,13 +72,13 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=No
             model = model.to(device)
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        elif ResNetModel == 1:
+        elif ResNetModel == 10:
             model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 18:
             # model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
         elif ResNetModel == 20:
-            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
+            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
         elif ResNetModel == 21:
             model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 22:
@@ -344,12 +344,12 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  
             print(f"Model expansion value: {model.expansion}")
         print(f"Number of batches: {len(test_loader)}")
 
-        # ✅ Use same variables as your original test_accuracy_population
+        # Use same variables as your original test_accuracy_population
         total = 0
         acc_spikes = 0
         acc_membrane = 0
         
-        # ✅ Convert to iterator like your original
+        # Convert to iterator like your original
         test_iterator = iter(test_loader)
         
         with torch.no_grad():
@@ -359,15 +359,15 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  
                 
                 utils.reset(model)
                 
-                # ✅ Forward pass - get all three outputs
+                # Forward pass - get all three outputs
                 spikes, features, membranes = model(data, numberOfSteps)
                 
-                # ✅ NEW: Use same spike accuracy logic as fit_spike_full_train
+                # Use same spike accuracy logic as fit_spike_full_train
                 batch_size = data.size(0)
                 
                 # Check if model uses population coding (same logic as training)
                 if hasattr(model, 'expansion') and model.expansion > 1:
-                    # ✅ Population coding accuracy for spikes - same as fit_spike_full_train
+                    # Population coding accuracy for spikes - same as fit_spike_full_train
                     acc_rate_spk = SF.accuracy_rate(
                         spikes, 
                         targets, 
@@ -377,14 +377,14 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  
                     batch_correct_spk = (acc_rate_spk * batch_size).item()
                     
                 else:
-                    # ✅ Standard coding accuracy for spikes - same as fit_spike_full_train
+                    # Standard coding accuracy for spikes - same as fit_spike_full_train
                     acc_rate_spk = SF.accuracy_rate(spikes, targets)
                     batch_correct_spk = (acc_rate_spk * batch_size).item()
                 
                 acc_spikes += batch_correct_spk
                 
-                # ✅ KEEP: Original membrane accuracy calculation (as before)
-                if expansion > 1:
+                # Original membrane accuracy calculation
+                if hasattr(model, 'expansion') and model.expansion > 1:
                     # Population coding mode - time average first, then population coding
                     membranes_avg = membranes.mean(dim=0)  # [B, classes*expansion]
                     
@@ -406,7 +406,7 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  
                 
                 total += batch_size
                 
-                # ✅ Progress display - same as your original
+                # Progress display - same as your original
                 spike_acc_pct = acc_spikes / total * 100
                 mem_acc_pct = acc_membrane / total * 100
                 print(f"\rTest accuracy on spikes: {spike_acc_pct:05.2f}%, "
@@ -618,6 +618,7 @@ def test_metrics(case, nameID):
                 print(f"NCM on {namesOOD[i]}")
                 number_classes = ID_prob_train.shape[1]
                 test_labels, test_predictions, test_distances = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes)
+                # test_labels, test_predictions, test_distances = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
                 print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
@@ -702,90 +703,90 @@ def test_metrics(case, nameID):
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"NNDR Execution time: {execution_time:.4f} seconds")
 
-            elif methods[j] == 'AGGLO':
-                # needs revision
-                start_time = time.time()
-                number_classes = ID_prob_train.shape[1]
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-                threshold = 0
+            # elif methods[j] == 'AGGLO':
+            #     # needs revision
+            #     start_time = time.time()
+            #     number_classes = ID_prob_train.shape[1]
+            #     ID_labels = np.ones((len(ID_prob_test)))
+            #     OOD_labels = np.zeros((len(OOD_prob_train)))
+            #     test_labels = np.concatenate((ID_labels, OOD_labels))
+            #     threshold = 0
 
-                # total = 0
-                # for ii in range(number_classes):
-                #     samples = ID_feat_train[ID_tags_train == ii]
-                #     print(f"number of samples of class {ii} is {samples.shape}")
-                #     total += samples.shape[0]
-                # print(f"total: {total}")
+            #     # total = 0
+            #     # for ii in range(number_classes):
+            #     #     samples = ID_feat_train[ID_tags_train == ii]
+            #     #     print(f"number of samples of class {ii} is {samples.shape}")
+            #     #     total += samples.shape[0]
+            #     # print(f"total: {total}")
 
 
-                # Find clusters (centroids) per class
-                clusterName = 'clustering/cluster_2.npy'
-                if (Utils.does_file_exists(clusterName)):
-                    predictions = get_preds_from_probs_vector(ID_prob_train) 
-                    clusters = Clustering.clustering_2(ID_feat_train, predictions, number_classes)
-                    print(f"Cluster per class: {len(clusters)}")
-                    np.save(clusterName, clusters, allow_pickle=True)
-                else:
-                    # Load cluster
-                    clusters = np.load(clusterName, allow_pickle=True)
+            #     # Find clusters (centroids) per class
+            #     clusterName = 'clustering/cluster_2.npy'
+            #     if (Utils.does_file_exists(clusterName)):
+            #         predictions = get_preds_from_probs_vector(ID_prob_train) 
+            #         clusters = Clustering.clustering_2(ID_feat_train, predictions, number_classes)
+            #         print(f"Cluster per class: {len(clusters)}")
+            #         np.save(clusterName, clusters, allow_pickle=True)
+            #     else:
+            #         # Load cluster
+            #         clusters = np.load(clusterName, allow_pickle=True)
 
-                # Calculate cluster average clusters (centroids) for train features
-                averagePerClass = []
-                for ii in range(number_classes):
-                    averageCluster = []
-                    for cluster_index in np.unique(clusters[ii].labels_):
-                        averageCluster.append(np.median(ID_feat_train[np.where(clusters[ii].labels_ == cluster_index)[0]], axis=0))
-                    averagePerClass.append(np.array(averageCluster))
+            #     # Calculate cluster average clusters (centroids) for train features
+            #     averagePerClass = []
+            #     for ii in range(number_classes):
+            #         averageCluster = []
+            #         for cluster_index in np.unique(clusters[ii].labels_):
+            #             averageCluster.append(np.median(ID_feat_train[np.where(clusters[ii].labels_ == cluster_index)[0]], axis=0))
+            #         averagePerClass.append(np.array(averageCluster))
 
-                # Compute distance for each sample from centroids according to predicted class
-                ID_train_distances = distances_from_average_clusters(
-                    ID_feat_train, ID_spik_train, averagePerClass, ID_prob_train)
-                ID_distances = distances_from_average_clusters(
-                    ID_feat_test, ID_spik_test, averagePerClass, ID_prob_test)
-                OOD_distances = distances_from_average_clusters(
-                    OOD_feat_train, OOD_spik_train, averagePerClass, OOD_prob_test)
+            #     # Compute distance for each sample from centroids according to predicted class
+            #     ID_train_distances = distances_from_average_clusters(
+            #         ID_feat_train, ID_spik_train, averagePerClass, ID_prob_train)
+            #     ID_distances = distances_from_average_clusters(
+            #         ID_feat_test, ID_spik_test, averagePerClass, ID_prob_test)
+            #     OOD_distances = distances_from_average_clusters(
+            #         OOD_feat_train, OOD_spik_train, averagePerClass, OOD_prob_test)
                 
-                # averagePerClass = np.row_stack(averagePerClass)
+            #     # averagePerClass = np.row_stack(averagePerClass)
 
-                # Compute thresholds for each class based on ID_train_distances
-                thresholds = compute_thresholds(ID_train_distances)
-                print(thresholds[:, 94])
+            #     # Compute thresholds for each class based on ID_train_distances
+            #     thresholds = compute_thresholds(ID_train_distances)
+            #     print(thresholds[:, 94])
 
-                precision, tpr_values, fpr_values = compute_precision_tpr_fpr_for_test_and_ood(
-                    ID_distances, OOD_distances, thresholds)
-                # print(precision, tpr_values, fpr_values)
-                # Appending that when FPR = 1 the TPR is also 1:
-                tpr_values_auroc = np.append(tpr_values, 1)
-                fpr_values_auroc = np.append(fpr_values, 1)
-                # Metrics
-                auroc = round(np.trapz(tpr_values_auroc,
-                              fpr_values_auroc), 2)
-                aupr = round(np.trapz(precision, tpr_values), 2)
-                fpr95 = round(fpr_values_auroc[95], 2)
-                fpr80 = round(fpr_values_auroc[80], 2)
-                print(f"auroc: {auroc}, aupr: {aupr}, fpr95: {fpr95}")
+            #     precision, tpr_values, fpr_values = compute_precision_tpr_fpr_for_test_and_ood(
+            #         ID_distances, OOD_distances, thresholds)
+            #     # print(precision, tpr_values, fpr_values)
+            #     # Appending that when FPR = 1 the TPR is also 1:
+            #     tpr_values_auroc = np.append(tpr_values, 1)
+            #     fpr_values_auroc = np.append(fpr_values, 1)
+            #     # Metrics
+            #     auroc = round(np.trapz(tpr_values_auroc,
+            #                   fpr_values_auroc), 2)
+            #     aupr = round(np.trapz(precision, tpr_values), 2)
+            #     fpr95 = round(fpr_values_auroc[95], 2)
+            #     fpr80 = round(fpr_values_auroc[80], 2)
+            #     print(f"auroc: {auroc}, aupr: {aupr}, fpr95: {fpr95}")
 
-                averagePerClass = np.row_stack(averagePerClass)
+            #     averagePerClass = np.row_stack(averagePerClass)
 
 
-                _, ID_distances  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
-                _, OOD_distances = Metrics.AGGLO(OOD_feat_train, averagePerClass, threshold, number_classes)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-                ID_predictions, _  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
-                OOD_predictions, _ = Metrics.AGGLO(OOD_feat_train, averagePerClass, threshold, number_classes)
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                print(f"threshold_tpr95: {threshold_tpr95}")
-                print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                print(f"AGGLO Execution time: {execution_time:.4f} seconds")
+            #     _, ID_distances  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
+            #     _, OOD_distances = Metrics.AGGLO(OOD_feat_train, averagePerClass, threshold, number_classes)
+            #     test_distances = np.concatenate((ID_distances, OOD_distances))
+            #     _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+            #     threshold = threshold_tpr95
+            #     ID_predictions, _  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
+            #     OOD_predictions, _ = Metrics.AGGLO(OOD_feat_train, averagePerClass, threshold, number_classes)
+            #     test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+            #     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+            #     print(f"threshold_tpr95: {threshold_tpr95}")
+            #     print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
+            #     stats[i, j] = auroc 
+            #     stats[i, len(methods) + j] = aupr
+            #     stats[i, len(methods)*2 + j] = fpr95 
+            #     end_time = time.time()  # Record end time
+            #     execution_time = end_time - start_time  # Calculate execution time
+            #     print(f"AGGLO Execution time: {execution_time:.4f} seconds")
 
             elif methods[j] == 'DBSCAN':
                 print("DBSCAN")

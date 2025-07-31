@@ -121,6 +121,14 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
 
     device = Utils.get_device()
 
+    # Get image size based on dataset
+    if dataSet_ID in ['CIFAR10', 'CIFAR100']:
+        feature_size = 32
+    elif dataSet_ID in ['MNIST', 'FMNIST', 'KMNIST']:
+        feature_size = 28
+    else:
+        feature_size = 28
+
     trainDataSize = len(dataset_train)
     # print("Train data size: ", trainDataSize)
     testDataSize = len(dataset_test)
@@ -146,20 +154,23 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
 
     # Loss function
     # loss_fn = SF.ce_rate_loss()
-    loss_fn = SF.ce_count_loss() 
+    # loss_fn = SF.ce_count_loss() 
 
     # Define 
     if ResNetModel == 1:
         model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 256
     elif ResNetModel == 2:
-        model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)    
+        model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, expansion=50)    
         featSize = 300
     elif ResNetModel == 9:
         model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
     elif ResNetModel == 10:
-        model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=50)
+        featSize = 512
+    elif ResNetModel == 18:
+        model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=100)
         featSize = 512
     elif ResNetModel == 18:
         model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
@@ -180,7 +191,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     # file = torch.load(weightsName)
     # model.load_state_dict(file["model"])
     model = model.to(device)
-    model.reset_mem(batchSize, device)
+    # model.reset_mem(batchSize, device)
     # final_membranes = torch.load('final_membranes.pth')
 
     fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
@@ -199,7 +210,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
                 #     Utils.showBatchImages(batch)
                 batch = batch.to(device)
                 labels = labels.to(device)
-                model.reset_mem(batchSize, device)
+                # model.reset_mem(batchSize, device)
                 # model.mem1 = final_membranes['mem1'].to(device)
                 # model.mem2 = final_membranes['mem2'].to(device)
                 # model.mem3 = final_membranes['mem3'].to(device)
@@ -218,6 +229,11 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
                 spikes = s.sum(axis=0)
                 features = f.sum(axis=0)
                 probs = p.max(axis=0)
+
+                if hasattr(model, 'expansion') and model.expansion > 1:
+                    spikes = spikes.reshape(spikes.shape[0], 10, model.expansion).sum(axis=2)  # or .max(axis=2)
+                    probs = probs.reshape(probs.shape[0], 10, model.expansion).max(axis=2)    # Max is better for probs
+
                 probs = Metrics.softmax(probs)
                 # if i == 0:
                 #     print(f'{i}\n{features}\n{probs}')
@@ -262,6 +278,10 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
                 spikes = s.sum(axis=0)    
                 features = f.sum(axis=0)
                 probs = p.max(axis=0)
+                if hasattr(model, 'expansion') and model.expansion > 1:
+                    spikes = spikes.reshape(spikes.shape[0], 10, model.expansion).sum(axis=2)  # or .max(axis=2)
+                    probs = probs.reshape(probs.shape[0], 10, model.expansion).max(axis=2)    # Max is better for probs
+
                 probs = Metrics.softmax(probs)
                 # if i == 0:
                 #     print(f'{i}\n{features}\n{probs}')

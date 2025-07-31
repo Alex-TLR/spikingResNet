@@ -93,6 +93,7 @@ if __name__ == "__main__":
     # Network model: SpikeResNet18Model (ResNetModel = 18)
     # Number of classes: 10
     # Batch size: 32
+    # Expansion must be set to 1 in order to use regular model 
 
     # Case 07:
     # spike-ResNet10 model with trainable initialization
@@ -124,8 +125,13 @@ if __name__ == "__main__":
     # my spatio-temporal propagation
     # spikeConvNN2 (ResNetModel = 2)
 
+    # Case 12:
+    # Population coding with simple spike model 
+    # my spatio-temporal propagation
+    # SpikeResNet10Model (ResNetModel = 10)
+
     # Define case 
-    case = '11'
+    case = '06'
     # dataSet_ID = 'FMNIST'
     # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
@@ -137,9 +143,11 @@ if __name__ == "__main__":
     # numberOfClasses = args.num_classes
     # ResNetModel = args.model
 
-    batchSize = 128
+    batchSize = 32
     numberOfClasses = 10
     ResNetModel = 18
+    expansion = 1
+    # Separate regular and population coding weights
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
     # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
@@ -153,26 +161,14 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    
-    # Davor
-    # if args.mode == 'train':
-    #     dataSet_ID = args.dataset_ID
-    #     training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=args.epochs, fullTrain=True, pretrained=args.pretrained)
-    # if args.mode == 'test':
-    #     # Test accuracy of trained model on test
-    #     test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
-        
-    #     # Feature extraction
-    #     for i in range(len(dataSet_feat)):
-    #         feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
-    #############################
-
-    # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, fullTrain=True, auto_aug=False, pretrained=False)
-    training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=400, fullTrain=True, auto_aug=True, expansion=100, pretrained=False)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, expansion=expansion, fullTrain=True, auto_aug=False, pretrained=False)
+    # training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=False, pretrained=False)
     
     # Test accuracy of trained model on test
+    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion)
+    # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
     # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
-    test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=100, auto_aug=True,)
+    # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=100, auto_aug=True,)
     
     # Feature extraction
     # for i in range(len(dataSet_feat)):
@@ -185,7 +181,7 @@ if __name__ == "__main__":
     #     print(' '.join(row))
 
     # Vizualizer
-    # Utils.visualize_feature('Letters', 'FMNIST', case)
+    # Utils.visualize_feature('CIFAR10', 'SVHN', case)
 
     # Ponovljivost
     # _seed_ = 2020
