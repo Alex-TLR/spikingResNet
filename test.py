@@ -58,7 +58,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=No
     elif modelType == 'spike':
 
         # For spiking neural network we need number of steps
-        numberOfSteps = 4
+        numberOfSteps = 50
         beta = 0.95
         threshold = 0.25
 
@@ -73,7 +73,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=No
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
         elif ResNetModel == 18:
             # model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
             model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
@@ -97,7 +97,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=No
 
 
             weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
-            # print(f"weightsName: {weightsName}")
+            print(f"weightsName: {weightsName}")
             model.load_state_dict(torch.load(weightsName, weights_only=False))
             # file = torch.load(weightsName)
             # model.load_state_dict(file["model"])
@@ -143,12 +143,11 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=No
                     # testAccList.append(a1.item())
                     # On spikes
                     with torch.no_grad():
-                        # Use SF.accuracy_rate on the spikes from training forward pass
-                        acc_rate = SF.accuracy_rate(spikes, labels)
+                        # Use SF.accuracy_count on the spikes from training forward pass
+                        # acc_rate = SF.accuracy_rate(spikes, labels)
                         batch_size = batch.size(0)
-                        batch_correct = (acc_rate * batch_size).item()
-                        
-                        total_correct_spikes += batch_correct
+                        acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
+                        total_correct_spikes += acc
                         total_samples += batch_size
 
                     # On membrane
@@ -158,7 +157,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=No
                     total_correct_membrane += correct.sum()
                     del batch, labels
                     # print(f"\rtestAcc[{i}]: {testAcc[0, i]}, label: {la}, count: {(np.sum(testAcc[0, :])/(i+1)):.2f}, progress: {i}/{len(test_loader)}", end='', flush=True)
-                    print(f"\rTest accuracy on spikes: {total_correct_spikes/total_samples*100:05.2f}, Test accuracy on membrane: {total_correct_membrane/total_samples*100:05.2f}, progress: {i+1}/{len(test_loader)}", end='', flush=True)
+                    print(f"\rCurrent: {total_correct_spikes}, Test accuracy on spikes: {total_correct_spikes/total_samples*100:05.2f}, Test accuracy on membrane: {total_correct_membrane/total_samples*100:05.2f}, progress: {i+1}/{len(test_loader)}", end='', flush=True)
                     i += 1
 
             print("\nDone.")
@@ -230,10 +229,10 @@ def test_accuracy_population(dataSet, model, modelType, batchSize, numberOfClass
                 data = data.to(device)
                 targets = targets.to(device)
                 
-                # ✅ Only reset - no manual time steps
+                # Only reset - no manual time steps
                 utils.reset(model)
                 
-                # ✅ Single forward call (BPTT handles time internally)
+                # Single forward call (BPTT handles time internally)
                 spk_rec, mem_rec = model(data)  # [B, 500] if single time step model
                 
                 

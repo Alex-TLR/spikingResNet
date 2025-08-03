@@ -616,15 +616,15 @@ class SpikeResNet10Model(BasicModel):
     #     self.mem8_2 = self.mem8_2_init.unsqueeze(0).expand(batch_size, -1).to(device)
     #     self.mem9 = self.mem9_init.unsqueeze(0).expand(batch_size, -1).to(device)
 
-    # def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
-    #     layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
-    #                 nn.BatchNorm2d(num_features=output)]
-    #     return nn.Sequential(*layers)
-
     def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
         layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
-                    self.TemporalBatchNorm(num_features=output, num_steps=self.numberOfSteps)]
+                    nn.BatchNorm2d(num_features=output)]
         return nn.Sequential(*layers)
+
+    # def convBlock(self, input, output, kernel_size=3, stride=1, padding=1):
+    #     layers = [nn.Conv2d(in_channels=input, out_channels=output, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
+    #                 self.TemporalBatchNorm(num_features=output, num_steps=self.numberOfSteps)]
+    #     return nn.Sequential(*layers)
     
     class TemporalBatchNorm(nn.Module):
         def __init__(self, num_features, num_steps):

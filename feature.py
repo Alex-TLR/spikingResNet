@@ -100,7 +100,7 @@ def feature_extraction_conv(dataSet):
     return None
 
 
-def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses, batchSize):
+def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses, batchSize, expansion=1, auto_aug=False):
     '''
     Spiking models only
     dataSet:        the data set from which we extract feature
@@ -143,6 +143,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
 
     # For spiking neural network we need number of steps
     numberOfSteps = 50
+    steps_trained = 4
 
     # Parameter of the LIF neuron
     beta = 0.95
@@ -161,16 +162,16 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
         model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 256
     elif ResNetModel == 2:
-        model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, expansion=50)    
+        model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, expansion=expansion)    
         featSize = 300
     elif ResNetModel == 9:
         model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         featSize = 512
     elif ResNetModel == 10:
-        model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=50)
+        model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
         featSize = 512
     elif ResNetModel == 18:
-        model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=100)
+        model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
         featSize = 512
     elif ResNetModel == 18:
         model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
@@ -184,7 +185,7 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     
     # Load weights
     # Loading the weights for the ID-trained network
-    weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
+    weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '_T_'+str(steps_trained)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
     # weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
     model.load_state_dict(torch.load(weightsName, weights_only=True))
     # print(f"Features: weightsName {weightsName}")

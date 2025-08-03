@@ -191,7 +191,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
         H = []
 
         # For spiking neural network we need number of steps
-        numberOfSteps = 4
+        numberOfSteps = 50
         beta = 0.95
         threshold = 0.25
 
@@ -247,8 +247,8 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
 
             # Loss function
             # loss_fn = SF.ce_rate_loss()
-            # loss_fn = SF.ce_count_loss() 
-            loss_fn = nn.CrossEntropyLoss()
+            loss_fn = SF.ce_count_loss() 
+            # loss_fn = nn.CrossEntropyLoss()
             # Optimizer for gray 5e-4
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
@@ -283,7 +283,8 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
 
                 start_time = time.time()
                 # Regular training fits according to the membrane voltages
-                H = model.fit_membrane_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
+                # H = model.fit_membrane_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
+                H = model.fit_spike_full_train(model, startEpoch, numberOfEpochs, ResNetModel, dataSet, sched, optimizer, loss_fn, train_loader, numberOfSteps, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"Training time: {execution_time:.4f} seconds")

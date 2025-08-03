@@ -116,9 +116,13 @@ if __name__ == "__main__":
     # Batch size: 32
 
     # Case 10:
-    # Population coding with simple spike model 
-    # BPTT
-    # spikeConvNN4 (ResNetModel = 4)
+    # Network model: SpikeResNet20Model (ResNetModel = 20)
+    # Training parameters
+    # Number of classes: 10
+    # Batch size: 32    
+    # Time steps: T = 4
+    # Expansion: E = 1
+    # Auto augmentation: A = False
 
     # Case 11:
     # Population coding with simple spike model 
@@ -131,7 +135,7 @@ if __name__ == "__main__":
     # SpikeResNet10Model (ResNetModel = 10)
 
     # Define case 
-    case = '06'
+    case = '03'
     # dataSet_ID = 'FMNIST'
     # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
 
@@ -143,9 +147,9 @@ if __name__ == "__main__":
     # numberOfClasses = args.num_classes
     # ResNetModel = args.model
 
-    batchSize = 32
+    batchSize = 128
     numberOfClasses = 10
-    ResNetModel = 18
+    ResNetModel = 10 # treba i 18
     expansion = 1
     # Separate regular and population coding weights
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -161,18 +165,16 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=100, expansion=expansion, fullTrain=True, auto_aug=False, pretrained=False)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, expansion=1, fullTrain=True, auto_aug=False, pretrained=False)
     # training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=False, pretrained=False)
     
     # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion)
-    # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
-    # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel)
+    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion, auto_aug=False)
     # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=100, auto_aug=True,)
     
     # Feature extraction
     # for i in range(len(dataSet_feat)):
-    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize)
+    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize, expansion=expansion, auto_aug=False)
 
     # Statistics
     # stats = test_metrics(case=case, nameID=dataSet_ID)
