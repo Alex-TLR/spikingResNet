@@ -31,7 +31,7 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k * (100.0 / batch_size))
         return res
 
-def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=None, expansion=1, auto_aug=False):
+def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=None, num_steps=50, expansion=1, auto_aug=False):
     '''
     check accuracy of trained model on ID test data
     '''
@@ -58,7 +58,7 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=No
     elif modelType == 'spike':
 
         # For spiking neural network we need number of steps
-        numberOfSteps = 50
+        numberOfSteps = num_steps
         beta = 0.95
         threshold = 0.25
 

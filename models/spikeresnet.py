@@ -755,6 +755,7 @@ class SpikeResNet18Model(BasicModel):
         self.numberOfClasses = numberOfClasses
         self.expansion = expansion
         self.num_steps = numberOfSteps
+        print(f"steps: {self.num_steps}")
 
         self.block1 = self.convBlock(numberOfChannels, 64)                      # 64x32x32
         self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism='zero')                   # 64x32x32

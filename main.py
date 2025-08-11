@@ -18,7 +18,7 @@ def get_parser():
 
     # Dataset parameters
     parser.add_argument('--dataset_ID', type=str, default='CIFAR10', help="Dataset to use")
-    parser.add_argument('--case', type=str, default='06', help="Case identifier for the experiment")
+    parser.add_argument('--case', type=str, default='03', help="Case identifier for the experiment")
     parser.add_argument('--num_workers', type=int, default=4, help="Number of workers for data loading")
 
     # Model parameters
@@ -32,7 +32,7 @@ def get_parser():
     # Training parameters
     parser.add_argument('--epochs', type=int, default=200, help="Number of training epochs")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training and validation")
-    parser.add_argument('--pretrained', type=bool, default=True, help="Start from checkpoint if True")
+    parser.add_argument('--pretrained', type=bool, default=False, help="Start from checkpoint if True")
     parser.add_argument('--learning_rate', type=float, default=0.001, help="Initial learning rate")
     parser.add_argument('--optimizer', type=str, choices=['sgd', 'adam', 'adamw'], default='adam', help="Optimizer to use")
     parser.add_argument('--momentum', type=float, default=0.9, help="Momentum for SGD optimizer")
@@ -71,6 +71,7 @@ if __name__ == "__main__":
     #expansion = 1
     match args.case:
         case '03':
+            print("Running Case 03")
             exp_case = '03'
             dataSet_ID = 'CIFAR10'
             dataSet_feat = ['CIFAR10','SVHN','Food101']
@@ -176,12 +177,13 @@ if __name__ == "__main__":
     Utils.make_features_dir(modelType, exp_case)
     
     # Training
+    print(args.pretrained)
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=args.epochs, time_steps=args.time_steps, expansion=args.expansion, fullTrain=True, auto_aug=args.auto_augmentation, pretrained=args.pretrained)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=args.epochs, num_steps=args.time_steps, expansion=args.expansion, fullTrain=True, auto_aug=args.auto_aug, pretrained=args.pretrained)
     # training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=False, pretrained=False)
     
     # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=args.expansion, auto_aug=args.auto_augmentation, time_steps=args.time_steps)
+    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=args.expansion, auto_aug=args.auto_aug, num_steps=args.time_steps)
     # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=100, auto_aug=True,)
     
     # Feature extraction

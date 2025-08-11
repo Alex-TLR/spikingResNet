@@ -53,7 +53,7 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k * (100.0 / batch_size))
         return res
 
-def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, time_steps=50, expansion=1, fullTrain=False, auto_aug=False, pretrained=False):
+def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, num_steps=50, expansion=1, fullTrain=False, auto_aug=False, pretrained=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
@@ -190,7 +190,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
         H = []
 
         # For spiking neural network we need number of steps
-        numberOfSteps = time_steps
+        numberOfSteps = num_steps
         beta = 0.95
         threshold = 0.25
 
