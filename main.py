@@ -165,7 +165,7 @@ if __name__ == "__main__":
     
     # Training
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, expansion=1, fullTrain=True, auto_aug=False, pretrained=False)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=400, expansion=1, fullTrain=True, auto_aug=False, pretrained=False)
     # training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=False, pretrained=False)
     
     # Test accuracy of trained model on test

@@ -216,7 +216,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
             # model.reset_mem(batchSize, device)
             print(model)
             model = model.to(device)
