@@ -53,8 +53,7 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k * (100.0 / batch_size))
         return res
 
-
-def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, fullTrain=False, auto_aug=False, expansion=1, pretrained=False):
+def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=200, time_steps=50, expansion=1, fullTrain=False, auto_aug=False, pretrained=False):
     '''
     dataSet:        defines the data set for training (for example MNIST, FMNIST, KMNIST)
     modelType:      convolutional or spiking neural network
@@ -191,7 +190,7 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
         H = []
 
         # For spiking neural network we need number of steps
-        numberOfSteps = 50
+        numberOfSteps = time_steps
         beta = 0.95
         threshold = 0.25
 
@@ -216,9 +215,9 @@ def training(dataSet, modelType, batchSize, numOfClasses, ResNetModel, epochs=20
         elif ResNetModel == 9:
             model = SpikeResNet9Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
         elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps)
             # model.reset_mem(batchSize, device)
-            print(model)
+            #print(model)
             model = model.to(device)
         elif ResNetModel == 18:
             model = SpikeResNet18Model(numberOfChannels=numberOfChannels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)

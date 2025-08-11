@@ -24,6 +24,10 @@ def get_parser():
     # Model parameters
     parser.add_argument('--model', type=int, default=18, help="Model architecture")
     parser.add_argument('--num_classes', type=int, default=10, help="Number of output classes")
+    parser.add_argument('--time_steps', type=int, default=50, help="Number of time steps for spiking models")
+    parser.add_argument('--expansion', type=int, default=1, help="Expansion factor for the model")
+    parser.add_argument('--auto_aug', type=bool, default=False, help="Use auto augmentation")
+    parser.add_argument('--population_coding', type=bool, default=False, help="Use population coding")
 
     # Training parameters
     parser.add_argument('--epochs', type=int, default=200, help="Number of training epochs")
@@ -52,6 +56,26 @@ if __name__ == "__main__":
     '''
     parser=get_parser()
     args = parser.parse_args()
+    print(' '.join(f'{k}={v}' for k, v in vars(args).items()))
+    dataSet_ID = ''
+    dataSet_feat = []
+    modelType = ''
+    exp_case = ''
+    batchSize = args.batch_size
+    numberOfClasses = args.num_classes
+    ResNetModel = args.model
+
+    #batchSize = 128
+    #numberOfClasses = 10
+    #ResNetModel = 10 # treba i 18
+    #expansion = 1
+    match args.case:
+        case '03':
+            exp_case = '03'
+            dataSet_ID = 'CIFAR10'
+            dataSet_feat = ['CIFAR10','SVHN','Food101']
+            modelType = 'spike'
+
     # Case 01:
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
@@ -135,22 +159,10 @@ if __name__ == "__main__":
     # SpikeResNet10Model (ResNetModel = 10)
 
     # Define case 
-    case = '03'
+    # case = '03'
     # dataSet_ID = 'FMNIST'
     # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
-
-    dataSet_ID = 'CIFAR10'
-    dataSet_feat = ['CIFAR10','SVHN','Food101']
-
-    modelType = 'spike'
-    # batchSize = args.batch_size
-    # numberOfClasses = args.num_classes
-    # ResNetModel = args.model
-
-    batchSize = 128
-    numberOfClasses = 10
-    ResNetModel = 10 # treba i 18
-    expansion = 1
+    
     # Separate regular and population coding weights
     ssl._create_default_https_context = ssl._create_unverified_context
     # # Load datase
@@ -161,15 +173,15 @@ if __name__ == "__main__":
     # print(f"Image size: {channels, rows, cols}")
 
     # Create features case
-    Utils.make_features_dir(modelType, case)
+    Utils.make_features_dir(modelType, exp_case)
     
     # Training
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, expansion=1, fullTrain=True, auto_aug=False, pretrained=False)
+    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=args.epochs, time_steps=args.time_steps, expansion=args.expansion, fullTrain=True, auto_aug=args.auto_augmentation, pretrained=args.pretrained)
     # training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=False, pretrained=False)
     
     # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion, auto_aug=False)
+    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=args.expansion, auto_aug=args.auto_augmentation, time_steps=args.time_steps)
     # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=100, auto_aug=True,)
     
     # Feature extraction
