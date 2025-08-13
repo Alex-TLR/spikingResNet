@@ -7,6 +7,9 @@ from utils.Utils import Utils
 # To enable downloading some datasets from pytorch
 import ssl
 import argparse
+import sys
+from config import ExperimentConfig
+from datetime import datetime
 
 def get_parser():
     parser = argparse.ArgumentParser(description="SpikingResNet Training Configuration")
@@ -40,6 +43,17 @@ def get_parser():
  
     return parser
 
+def get_provided_args():
+    """Get list of arguments that were explicitly provided via command line"""
+    provided = set()
+    
+    for i, arg in enumerate(sys.argv[1:], 1):
+        if arg.startswith('--'):
+            arg_name = arg[2:]  # Remove '--'
+            provided.add(arg_name)
+    
+    return provided
+
 if __name__ == "__main__":
     # Define defaut arguments and call training
 
@@ -50,140 +64,164 @@ if __name__ == "__main__":
 
     ResNetModel 1:  Convolutional neural network based on Conv2D, and LIFs
     '''
-    parser=get_parser()
-    args = parser.parse_args()
-    # Case 01:
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: spikeConvNN1 (ResNetModel = 1)
-    # Number of classes: 10
-    # Batch size: 32 
 
-    # Case 02:
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: SpikeResNet9Model (ResNetModel = 9)
-    # Number of classes: 10
-    # Batch size: 32
 
-    # Case 03:
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: SpikeResNet10Model (ResNetModel = 10)
-    # Number of classes: 10
-    # Batch size: 32
-
-    # Case 04:
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: spikeConvNN2 (ResNetModel = 2)
-    # Number of classes: 10
-    # Batch size: 32
-
-    # Case 05:
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: spikeLinearNet1 (ResNetModel = 21)
-    # Number of classes: 10
-    # Batch size: 32
-
-    # Case 06:
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: SpikeResNet18Model (ResNetModel = 18)
-    # Number of classes: 10
-    # Batch size: 32
-    # Expansion must be set to 1 in order to use regular model 
-
-    # Case 07:
-    # spike-ResNet10 model with trainable initialization
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: SpikeResNet10Model (ResNetModel = 10)
-    # Number of classes: 10
-    # Batch size: 32
-
-    # Case 08:
-    # SEW model ResNet18 test accuracy is 82.53%
-    # Network model: SEW ResNet18 (ResNetModel = 22)
-
-    # Case 09:
-    # spike-ResNet20 model 
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: SpikeResNet20Model (ResNetModel = 20)
-    # Number of classes: 10
-    # Batch size: 32
-
-    # Case 10:
-    # Network model: SpikeResNet20Model (ResNetModel = 20)
-    # Training parameters
-    # Number of classes: 10
-    # Batch size: 32    
-    # Time steps: T = 4
-    # Expansion: E = 1
-    # Auto augmentation: A = False
-
-    # Case 11:
-    # Population coding with simple spike model 
-    # my spatio-temporal propagation
-    # spikeConvNN2 (ResNetModel = 2)
-
-    # Case 12:
-    # Population coding with simple spike model 
-    # my spatio-temporal propagation
-    # SpikeResNet10Model (ResNetModel = 10)
-
-    # Define case 
-    case = '03'
-    # dataSet_ID = 'FMNIST'
-    # dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']  
-
-    dataSet_ID = 'CIFAR10'
-    dataSet_feat = ['CIFAR10','SVHN','Food101']
-
-    modelType = 'spike'
-    # batchSize = args.batch_size
-    # numberOfClasses = args.num_classes
-    # ResNetModel = args.model
-
-    batchSize = 128
-    numberOfClasses = 10
-    ResNetModel = 10 # treba i 18
-    expansion = 1
-    # Separate regular and population coding weights
     ssl._create_default_https_context = ssl._create_unverified_context
-    # # Load datase
-    # dataset_train, dataset_test = Utils.load_data(dataSet_ID)
+
+    # Parse command line arguments
+    parser = get_parser()
+    args = parser.parse_args()
+    
+    # Get which arguments were explicitly provided
+    provided_args = get_provided_args()
+    
+    # Create config with experiment defaults
+    config = ExperimentConfig()
+    
+    # Override ONLY explicitly provided arguments (not parser defaults)
+    config.update_from_args(args, provided_args)
+
+    # Convert to dictionary for function calls
+    # config_dict = config.to_dict()
+    
+    # Print current configuration
+    print(f"Running experiment with:")
+    print(f"  Dataset: {config.dataset_ID}")
+    print(f"  Model: ResNet{config.resnet_model}")
+    print(f"  Case: {config.case}")
+    print(f"  Batch size: {config.batch_size}")
+    print(f"  Expansion: {config.expansion}")
+    print(f"  Mode: {config.mode}")
 
     # # Get image size
     # channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_ID)
     # print(f"Image size: {channels, rows, cols}")
 
     # Create features case
-    Utils.make_features_dir(modelType, case)
-    
-    # Training
+    Utils.make_features_dir(config.model_type, config.case)
+
+    # Training/testing
     # set pretrained=True if continious training is needed
-    training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=400, expansion=1, fullTrain=True, auto_aug=False, pretrained=False)
-    # training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=False, pretrained=False)
-    
-    # Test accuracy of trained model on test
-    test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion, auto_aug=False)
-    # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=100, auto_aug=True,)
-    
+
+    if config.expansion == 1:
+        # pass
+        # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, expansion=1, fullTrain=True, auto_aug=False, pretrained=False)
+        training(config)
+        test_accuracy(config)
+        # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion, auto_aug=False)
+    elif config.expansion > 1:
+        training_population_2(config)
+        test_accuracy_population_2(config)
+        # training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=False, expansion=expansion, pretrained=False)
+        # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion, auto_aug=False)
+        # pass
+    else:
+        print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
+
     # Feature extraction
-    # for i in range(len(dataSet_feat)):
-    #     feature_extraction_spike(dataSet_ID, dataSet_feat[i], ResNetModel, case, numberOfClasses, batchSize, expansion=expansion, auto_aug=False)
+    feature_extraction_spike(config)
 
     # Statistics
-    # stats = test_metrics(case=case, nameID=dataSet_ID)
+    feature_types = ['features', 'spikes', 'probs', 'voltages']
+    results_filename = f'results/OoD_case_{config.case}_{config.dataset_ID}_ResNet{config.resnet_model}.txt'
+    ood_datasets = [dataset for dataset in config.dataset_feat if dataset != config.dataset_ID]
+
+    # Open file for writing
+    with open(results_filename, 'w') as f:
+        # Write header information
+        f.write(f"{'='*60}\n")
+        f.write(f"SPIKING RESNET STATISTICS RESULTS\n")
+        f.write(f"{'='*60}\n")
+        f.write(f"Experiment Configuration:\n")
+        f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
+        f.write(f"  Out-of-Distribution Datasets: {', '.join(ood_datasets)}\n")
+        f.write(f"  Model: ResNet{config.resnet_model}\n")
+        f.write(f"  Case: {config.case}\n")
+        f.write(f"  Batch Size: {config.batch_size}\n")
+        f.write(f"  Expansion: {config.expansion}\n")
+        f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"{'='*60}\n\n")
+        
+        all_results = {}
+        
+        # Process each feature type
+        for feature_type in feature_types:
+            print(f"Processing statistics for feature type: {feature_type}")
+            f.write(f"FEATURE TYPE: {feature_type.upper()}\n")
+            f.write(f"{'-'*40}\n")
+            methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
+            try:
+                stats = test_metrics(case=config.case, nameID=config.dataset_ID, methods=methods, features=feature_type)
+                
+                if stats is not None and len(stats) > 0:
+                    formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
+                    all_results[feature_type] = formatted_stats
+                    
+                    # Build the exact format you want
+                    # Each method gets 5 characters, separated by ' | ' (3 chars)
+                    # AUROC section: 5 methods = 5 chars + 4 separators = 37 chars total
+                    # AUPR section: same = 37 chars
+                    # FPR95 section: same = 37 chars
+                    span = len(methods) * 6 + (len(methods) - 1) * 3
+                    
+                    # Top header with metric spans
+                    auroc_span = "AUROC".center(span)
+                    aupr_span = "AUPR".center(span)
+                    fpr95_span = "FPR95".center(span)
+
+                    top_header = f"  {'Dataset':10s}: {auroc_span} | {aupr_span} | {fpr95_span}"
+                    
+                    # Method header - repeat methods 3 times
+                    methods_line = ' | '.join([f'{method:>6s}' for method in methods])
+                    method_header = f"  {'':10s}: {methods_line} | {methods_line} | {methods_line}"
+
+                    # Separator line matching the total width
+                    total_width = len(method_header)
+                    separator = '-' * total_width
+                    
+                    # Write formatted table
+                    f.write(f"{top_header}\n")
+                    f.write(f"{method_header}\n")
+                    f.write(f"{separator}\n")
+                    
+                    # Data rows
+                    for i, row in enumerate(formatted_stats):
+                        if i < len(ood_datasets):
+                            dataset_name = ood_datasets[i]
+                            formatted_row = ' | '.join([f'{cell:>6s}' for cell in row])
+                            f.write(f"  {dataset_name:<10s}: {formatted_row}\n")
+
+                    # Console output
+                    # print(f"  Results for {feature_type}:")
+                    # print(f"{top_header}")
+                    # print(f"{method_header}")  
+                    # print(f"{separator}")
+                    # for i, row in enumerate(formatted_stats):
+                    #     if i < len(ood_datasets):
+                    #         dataset_name = ood_datasets[i]
+                    #         formatted_row = ' | '.join([f'{cell:>6s}' for cell in row])
+                    #         print(f"  {dataset_name:<10s}: {formatted_row}")
+                else:
+                    f.write("  No data available\n")
+                    print(f"  No data available for {feature_type}")
+                    
+            except Exception as e:
+                error_msg = f"Error: {str(e)}"
+                f.write(f"  {error_msg}\n")
+                print(f"  {error_msg}")
+            finally:
+                f.write("\n")
+                print()
+
+    print(f"\nDetailed statistics saved to: {results_filename}")
+
+    # stats = test_metrics(case=config.case, nameID=config.dataset_ID, features='features')
     # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
     # for row in formatted_stats:
     #     print(' '.join(row))
 
     # Vizualizer
-    # Utils.visualize_feature('CIFAR10', 'SVHN', case)
+    # Utils.visualize_feature('CIFAR10', 'Food101', case, feature_type='voltages')
 
     # Ponovljivost
     # _seed_ = 2020

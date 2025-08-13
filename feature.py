@@ -4,7 +4,7 @@ from snntorch import spikegen
 from utils.Utils import Utils
 from torch.utils.data import DataLoader
 from models.resnet import ResNet9Model 
-from models.spikeresnet import spikeConvNN1, spikeConvNN2, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model
 from models.plain import spikeLinearNet1
 import numpy as np
 import snntorch.functional as SF
@@ -100,7 +100,8 @@ def feature_extraction_conv(dataSet):
     return None
 
 
-def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses, batchSize, expansion=1, auto_aug=False):
+# def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses, batchSize, expansion=1, auto_aug=False):
+def feature_extraction_spike(config):
     '''
     Spiking models only
     dataSet:        the data set from which we extract feature
@@ -112,206 +113,244 @@ def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfC
     numOfChannels:  number of input channels
     '''
 
-    # print(dataSet_feat)
-    dataset_train, dataset_test = Utils.load_data(dataSet_feat)
+    print(f"Feature length is: {len(config.dataset_feat)}")
+    for i in range(len(config.dataset_feat)):
+        print(f"Extracting features for {config.dataset_feat[i]}")
+        dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i])
 
-    # Get image size
-    channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_feat)
-    # print(f"Image size: {channels, rows, cols}")
+        # Get image size
+        channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_feat[i])
+        # print(f"Image size: {channels, rows, cols}")
 
-    device = Utils.get_device()
+        device = Utils.get_device()
 
-    # Get image size based on dataset
-    if dataSet_ID in ['CIFAR10', 'CIFAR100']:
-        feature_size = 32
-    elif dataSet_ID in ['MNIST', 'FMNIST', 'KMNIST']:
-        feature_size = 28
-    else:
-        feature_size = 28
+        # Get image size based on dataset
+        if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
+            feature_size = 32
+        elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
+            feature_size = 28
+        else:
+            feature_size = 28
 
-    trainDataSize = len(dataset_train)
-    # print("Train data size: ", trainDataSize)
-    testDataSize = len(dataset_test)
-    # print("Test data size: ", testDataSize)
-    # print(f"Network models is {ResNetModel}")
+        trainDataSize = len(dataset_train)
+        # print("Train data size: ", trainDataSize)
+        testDataSize = len(dataset_test)
+        # print("Test data size: ", testDataSize)
+        # print(f"Network models is {ResNetModel}")
 
-    # Number of classes
-    numberOfClasses = numOfClasses
+        # Number of classes
+        numberOfClasses = config.num_classes
 
-    # Batch size
-    batchSize = batchSize
+        # Batch size
+        batchSize = config.batch_size
 
-    # For spiking neural network we need number of steps
-    numberOfSteps = 50
-    steps_trained = 4
+        # For spiking neural network we need number of steps
+        if config.expansion == 1:
+            numberOfSteps = 4
+            steps_trained = 4
+        elif config.expansion > 1:
+            numberOfSteps = 8
+            steps_trained = 1
+        else:
+            print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
+            return -1
 
-    # Parameter of the LIF neuron
-    beta = 0.95
+        # Parameter of the LIF neuron
+        beta = 0.95
 
-    # Threshold
-    threshold = 0.25
+        # Threshold
+        threshold = 0.25
 
-    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet_feat, True)
+        # Load OoD data
+        train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, config.dataset_feat[i], True)
 
-    # Loss function
-    # loss_fn = SF.ce_rate_loss()
-    # loss_fn = SF.ce_count_loss() 
+        # Loss function
+        # loss_fn = SF.ce_rate_loss()
+        # loss_fn = SF.ce_count_loss() 
 
-    # Define 
-    if ResNetModel == 1:
-        model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        featSize = 256
-    elif ResNetModel == 2:
-        model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, expansion=expansion)    
-        featSize = 300
-    elif ResNetModel == 9:
-        model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        featSize = 512
-    elif ResNetModel == 10:
-        model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
-        featSize = 512
-    elif ResNetModel == 18:
-        model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
-        featSize = 512
-    elif ResNetModel == 18:
-        model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        featSize = 512
-    elif ResNetModel == 21:
-        model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        featSize = 300
-    else:
-        print("Feature: Not defined")
-        return -1
-    
-    # Load weights
-    # Loading the weights for the ID-trained network
-    weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '_T_'+str(steps_trained)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
-    # weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
-    model.load_state_dict(torch.load(weightsName, weights_only=True))
-    # print(f"Features: weightsName {weightsName}")
-    # file = torch.load(weightsName)
-    # model.load_state_dict(file["model"])
-    model = model.to(device)
-    # model.reset_mem(batchSize, device)
-    # final_membranes = torch.load('final_membranes.pth')
+        # Define 
+        if config.resnet_model == 1:
+            model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            featSize = 256
+        elif config.resnet_model == 2:
+            model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, expansion=config.expansion)    
+            featSize = 300
+        elif config.resnet_model == 4:
+            model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            featSize = 256
+        elif config.resnet_model == 9:
+            model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            featSize = 512
+        elif config.resnet_model == 10:
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            featSize = 512
+        elif config.resnet_model == 18:
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            featSize = 512
+        elif config.resnet_model == 20:
+            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            featSize = 512
+        elif config.resnet_model == 21:
+            model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            featSize = 300
+        else:
+            print("Feature: Not defined")
+            return -1
+        
+        # Load weights
+        # Loading the weights for the ID-trained network
+        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(steps_trained)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
+        # weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
+        model.load_state_dict(torch.load(weightsName, weights_only=True))
+        print(f"weights file {weightsName}")
+        # file = torch.load(weightsName)
+        # model.load_state_dict(file["model"])
+        model = model.to(device)
+        # model.reset_mem(batchSize, device)
+        # final_membranes = torch.load('final_membranes.pth')
 
-    fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
-    # print(fileName)
-
-    if (Utils.does_file_exists(fileName)):
-        torch.cuda.empty_cache()
-        Spik_train = np.zeros((trainDataSize, numberOfClasses))
-        Feat_train = np.zeros((trainDataSize, featSize))
-        Prob_train = np.zeros((trainDataSize, numberOfClasses))
-        Tags_train = []
-        i = 0   
-        with torch.no_grad(): 
-            for batch, labels in train_loader:
-                # if i == 0:
-                #     Utils.showBatchImages(batch)
-                batch = batch.to(device)
-                labels = labels.to(device)
-                # model.reset_mem(batchSize, device)
-                # model.mem1 = final_membranes['mem1'].to(device)
-                # model.mem2 = final_membranes['mem2'].to(device)
-                # model.mem3 = final_membranes['mem3'].to(device)
-                # model.mem4 = final_membranes['mem4'].to(device)
-                # model.mem5 = final_membranes['mem5'].to(device)
-                startIndex = i*batchSize
-                endIndex = startIndex + batchSize
-
-                s, f, p = model(batch, numberOfSteps)
-                s = s.cpu().detach().numpy()
-                f = f.cpu().detach().numpy()
-                p = p.cpu().detach().numpy()
-                # s = s.cpu().detach().numpy()
-                # s = s.sum(axis=0)
-                # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
-                spikes = s.sum(axis=0)
-                features = f.sum(axis=0)
-                probs = p.max(axis=0)
-
-                if hasattr(model, 'expansion') and model.expansion > 1:
-                    spikes = spikes.reshape(spikes.shape[0], 10, model.expansion).sum(axis=2)  # or .max(axis=2)
-                    probs = probs.reshape(probs.shape[0], 10, model.expansion).max(axis=2)    # Max is better for probs
-
-                probs = Metrics.softmax(probs)
-                # if i == 0:
-                #     print(f'{i}\n{features}\n{probs}')
-                    # plotProb(p, batchSize, numberOfSteps)
-                # probs = Metrics.softmax(probs)
-                # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
-                labels = labels.cpu().detach().numpy()
-                Spik_train[startIndex:endIndex, :] = spikes
-                Feat_train[startIndex:endIndex, :] = features
-                Prob_train[startIndex:endIndex, :] = probs
-                Tags_train.append(labels.flatten())
-                del batch, labels, features, probs
-                i += 1
-                # if i == 1: 
-                #     break
-                print(f"\rProgress: {i}", end='', flush=True)
-
-        # Tags_train = np.array(Tags_train)
-        Tags_train = np.concatenate(Tags_train)
-        print()
-        # print("Tags_train shape is ", Tags_train.shape)
-
-        Spik_test = np.zeros((testDataSize, numberOfClasses))
-        Feat_test = np.zeros((testDataSize, featSize))
-        Prob_test = np.zeros((testDataSize, numberOfClasses))
-        Tags_test = []
-        i = 0
-        with torch.no_grad():
-            for batch, labels in test_loader:
-                # if i == 0:
-                #     Utils.showBatchImages(batch)
-                batch = batch.to(device)
-                labels = labels.to(device)
-                startIndex = i*batchSize
-                endIndex = startIndex + batchSize
-
-                s, f, p = model(batch, numberOfSteps)
-                s = s.cpu().detach().numpy()
-                f = f.cpu().detach().numpy()
-                p = p.cpu().detach().numpy()
-
-                spikes = s.sum(axis=0)    
-                features = f.sum(axis=0)
-                probs = p.max(axis=0)
-                if hasattr(model, 'expansion') and model.expansion > 1:
-                    spikes = spikes.reshape(spikes.shape[0], 10, model.expansion).sum(axis=2)  # or .max(axis=2)
-                    probs = probs.reshape(probs.shape[0], 10, model.expansion).max(axis=2)    # Max is better for probs
-
-                probs = Metrics.softmax(probs)
-                # if i == 0:
-                #     print(f'{i}\n{features}\n{probs}')
-                labels = labels.cpu().detach().numpy()
-                Spik_test[startIndex:endIndex, :] = spikes
-                Feat_test[startIndex:endIndex, :] = features
-                Prob_test[startIndex:endIndex, :] = probs
-                # Tags_test.append(labels)
-                Tags_test.append(labels.flatten())
-                del batch, labels, features, probs
-                i += 1
-                # if i == 1: 
-                #     break
-                print(f"\rProgress: {i}", end='', flush=True)
-
-        # Tags_test = np.array(Tags_test)
-        Tags_test = np.concatenate(Tags_test)
-        # print("Tags_test shape is ", Tags_test.shape)
-        fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
+        fileName = 'features/spike/case_' + config.case + '/' + config.dataset_feat[i] + '-on_' + config.dataset_ID.lower() + '.npz'
         # print(fileName)
-        print()
-        np.savez(fileName, arr0=Spik_train, arr1=Feat_train, arr2=Prob_train, arr3=Tags_train, arr7=Spik_test, arr4=Feat_test, arr5=Prob_test, arr6=Tags_test)
 
-        del Spik_train, Feat_train, Prob_train, Tags_train, Spik_test, Feat_test, Prob_test, Tags_test
-    
-    else:
-        # pass
-        print("Features " + str(fileName) + "already exists.")
-    
+        if (Utils.does_file_exists(fileName)):
+
+            print("Are we here")
+            torch.cuda.empty_cache()
+            Spik_train = np.zeros((trainDataSize, numberOfClasses))
+            Feat_train = np.zeros((trainDataSize, featSize))
+            Prob_train = np.zeros((trainDataSize, numberOfClasses))
+            Volt_train = np.zeros((trainDataSize, featSize))
+            Tags_train = []
+            i = 0   
+            with torch.no_grad(): 
+                for batch, labels in train_loader:
+                    # if i == 0:
+                    #     Utils.showBatchImages(batch)
+                    batch = batch.to(device)
+                    labels = labels.to(device)
+                    # model.reset_mem(batchSize, device)
+                    # model.mem1 = final_membranes['mem1'].to(device)
+                    # model.mem2 = final_membranes['mem2'].to(device)
+                    # model.mem3 = final_membranes['mem3'].to(device)
+                    # model.mem4 = final_membranes['mem4'].to(device)
+                    # model.mem5 = final_membranes['mem5'].to(device)
+                    startIndex = i*batchSize
+                    endIndex = startIndex + batchSize
+
+                    s, f, p, v = model(batch, numberOfSteps)
+                    s = s.cpu().detach().numpy()
+                    f = f.cpu().detach().numpy()
+                    p = p.cpu().detach().numpy()
+                    v = v.cpu().detach().numpy()
+                    # print(f"v.shape: {v.shape}")
+                    # s = s.cpu().detach().numpy()
+                    # s = s.sum(axis=0)
+                    # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
+                    spikes = s.sum(axis=0)
+                    features = f.sum(axis=0)
+                    probs = p.max(axis=0)
+                    # print(f"v.shape: {v.shape}")
+                    volts = v.mean(axis=0)
+                    # print(f"volts.shape: {volts.shape}")
+
+                    if hasattr(model, 'expansion') and model.expansion > 1:
+                        # print(f"Population coding with expansion {model.expansion}")
+                        spikes = spikes.reshape(spikes.shape[0], 10, model.expansion).sum(axis=2)  # or .max(axis=2)
+                        probs = probs.reshape(probs.shape[0], 10, model.expansion).max(axis=2)    # Max is better for probs
+                        # volts = volts.reshape(volts.shape[0], 10, model.expansion).max(axis=2)  # Max is better for volts
+
+                    probs = Metrics.softmax(probs)
+                    # if i == 0:
+                    #     print(f'{i}\n{features}\n{probs}')
+                        # plotProb(p, batchSize, numberOfSteps)
+                    # probs = Metrics.softmax(probs)
+                    # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
+                    labels = labels.cpu().detach().numpy()
+                    Spik_train[startIndex:endIndex, :] = spikes
+                    Feat_train[startIndex:endIndex, :] = features
+                    Prob_train[startIndex:endIndex, :] = probs
+                    Volt_train[startIndex:endIndex, :] = volts
+                    Tags_train.append(labels.flatten())
+                    del batch, labels, features, probs
+                    i += 1
+                    # if i == 1: 
+                    #     break
+                    print(f"\rProgress: {i}", end='', flush=True)
+
+            # Tags_train = np.array(Tags_train)
+            Tags_train = np.concatenate(Tags_train)
+            print()
+            # print("Tags_train shape is ", Tags_train.shape)
+
+            Spik_test = np.zeros((testDataSize, numberOfClasses))
+            Feat_test = np.zeros((testDataSize, featSize))
+            Prob_test = np.zeros((testDataSize, numberOfClasses))
+            Volt_test = np.zeros((testDataSize, featSize))
+            Tags_test = []
+            i = 0
+            with torch.no_grad():
+                for batch, labels in test_loader:
+                    # if i == 0:
+                    #     Utils.showBatchImages(batch)
+                    batch = batch.to(device)
+                    labels = labels.to(device)
+                    startIndex = i*batchSize
+                    endIndex = startIndex + batchSize
+
+                    s, f, p, v = model(batch, numberOfSteps)
+                    s = s.cpu().detach().numpy()
+                    f = f.cpu().detach().numpy()
+                    p = p.cpu().detach().numpy()
+                    v = v.cpu().detach().numpy()
+
+                    spikes = s.sum(axis=0)    
+                    features = f.sum(axis=0)
+                    probs = p.max(axis=0)
+                    volts = v.max(axis=0)
+                    if hasattr(model, 'expansion') and model.expansion > 1:
+                        spikes = spikes.reshape(spikes.shape[0], 10, model.expansion).sum(axis=2)  # or .max(axis=2)
+                        probs = probs.reshape(probs.shape[0], 10, model.expansion).max(axis=2)    # Max is better for probs
+                        # volts = volts.reshape(volts.shape[0], 10, model.expansion).max(axis=2)  # Max is better for volts
+
+                    probs = Metrics.softmax(probs)
+                    # if i == 0:
+                    #     print(f'{i}\n{features}\n{probs}')
+                    labels = labels.cpu().detach().numpy()
+                    Spik_test[startIndex:endIndex, :] = spikes
+                    Feat_test[startIndex:endIndex, :] = features
+                    Prob_test[startIndex:endIndex, :] = probs
+                    Volt_test[startIndex:endIndex, :] = volts
+                    # Tags_test.append(labels)
+                    Tags_test.append(labels.flatten())
+                    del batch, labels, features, probs
+                    i += 1
+                    # if i == 1: 
+                    #     break
+                    print(f"\rProgress: {i}", end='', flush=True)
+
+            # Tags_test = np.array(Tags_test)
+            Tags_test = np.concatenate(Tags_test)
+            # print("Tags_test shape is ", Tags_test.shape)
+            # fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
+            # print(fileName)
+            print()
+            np.savez(fileName, arr0=Spik_train, 
+                            arr1=Feat_train, 
+                            arr2=Prob_train, 
+                            arr3=Tags_train, 
+                            arr7=Spik_test, 
+                            arr4=Feat_test, 
+                            arr5=Prob_test, 
+                            arr6=Tags_test,
+                            arr8=Volt_train,
+                            arr9=Volt_test)
+
+            del Spik_train, Feat_train, Prob_train, Tags_train, Spik_test, Feat_test, Prob_test, Tags_test, Volt_train, Volt_test
+
+        else:
+            # pass
+            print("Features " + str(fileName) + " already exists.")
+        
     return None
 
 def plotProb(prob, batchSize, numOfSteps):

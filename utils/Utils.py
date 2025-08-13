@@ -407,23 +407,27 @@ class Utils():
         pass 
 
     @staticmethod
-    def visualize_feature(Id, Ood, case):
+    def visualize_feature(Id, Ood, case, feature_type):
         '''
             Plot reduced features Id/Ood
         
             Id (str):   In distribution dataset
             Ood (str):  Out of distribution dataset  
 
+            spik_train = F['arr0']
             feat_train = F['arr1']  
             prob_train = F['arr2']  
-            tags_train = F['arr3']  
+            tags_train = F['arr3']
+            volt_train = F['arr8']
+            spik_test  = F['arr7']  
             feat_test  = F['arr4']  
             prob_test  = F['arr5']  
-            tags_test  = F['arr6']  
+            tags_test  = F['arr6']
+            volt_test  = F['arr9']  
         
         '''
 
-        fileName = 'tsne/' + str(case) + '_' + str(Id) + '_' + str(Ood) + '.npz'
+        fileName = 'tsne/' + str(case) + '_' + str(Id) + '_' + str(Ood) + '_feature_type_' + str(feature_type) + '.npz'
         print(fileName)
         
         if (Utils.does_file_exists(fileName)):
@@ -442,12 +446,26 @@ class Utils():
             border = 0
 
             F_id = np.load(filePathId)
-            features1 = F_id['arr4']
+            if feature_type == 'features':
+                features1 = F_id['arr4']
+            elif feature_type == 'spikes':
+                features1 = F_id['arr0']
+            elif feature_type == 'probs':
+                features1 = F_id['arr2']
+            elif feature_type == 'voltages':
+                features1 = F_id['arr8']
 
             if Ood is not None:
                 border = len(features1)
                 F_ood = np.load(filePathOod)
-                features2 = F_ood['arr4']
+                if feature_type == 'features':
+                    features2 = F_ood['arr4']
+                elif feature_type == 'spikes':
+                    features2 = F_ood['arr0']
+                elif feature_type == 'probs':
+                    features2 = F_ood['arr2']
+                elif feature_type == 'voltages':
+                    features2 = F_ood['arr8']
 
             print(f'features1.shape is {features1.shape}')
 

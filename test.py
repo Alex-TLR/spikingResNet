@@ -31,61 +31,66 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k * (100.0 / batch_size))
         return res
 
-def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=None, expansion=1, auto_aug=False):
+
+# def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=None, expansion=1, auto_aug=False):
+def test_accuracy(config):
     '''
     check accuracy of trained model on ID test data
     '''
 
     # Load database
     # print(f"dataSet: {dataSet}")
-    dataset_train, dataset_test = Utils.load_data(dataSet)
+    dataset_train, dataset_test = Utils.load_data(config.dataset_ID)
     testSize = len(dataset_test)
     # print(f"Number of test set images is: {testSize}")
 
     # Get image size
-    channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
+    channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_ID)
 
     # Load data
-    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
+    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_ID, True)
 
     # Get the device
     device = Utils.get_device()
     # device = torch.device("cpu")
 
-    if modelType == 'conv':
+    if config.model_type == 'conv':
         pass
 
-    elif modelType == 'spike':
+    elif config.model_type == 'spike':
+
+        # Get image size based on dataset
+        if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
+            feature_size = 32
+        elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
+            feature_size = 28
+        else:
+            feature_size = 28  # default
 
         # For spiking neural network we need number of steps
-        numberOfSteps = 50
+        numberOfSteps = 4
         beta = 0.95
         threshold = 0.25
 
         # Define model
-        if ResNetModel == 1:
-            model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        elif ResNetModel == 2:
-            model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        elif ResNetModel == 4:
-            model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+        if config.resnet_model == 1:
+            model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold)
+        elif config.resnet_model == 2:
+            model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold)
+        elif config.resnet_model == 4:
+            model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
             model = model.to(device)
-        elif ResNetModel == 9:
-            model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
-        elif ResNetModel == 18:
+        elif config.resnet_model == 9:
+            model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold)
+        elif config.resnet_model == 10:
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+        elif config.resnet_model == 18:
             # model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
-        elif ResNetModel == 20:
-            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
-        elif ResNetModel == 21:
-            model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-        elif ResNetModel == 22:
-            T = 4
-            backend = 'torch'
-            model = sew_resnet.multi_step_sew_resnet18(pretrained=False, progress=True, T=T, cnf='ADD', multi_step_neuron=neuron.MultiStepIFNode, v_threshold=1., surrogate_function=surrogate.ATan(), detach_reset=True, backend=backend, num_classes=10)
-            # model = model.to(device)
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+        elif config.resnet_model == 20:
+            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+        elif config.resnet_model == 21:
+            model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold)
         else:
             print("Not defined")
             return -1
@@ -93,108 +98,73 @@ def test_accuracy(dataSet, modelType, batchSize, numberOfClasses, ResNetModel=No
         # Load weights
         torch.cuda.empty_cache()
 
-        if ResNetModel != 22:
+        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(numberOfSteps)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
+        print(f"weightsName: {weightsName}")
+        model.load_state_dict(torch.load(weightsName, weights_only=False))
+        # file = torch.load(weightsName)
+        # model.load_state_dict(file["model"])
+        model = model.to(device)
 
+        # final_membranes = torch.load('final_membranes.pth')
 
-            weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
-            print(f"weightsName: {weightsName}")
-            model.load_state_dict(torch.load(weightsName, weights_only=False))
-            # file = torch.load(weightsName)
-            # model.load_state_dict(file["model"])
-            model = model.to(device)
+        # print("Check test images.")
+        testAcc = np.zeros((1,testSize))
+        testLen = 0
+        i = 0
+        print(f"Number of batches: {len(test_loader)}")
+        model.eval()
+        
+        total_correct_spikes = 0
+        total_correct_membrane = 0
+        total_samples = 0
+        with torch.no_grad():
+            for batch, labels in test_loader:
+                testLen += len(batch)
+                batch = batch.to(device)
+                la = labels[0].item()
+                labels = labels.to(device)
+                # model.mem1 = final_membranes['mem1'].to(device)
+                # model.mem2 = final_membranes['mem2'].to(device)
+                # model.mem3 = final_membranes['mem3'].to(device)
+                # model.mem4 = final_membranes['mem4'].to(device)
+                # model.mem5 = final_membranes['mem5'].to(device)
+                # Generate predictions/ forward pass
+                spikes, feat, membrane, _ = model(batch, numberOfSteps)
+                # l_spikes = loss_fn(spikes, labels)
+                # testLossSpikes.append(l_spikes.item())
+                # a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
+                # print(f"testLen: {testLen}, a1: {a1}, {a1.item()}, a2: {a2}, {a2.item()}")
+                # testAcc[0, i] = a2.item()
+                # testAccList.append(a1.item())
+                # On spikes
+                with torch.no_grad():
+                    # Use SF.accuracy_count on the spikes from training forward pass
+                    # acc_rate = SF.accuracy_rate(spikes, labels)
+                    batch_size = batch.size(0)
+                    acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
+                    total_correct_spikes += acc
+                    total_samples += batch_size
 
-            # final_membranes = torch.load('final_membranes.pth')
+                # On membrane
+                mem = membrane.mean(0)
+                predicted = torch.argmax(mem, dim=1)
+                correct = (predicted == labels).float()
+                total_correct_membrane += correct.sum()
+                del batch, labels
+                # print(f"\rtestAcc[{i}]: {testAcc[0, i]}, label: {la}, count: {(np.sum(testAcc[0, :])/(i+1)):.2f}, progress: {i}/{len(test_loader)}", end='', flush=True)
+                print(f"\rCurrent: {total_correct_spikes}, Test accuracy on spikes: {total_correct_spikes/total_samples*100:05.2f}, Test accuracy on membrane: {total_correct_membrane/total_samples*100:05.2f}, progress: {i+1}/{len(test_loader)}", end='', flush=True)
+                i += 1
 
-            # Loss function
-            # loss_fn = SF.ce_rate_loss()
-            loss_fn = SF.ce_count_loss() 
+        print("\nDone.")
+        # Test stats
+        # meanA1 = np.sum(testAcc) / testSize
+        # meanA2 = sum(testAccList) / len(testAccList)
+        # meanL = sum(testLoss) / len(testLoss)
+        # print(f'\nTest loss is {meanL:.2f}. Test accuracy1 is {meanA1*100:.2f}. Test accuracy2 is {meanA2*100:.2f}.')
 
-            # print("Check test images.")
-            testAcc = np.zeros((1,testSize))
-            testLen = 0
-            testAccList = []
-            # testLossSpikes = []
-            # testLossMembrane = []
-            i = 0
-            print(f"Number of batches: {len(test_loader)}")
-            model.eval()
-            
-            total_correct_spikes = 0
-            total_correct_membrane = 0
-            total_samples = 0
-            with torch.no_grad():
-                for batch, labels in test_loader:
-                    testLen += len(batch)
-                    batch = batch.to(device)
-                    la = labels[0].item()
-                    labels = labels.to(device)
-                    # model.mem1 = final_membranes['mem1'].to(device)
-                    # model.mem2 = final_membranes['mem2'].to(device)
-                    # model.mem3 = final_membranes['mem3'].to(device)
-                    # model.mem4 = final_membranes['mem4'].to(device)
-                    # model.mem5 = final_membranes['mem5'].to(device)
-                    # Generate predictions/ forward pass
-                    spikes, feat, membrane = model(batch, numberOfSteps)
-                    # l_spikes = loss_fn(spikes, labels)
-                    # testLossSpikes.append(l_spikes.item())
-                    # a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
-                    # print(f"testLen: {testLen}, a1: {a1}, {a1.item()}, a2: {a2}, {a2.item()}")
-                    # testAcc[0, i] = a2.item()
-                    # testAccList.append(a1.item())
-                    # On spikes
-                    with torch.no_grad():
-                        # Use SF.accuracy_count on the spikes from training forward pass
-                        # acc_rate = SF.accuracy_rate(spikes, labels)
-                        batch_size = batch.size(0)
-                        acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
-                        total_correct_spikes += acc
-                        total_samples += batch_size
+        return None 
 
-                    # On membrane
-                    mem = membrane.mean(0)
-                    predicted = torch.argmax(mem, dim=1)
-                    correct = (predicted == labels).float()
-                    total_correct_membrane += correct.sum()
-                    del batch, labels
-                    # print(f"\rtestAcc[{i}]: {testAcc[0, i]}, label: {la}, count: {(np.sum(testAcc[0, :])/(i+1)):.2f}, progress: {i}/{len(test_loader)}", end='', flush=True)
-                    print(f"\rCurrent: {total_correct_spikes}, Test accuracy on spikes: {total_correct_spikes/total_samples*100:05.2f}, Test accuracy on membrane: {total_correct_membrane/total_samples*100:05.2f}, progress: {i+1}/{len(test_loader)}", end='', flush=True)
-                    i += 1
-
-            print("\nDone.")
-            # Test stats
-            # meanA1 = np.sum(testAcc) / testSize
-            # meanA2 = sum(testAccList) / len(testAccList)
-            # meanL = sum(testLoss) / len(testLoss)
-            # print(f'\nTest loss is {meanL:.2f}. Test accuracy1 is {meanA1*100:.2f}. Test accuracy2 is {meanA2*100:.2f}.')
-
-            return None 
-    
-        else:
-            weightsName = 'weights/spike/' + 'resnet' + str(ResNetModel) + '_weights_' + dataSet + '.pth'
-            model.load_state_dict(torch.load(weightsName, weights_only=False))
-            model = model.to(device)
-            criterion = nn.CrossEntropyLoss()
-            testAccList1 = []
-            testAccList5 = []
-            testAcc = np.zeros((1,testSize))
-            with torch.no_grad():
-                for batch, labels in test_loader:
-                    image = batch.to(device, non_blocking=True)
-                    target = labels.to(device, non_blocking=True)
-                    output = model(image)
-                    output = output.mean(dim=0)
-                    loss = criterion(output, target)
-                    functional.reset_net(model)
-
-                    acc1, acc5 = accuracy(output, target, topk=(1, 5))
-                    testAccList1.append(acc1.item())
-                    testAccList5.append(acc5.item())
-                    print(f'Test accuracy1: {acc1.item():.2f}%, Test accuracy5: {acc5.item():.2f}%, Loss: {loss.item():.2f}')
-
-            print(f"Final results: Test accuracy1: {np.mean(testAccList1):.2f}%, Test accuracy5: {np.mean(testAccList5):.2f}%")
-            return None
-
-
+# TODO: needs to be removed or revised
 def test_accuracy_population(dataSet, model, modelType, batchSize, numberOfClasses, ResNetModel, expansion=1, auto_aug=False):
     dataset_train, dataset_test = Utils.load_data(dataSet)
     testSize = len(dataset_test)
@@ -274,70 +244,69 @@ def test_accuracy_population(dataSet, model, modelType, batchSize, numberOfClass
         return final_spike_acc
 
 
-def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  ResNetModel, expansion=50, auto_aug=False):
+# def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  ResNetModel, expansion=50, auto_aug=False):
+def test_accuracy_population_2(config):
     '''
     check accuracy of trained model on ID test data when population coding is used with my spatio-temporal propagation
     '''
     # Load database
-    dataset_train, dataset_test = Utils.load_data(dataSet)
+    dataset_train, dataset_test = Utils.load_data(config.dataset_ID)
     testSize = len(dataset_test)
 
     # Get image size
-    channels, rows, cols = Utils.get_image_size(dataset_train, dataSet)
+    channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_ID)
 
     # Load data
-    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, dataSet, True)
+    train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_ID, True)
 
     # Get the device
     device = Utils.get_device()
 
     # Get image size based on dataset
-    if dataSet in ['CIFAR10', 'CIFAR100']:
+    if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
         feature_size = 32
-    elif dataSet in ['MNIST', 'FMNIST', 'KMNIST']:
+    elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
         feature_size = 28
     else:
         feature_size = 28
 
-    if modelType == 'spike':
+    if config.model_type == 'spike':
         # For spiking neural network we need number of steps
         numberOfSteps = 1
         beta = 0.95
         threshold = 0.25
 
         # Define model with expansion parameter
-        if ResNetModel == 2:
+        if config.resnet_model == 2:
             model = spikeConvNN2(
                 numberOfChannels=channels, 
-                numberOfClasses=numberOfClasses, 
+                numberOfClasses=config.num_classes, 
                 beta=beta, 
                 threshold=threshold, 
-                expansion=expansion, 
+                expansion=config.expansion, 
                 feature_size=feature_size
             )
-        # elif ResNetModel == 4:
-        #     print("This model is adapted for BPTT only.")
-        #     return -1
-        elif ResNetModel == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
-            model = model.to(device)
-        elif ResNetModel == 18:
-            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=expansion)
-            model = model.to(device)
+        elif config.resnet_model == 4:
+            model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)     
+        elif config.resnet_model == 10:
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
+        elif config.resnet_model == 18:
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
         else:
             print("Not defined")
             return -1
         
+        model = model.to(device)
         # Load weights
         torch.cuda.empty_cache()
-        
-        weightsName ='weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet + '_T_'+str(numberOfSteps)+'_E_'+str(expansion)+'_A_'+str(auto_aug)+'.pth'
 
+        weightsName ='weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(numberOfSteps)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
+        print(f"Loading weights from {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=False))
         model = model.to(device)
         model.eval()
 
-        print(f"Testing with expansion={expansion} ({'Population' if expansion > 1 else 'Standard'} coding)")
+        print(f"Testing with expansion={config.expansion} ({'Population' if config.expansion > 1 else 'Standard'} coding)")
         print(f"Model has expansion attribute: {hasattr(model, 'expansion')}")
         if hasattr(model, 'expansion'):
             print(f"Model expansion value: {model.expansion}")
@@ -359,49 +328,48 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  
                 utils.reset(model)
                 
                 # Forward pass - get all three outputs
-                spikes, features, membranes = model(data, numberOfSteps)
+                spikes, features, membranes, _ = model(data, numberOfSteps)
                 
                 # Use same spike accuracy logic as fit_spike_full_train
                 batch_size = data.size(0)
                 
                 # Check if model uses population coding (same logic as training)
-                if hasattr(model, 'expansion') and model.expansion > 1:
-                    # Population coding accuracy for spikes - same as fit_spike_full_train
-                    acc_rate_spk = SF.accuracy_rate(
-                        spikes, 
-                        targets, 
-                        population_code=True, 
-                        num_classes=model.numberOfClasses
-                    )
-                    batch_correct_spk = (acc_rate_spk * batch_size).item()
+                # if hasattr(model, 'expansion') and model.expansion > 1:
+                acc_rate_spk = SF.accuracy_rate(
+                    spikes, 
+                    targets, 
+                    population_code=True, 
+                    num_classes=model.numberOfClasses
+                )
+                batch_correct_spk = (acc_rate_spk * batch_size).item()
                     
-                else:
-                    # Standard coding accuracy for spikes - same as fit_spike_full_train
-                    acc_rate_spk = SF.accuracy_rate(spikes, targets)
-                    batch_correct_spk = (acc_rate_spk * batch_size).item()
+                # else:
+                #     # Standard coding accuracy for spikes - same as fit_spike_full_train
+                #     acc_rate_spk = SF.accuracy_rate(spikes, targets)
+                #     batch_correct_spk = (acc_rate_spk * batch_size).item()
                 
                 acc_spikes += batch_correct_spk
                 
                 # Original membrane accuracy calculation
-                if hasattr(model, 'expansion') and model.expansion > 1:
-                    # Population coding mode - time average first, then population coding
-                    membranes_avg = membranes.mean(dim=0)  # [B, classes*expansion]
+                # if hasattr(model, 'expansion') and model.expansion > 1:
+                #     # Population coding mode - time average first, then population coding
+                membranes_avg = membranes.mean(dim=0)  # [B, classes*expansion]
+                
+                acc_rate_mem = SF.accuracy_rate(
+                    membranes_avg.unsqueeze(0),  # Add time dimension [1, B, classes*expansion]
+                    targets, 
+                    population_code=True, 
+                    num_classes=model.numberOfClasses
+                )
+                batch_correct_mem = (acc_rate_mem * membranes_avg.size(0)).item()
+                acc_membrane += batch_correct_mem
                     
-                    acc_rate_mem = SF.accuracy_rate(
-                        membranes_avg.unsqueeze(0),  # Add time dimension [1, B, classes*expansion]
-                        targets, 
-                        population_code=True, 
-                        num_classes=numberOfClasses
-                    )
-                    batch_correct_mem = (acc_rate_mem * membranes_avg.size(0)).item()
-                    acc_membrane += batch_correct_mem
-                    
-                else:
-                    # Standard coding mode
-                    mem_avg = membranes.mean(0)  # [B, classes]
-                    predicted = torch.argmax(mem_avg, dim=1)
-                    correct = (predicted == targets).float().sum()
-                    acc_membrane += correct.item()
+                # else:
+                #     # Standard coding mode
+                #     mem_avg = membranes.mean(0)  # [B, classes]
+                #     predicted = torch.argmax(mem_avg, dim=1)
+                #     correct = (predicted == targets).float().sum()
+                #     acc_membrane += correct.item()
                 
                 total += batch_size
                 
@@ -410,7 +378,7 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  
                 mem_acc_pct = acc_membrane / total * 100
                 print(f"\rTest accuracy on spikes: {spike_acc_pct:05.2f}%, "
                       f"Test accuracy on membrane: {mem_acc_pct:05.2f}%, "
-                      f"progress: {total//batchSize}/{len(test_loader)}", 
+                      f"progress: {total//config.batch_size}/{len(test_loader)}", 
                       end='', flush=True)
         
         print()  # New line
@@ -423,7 +391,7 @@ def test_accuracy_population_2(dataSet, modelType, batchSize, numberOfClasses,  
         return None
 
 
-def test_metrics(case, nameID):
+def test_metrics(case, nameID, methods,features='spikes'):
     '''
     case:       for example case 01 is '01'
     nameID:     name of the In Distribution features, example 'MNIST'
@@ -447,8 +415,8 @@ def test_metrics(case, nameID):
         suffixID = '-on_svhn'
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
-    # methods = ['KMEANS-Full' , 'KMEANS-Full2']
+    # methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
+    # methods = ['NCM', 'NCM2']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
@@ -458,13 +426,36 @@ def test_metrics(case, nameID):
     ID_feat_train = ID['arr1']  # In-Distribution training set features
     ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
     ID_tags_train = ID['arr3']  # In-Distribution training set labels
+    if features == 'voltages':
+        ID_volt_train = ID['arr8']  # In-Distribution training set voltages
     ID_spik_test  = ID['arr7']  # In-Distribution test set spikes
     ID_feat_test  = ID['arr4']  # In-Distribution test set features
     ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
+    if features == 'voltages':
+        ID_volt_test  = ID['arr9']  # In-Distribution test set voltages
     # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
     number_classes = ID_prob_train.shape[1]
     # clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
     # print(f"Clustering ID base: {clusters}")
+
+    if features == 'features':
+        print(f"Using spiking feature vector {ID_feat_train.shape}:")
+        ID_features_train = ID_feat_train
+        ID_features_test = ID_feat_test
+    elif features == 'spikes':
+        print(f"Using final spikings {ID_spik_train.shape}:")
+        ID_features_train = ID_spik_train
+        ID_features_test = ID_spik_test
+    elif features == 'probs':
+        print(f"Using softmax probabilities {ID_prob_train.shape}:")
+        ID_features_train = ID_prob_train
+        ID_features_test = ID_prob_test
+    elif features == 'voltages':
+        print(f"Using voltage feature vector {ID_volt_train.shape}:")
+        ID_features_train = ID_volt_train
+        ID_features_test = ID_volt_test
+    else:
+        raise ValueError("Unknown ID feature type")
 
     for i in range(len(namesOOD)):
         OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
@@ -475,10 +466,29 @@ def test_metrics(case, nameID):
         OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
         OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
         OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
+        if features == "voltages":
+            OOD_volt_train = OOD['arr8']  # Out-of-Distribution training set voltages
         OOD_spik_test  = OOD['arr7']  # Out-of-Distribution test set spikes
         OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
         OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
         OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
+        if features == "voltages":
+            OOD_volt_test  = OOD['arr9']  # Out-of-Distribution test set voltages
+
+        if features == 'features':
+            OOD_features_train = OOD_feat_train
+            OOD_features_test = OOD_feat_test
+        elif features == 'spikes':
+            OOD_features_train = OOD_spik_train
+            OOD_features_test = OOD_spik_test
+        elif features == 'probs':
+            OOD_features_train = OOD_prob_train
+            OOD_features_test = OOD_prob_test
+        elif features == 'voltages':
+            OOD_features_train = OOD_volt_train
+            OOD_features_test = OOD_volt_test
+        else:
+            raise ValueError("Unknown OOD feature type")
 
         # print(f"OOD_prob_train.shape: {OOD_prob_train.shape}, OOD_prob_test.shape: {OOD_prob_test.shape}")
         # print(f"ID_feat_train.shape: {ID_feat_train.shape}, ID_feat_test.shape: {ID_feat_test.shape}, OOD_feat_train.shape: {OOD_feat_train.shape}")
@@ -614,9 +624,9 @@ def test_metrics(case, nameID):
                 print(f"SD (spike distance) Execution time: {execution_time:.4f} seconds.\n")
 
             elif methods[j] == 'NCM':
-                print(f"NCM on {namesOOD[i]}")
+                print(f"NCM on {namesOOD[i]}, spike features.")
                 number_classes = ID_prob_train.shape[1]
-                test_labels, test_predictions, test_distances = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes)
+                test_labels, test_predictions, test_distances = Metrics.NCM(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_classes)
                 # test_labels, test_predictions, test_distances = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
@@ -629,8 +639,8 @@ def test_metrics(case, nameID):
             elif methods[j] == 'MD':
                 print(f"MD on {namesOOD[i]}")
                 number_classes = ID_prob_train.shape[1]
-                number_features = ID_feat_train.shape[1]
-                test_labels, test_predictions, test_distances = Metrics.MD(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, number_features)
+                number_features = ID_features_train.shape[1]
+                test_labels, test_predictions, test_distances = Metrics.MD(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_classes, number_features)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
                 print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
@@ -642,7 +652,7 @@ def test_metrics(case, nameID):
             elif methods[j] == 'KNN':
                 print(f"KNN on {namesOOD[i]}")
                 number_neighbors = 10
-                test_labels, test_predictions, test_distances = Metrics.KNN(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_neighbors)
+                test_labels, test_predictions, test_distances = Metrics.KNN(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_neighbors)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
                 print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
@@ -653,7 +663,7 @@ def test_metrics(case, nameID):
             elif methods[j] == 'FKM':
                 print(f"K-MEANS Full Clustering on {namesOOD[i]}")
                 number_neighbors = 100
-                test_labels, test_predictions, test_distances = Metrics.FKM(ID_feat_train, ID_feat_test, OOD_feat_test, number_neighbors)
+                test_labels, test_predictions, test_distances = Metrics.FKM(ID_features_train, ID_features_test, OOD_features_test, number_neighbors)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
                 print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
@@ -666,7 +676,7 @@ def test_metrics(case, nameID):
                 print(f"K-MEANS Clustering per Class on {namesOOD[i]}")
                 number_classes = ID_prob_train.shape[1]
                 ncpc = 5
-                test_labels, test_predictions, test_distances = Metrics.CKM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, ncpc)
+                test_labels, test_predictions, test_distances = Metrics.CKM(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_classes, ncpc)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 
                 print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
