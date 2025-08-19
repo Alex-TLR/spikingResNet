@@ -27,6 +27,11 @@ def get_parser():
     # Model parameters
     parser.add_argument('--model', type=int, default=18, help="Model architecture")
     parser.add_argument('--num_classes', type=int, default=10, help="Number of output classes")
+    parser.add_argument('--time_steps_train', type=int, default=50, help="Number of time steps for spiking models")
+    parser.add_argument('--time_steps_extract', type=int, default=50, help="Number of time steps for feature extraction")
+    parser.add_argument('--expansion', type=int, default=1, help="Expansion factor for the model")
+    parser.add_argument('--auto_aug', type=bool, default=False, help="Use auto augmentation")
+    parser.add_argument('--population_coding', type=bool, default=False, help="Use population coding")
 
     # Training parameters
     parser.add_argument('--epochs', type=int, default=200, help="Number of training epochs")

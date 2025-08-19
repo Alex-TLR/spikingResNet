@@ -160,6 +160,9 @@
     # Take voltages of the preultimate membrane voltage layer
 
 
+from email import parser
+
+
 class ExperimentConfig:
     def __init__(self):
         # Dataset parameters
@@ -235,7 +238,17 @@ class ExperimentConfig:
             self.scheduler = args.scheduler
         if 'step_size' in provided_args:
             self.step_size = args.step_size
-    
+        if 'time_steps_train' in provided_args:
+            self.num_time_steps_train = args.time_steps_train
+        if  'time_steps_extract' in provided_args:
+            self.num_time_steps_extract = args.time_steps_extract
+        if 'expansion' in provided_args:
+            self.expansion = args.expansion
+        if 'auto_aug' in provided_args:
+            self.auto_aug = args.auto_aug
+        if 'population_coding' in provided_args:
+            self.population_coding = args.population_coding
+
     # def to_dict(self):
     #     """Convert config to dictionary for function calls"""
     #     return {
