@@ -253,9 +253,12 @@ def training(config):
             model = model.to(device)
 
             # Loss function
-            # loss_fn = SF.ce_rate_loss()
-            loss_fn = SF.ce_count_loss() 
-            # loss_fn = nn.CrossEntropyLoss()
+            if config.loss == 'rate_loss':
+                loss_fn = SF.ce_rate_loss()
+            elif config.loss == 'count_loss':
+                loss_fn = SF.ce_count_loss()
+            elif config.loss == 'cross_entropy':
+                loss_fn = nn.CrossEntropyLoss()
             # Optimizer for gray 5e-4
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)

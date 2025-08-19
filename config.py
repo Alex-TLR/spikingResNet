@@ -167,22 +167,23 @@ class ExperimentConfig:
         self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '04'
+        self.case = '11'
         
         # Model parameters
         self.model_type = 'spike'
-        self.resnet_model = 2
+        self.resnet_model = 10
         self.num_classes = 10
         self.expansion = 1
-        self.num_time_steps_train = 50
-        self.num_time_steps_extract = 50
+        self.num_time_steps_train = 4
+        self.num_time_steps_extract = 4
         
         # Training parameters
-        self.batch_size = 64
-        self.epochs = 200
+        self.batch_size = 128
+        self.epochs = 400
         self.full_train = True
         self.auto_aug = False
         self.pretrained = False
+        self.loss = 'cross_entropy'
 
         # Parser defaults (only used if explicitly provided)
         self.seed = 42
