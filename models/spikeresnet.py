@@ -626,41 +626,11 @@ class SpikeResNet10Model(BasicModel):
     #                 self.TemporalBatchNorm(num_features=output, num_steps=self.numberOfSteps)]
     #     return nn.Sequential(*layers)
     
-    class TemporalBatchNorm(nn.Module):
-        def __init__(self, num_features, num_steps):
-            super().__init__()
-            self.bn3d = nn.BatchNorm3d(num_features)
-            self.bn2d = nn.BatchNorm2d(num_features)
-            self.num_features = num_features
-            self.num_steps = num_steps
-            self.reset_buffer()
-        
-        def reset_buffer(self):
-            """Reset temporal buffer for new forward pass"""
-            self.temporal_buffer = []
-            self.current_step = 0
-        
-        def forward(self, x):
-            # x: [batch, channels, height, width]
-            self.temporal_buffer.append(x.clone())
-            self.current_step += 1
-            
-            if self.current_step == 1:
-                # First time step: just return input (no temporal context yet)
-                return self.bn2d(x)
-                
-            else:
-                # Stack all previous time steps including current
-                temporal_x = torch.stack(self.temporal_buffer, dim=2)
-                # Apply BatchNorm3d to accumulated temporal data
-                normalized = self.bn3d(temporal_x)
-                return normalized[:, :, -1, :, :]
-    
     def forward(self, x, numberOfSteps):
 
-        for module in self.modules():
-            if isinstance(module, self.TemporalBatchNorm):
-                module.reset_buffer()
+        #for module in self.modules():
+        #    if isinstance(module, self.TemporalBatchNorm):
+        #        module.reset_buffer()
 
         mem1 = self.lif1.init_leaky()
         mem2_1 = self.r2_lif1.init_leaky()
@@ -835,43 +805,13 @@ class SpikeResNet18Model(BasicModel):
                     nn.BatchNorm2d(num_features=output)]
         return nn.Sequential(*layers)
     
-    class TemporalBatchNorm(nn.Module):
-        def __init__(self, num_features, num_steps):
-            super().__init__()
-            self.bn3d = nn.BatchNorm3d(num_features)
-            self.bn2d = nn.BatchNorm2d(num_features)
-            self.num_features = num_features
-            self.num_steps = num_steps
-            self.reset_buffer()
-        
-        def reset_buffer(self):
-            """Reset temporal buffer for new forward pass"""
-            self.temporal_buffer = []
-            self.current_step = 0
-        
-        def forward(self, x):
-            # x: [batch, channels, height, width]
-            self.temporal_buffer.append(x.clone())
-            self.current_step += 1
-            
-            if self.current_step == 1:
-                # First time step: just return input (no temporal context yet)
-                return self.bn2d(x)
-                
-            else:
-                # Stack all previous time steps including current
-                temporal_x = torch.stack(self.temporal_buffer, dim=2)
-                # Apply BatchNorm3d to accumulated temporal data
-                normalized = self.bn3d(temporal_x)
-                return normalized[:, :, -1, :, :]
-    
     def forward(self, x, numberOfSteps):
         
         # Reset all temporal buffers before starting new forward pass
-        for module in self.modules():
-            if isinstance(module, self.TemporalBatchNorm):
-                module.num_steps = numberOfSteps
-                module.reset_buffer()
+        #for module in self.modules():
+        #    if isinstance(module, self.TemporalBatchNorm):
+        #        module.num_steps = numberOfSteps
+        #        module.reset_buffer()
 
         # Initialize hidden states and outputs at t=0
         mem1 = self.lif1.init_leaky()
