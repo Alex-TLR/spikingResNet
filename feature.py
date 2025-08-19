@@ -113,7 +113,7 @@ def feature_extraction_spike(config):
     numOfChannels:  number of input channels
     '''
 
-    print(f"Feature length is: {len(config.dataset_feat)}")
+    # print(f"Feature length is: {len(config.dataset_feat)}")
     for i in range(len(config.dataset_feat)):
         print(f"Extracting features for {config.dataset_feat[i]}")
         dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i])
@@ -138,22 +138,16 @@ def feature_extraction_spike(config):
         # print("Test data size: ", testDataSize)
         # print(f"Network models is {ResNetModel}")
 
-        # Number of classes
-        numberOfClasses = config.num_classes
-
-        # Batch size
-        batchSize = config.batch_size
-
         # For spiking neural network we need number of steps
-        if config.expansion == 1:
-            numberOfSteps = 4
-            steps_trained = 4
-        elif config.expansion > 1:
-            numberOfSteps = 8
-            steps_trained = 1
-        else:
-            print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
-            return -1
+        # if config.expansion == 1:
+        #     numberOfSteps = 4
+        #     steps_trained = 4
+        # elif config.expansion > 1:
+        #     numberOfSteps = 8
+        #     steps_trained = 1
+        # else:
+        #     print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
+        #     return -1
 
         # Parameter of the LIF neuron
         beta = 0.95
@@ -162,7 +156,7 @@ def feature_extraction_spike(config):
         threshold = 0.25
 
         # Load OoD data
-        train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, batchSize, config.dataset_feat[i], True)
+        train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_feat[i], True)
 
         # Loss function
         # loss_fn = SF.ce_rate_loss()
@@ -170,28 +164,61 @@ def feature_extraction_spike(config):
 
         # Define 
         if config.resnet_model == 1:
-            model = spikeConvNN1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = spikeConvNN1(numberOfChannels=channels, 
+                                 numberOfClasses=config.num_classes, 
+                                 beta=beta, 
+                                 threshold=threshold)
             featSize = 256
         elif config.resnet_model == 2:
-            model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, expansion=config.expansion)    
+            model = spikeConvNN2(numberOfChannels=channels, 
+                                 numberOfClasses=config.num_classes,
+                                 beta=beta, threshold=threshold, 
+                                 feature_size=feature_size, 
+                                 expansion=config.expansion)    
             featSize = 300
         elif config.resnet_model == 4:
-            model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = spikeConvNN4(numberOfChannels=channels, 
+                                 numberOfClasses=config.num_classes, 
+                                 beta=beta, threshold=threshold, 
+                                 feature_size=feature_size, 
+                                 numberOfSteps=config.num_time_steps_train, 
+                                 expansion=config.expansion)
             featSize = 256
         elif config.resnet_model == 9:
-            model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = SpikeResNet9Model(numberOfChannels=channels, 
+                                      numberOfClasses=config.num_classes, 
+                                      beta=beta, 
+                                      threshold=threshold)
             featSize = 512
         elif config.resnet_model == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = SpikeResNet10Model(numberOfChannels=channels, 
+                                       numberOfClasses=config.num_classes, 
+                                       beta=beta, 
+                                       threshold=threshold, 
+                                       numberOfSteps=config.num_time_steps_train, 
+                                       expansion=config.expansion)
             featSize = 512
         elif config.resnet_model == 18:
-            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = SpikeResNet18Model(numberOfChannels=channels, 
+                                       numberOfClasses=config.num_classes, 
+                                       beta=beta, 
+                                       threshold=threshold, 
+                                       numberOfSteps=config.num_time_steps_train, 
+                                       expansion=config.expansion)
             featSize = 512
         elif config.resnet_model == 20:
-            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = SpikeResNet20Model(numberOfChannels=channels, 
+                                       numberOfClasses=config.num_classes, 
+                                       beta=beta, 
+                                       threshold=threshold, 
+                                       numberOfSteps=config.num_time_steps_train, 
+                                       expansion=config.expansion)
             featSize = 512
         elif config.resnet_model == 21:
-            model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
+            model = spikeLinearNet1(numberOfChannels=channels, 
+                                     numberOfClasses=config.num_classes, 
+                                     beta=beta, 
+                                     threshold=threshold)
             featSize = 300
         else:
             print("Feature: Not defined")
@@ -199,7 +226,7 @@ def feature_extraction_spike(config):
         
         # Load weights
         # Loading the weights for the ID-trained network
-        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(steps_trained)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
+        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
         # weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         print(f"weights file {weightsName}")
@@ -214,11 +241,10 @@ def feature_extraction_spike(config):
 
         if (Utils.does_file_exists(fileName)):
 
-            print("Are we here")
             torch.cuda.empty_cache()
-            Spik_train = np.zeros((trainDataSize, numberOfClasses))
+            Spik_train = np.zeros((trainDataSize, config.num_classes))
             Feat_train = np.zeros((trainDataSize, featSize))
-            Prob_train = np.zeros((trainDataSize, numberOfClasses))
+            Prob_train = np.zeros((trainDataSize, config.num_classes))
             Volt_train = np.zeros((trainDataSize, featSize))
             Tags_train = []
             i = 0   
@@ -234,10 +260,10 @@ def feature_extraction_spike(config):
                     # model.mem3 = final_membranes['mem3'].to(device)
                     # model.mem4 = final_membranes['mem4'].to(device)
                     # model.mem5 = final_membranes['mem5'].to(device)
-                    startIndex = i*batchSize
-                    endIndex = startIndex + batchSize
+                    startIndex = i*config.batch_size
+                    endIndex = startIndex + config.batch_size
 
-                    s, f, p, v = model(batch, numberOfSteps)
+                    s, f, p, v = model(batch, config.num_time_steps_extract)
                     s = s.cpu().detach().numpy()
                     f = f.cpu().detach().numpy()
                     p = p.cpu().detach().numpy()
@@ -255,9 +281,9 @@ def feature_extraction_spike(config):
 
                     if hasattr(model, 'expansion') and model.expansion > 1:
                         # print(f"Population coding with expansion {model.expansion}")
-                        spikes = spikes.reshape(spikes.shape[0], 10, model.expansion).sum(axis=2)  # or .max(axis=2)
-                        probs = probs.reshape(probs.shape[0], 10, model.expansion).max(axis=2)    # Max is better for probs
-                        # volts = volts.reshape(volts.shape[0], 10, model.expansion).max(axis=2)  # Max is better for volts
+                        spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  # or .max(axis=2)
+                        probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2)    # Max is better for probs
+                        # volts = volts.reshape(volts.shape[0], config.num_classes, model.expansion).max(axis=2)  # Max is better for volts
 
                     probs = Metrics.softmax(probs)
                     # if i == 0:
@@ -282,9 +308,9 @@ def feature_extraction_spike(config):
             print()
             # print("Tags_train shape is ", Tags_train.shape)
 
-            Spik_test = np.zeros((testDataSize, numberOfClasses))
+            Spik_test = np.zeros((testDataSize, config.num_classes))
             Feat_test = np.zeros((testDataSize, featSize))
-            Prob_test = np.zeros((testDataSize, numberOfClasses))
+            Prob_test = np.zeros((testDataSize, config.num_classes))
             Volt_test = np.zeros((testDataSize, featSize))
             Tags_test = []
             i = 0
@@ -294,10 +320,10 @@ def feature_extraction_spike(config):
                     #     Utils.showBatchImages(batch)
                     batch = batch.to(device)
                     labels = labels.to(device)
-                    startIndex = i*batchSize
-                    endIndex = startIndex + batchSize
+                    startIndex = i*config.batch_size
+                    endIndex = startIndex + config.batch_size
 
-                    s, f, p, v = model(batch, numberOfSteps)
+                    s, f, p, v = model(batch, config.num_time_steps_extract)
                     s = s.cpu().detach().numpy()
                     f = f.cpu().detach().numpy()
                     p = p.cpu().detach().numpy()
@@ -308,9 +334,9 @@ def feature_extraction_spike(config):
                     probs = p.max(axis=0)
                     volts = v.max(axis=0)
                     if hasattr(model, 'expansion') and model.expansion > 1:
-                        spikes = spikes.reshape(spikes.shape[0], 10, model.expansion).sum(axis=2)  # or .max(axis=2)
-                        probs = probs.reshape(probs.shape[0], 10, model.expansion).max(axis=2)    # Max is better for probs
-                        # volts = volts.reshape(volts.shape[0], 10, model.expansion).max(axis=2)  # Max is better for volts
+                        spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  # or .max(axis=2)
+                        probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2)    # Max is better for probs
+                        # volts = volts.reshape(volts.shape[0], config.num_classes, model.expansion).max(axis=2)  # Max is better for volts
 
                     probs = Metrics.softmax(probs)
                     # if i == 0:

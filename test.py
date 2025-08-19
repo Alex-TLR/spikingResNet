@@ -68,7 +68,6 @@ def test_accuracy(config):
             feature_size = 28  # default
 
         # For spiking neural network we need number of steps
-        numberOfSteps = 4
         beta = 0.95
         threshold = 0.25
 
@@ -78,17 +77,17 @@ def test_accuracy(config):
         elif config.resnet_model == 2:
             model = spikeConvNN2(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold)
         elif config.resnet_model == 4:
-            model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=config.num_time_steps_train, expansion=config.expansion)
             model = model.to(device)
         elif config.resnet_model == 9:
             model = SpikeResNet9Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold)
         elif config.resnet_model == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=config.num_time_steps_train, expansion=config.expansion)
         elif config.resnet_model == 18:
             # model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=numberOfClasses, beta=beta, threshold=threshold)
-            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=config.num_time_steps_train, expansion=config.expansion)
         elif config.resnet_model == 20:
-            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = SpikeResNet20Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=config.num_time_steps_train, expansion=config.expansion)
         elif config.resnet_model == 21:
             model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold)
         else:
@@ -98,7 +97,7 @@ def test_accuracy(config):
         # Load weights
         torch.cuda.empty_cache()
 
-        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(numberOfSteps)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
+        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
         print(f"weightsName: {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=False))
         # file = torch.load(weightsName)
@@ -129,7 +128,7 @@ def test_accuracy(config):
                 # model.mem4 = final_membranes['mem4'].to(device)
                 # model.mem5 = final_membranes['mem5'].to(device)
                 # Generate predictions/ forward pass
-                spikes, feat, membrane, _ = model(batch, numberOfSteps)
+                spikes, feat, membrane, _ = model(batch, config.num_time_steps_train)
                 # l_spikes = loss_fn(spikes, labels)
                 # testLossSpikes.append(l_spikes.item())
                 # a1, a2 = model.accuracy_spike(model, numberOfSteps, batch, labels, device)
@@ -141,7 +140,8 @@ def test_accuracy(config):
                     # Use SF.accuracy_count on the spikes from training forward pass
                     # acc_rate = SF.accuracy_rate(spikes, labels)
                     batch_size = batch.size(0)
-                    acc = SF.accuracy_rate(spikes, labels) * spikes.size(1)
+                    acc = SF.accuracy_rate(spikes, labels) 
+                    acc *= spikes.size(1)
                     total_correct_spikes += acc
                     total_samples += batch_size
 
@@ -156,13 +156,10 @@ def test_accuracy(config):
                 i += 1
 
         print("\nDone.")
-        # Test stats
-        # meanA1 = np.sum(testAcc) / testSize
-        # meanA2 = sum(testAccList) / len(testAccList)
-        # meanL = sum(testLoss) / len(testLoss)
-        # print(f'\nTest loss is {meanL:.2f}. Test accuracy1 is {meanA1*100:.2f}. Test accuracy2 is {meanA2*100:.2f}.')
+        acc_membrane = total_correct_membrane / total_samples * 100
+        acc_spikes = total_correct_spikes / total_samples * 100
 
-        return None 
+        return acc_spikes, acc_membrane
 
 # TODO: needs to be removed or revised
 def test_accuracy_population(dataSet, model, modelType, batchSize, numberOfClasses, ResNetModel, expansion=1, auto_aug=False):
@@ -289,9 +286,9 @@ def test_accuracy_population_2(config):
         elif config.resnet_model == 4:
             model = spikeConvNN4(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)     
         elif config.resnet_model == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = SpikeResNet10Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
         elif config.resnet_model == 18:
-            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, feature_size=feature_size, numberOfSteps=numberOfSteps, expansion=config.expansion)
+            model = SpikeResNet18Model(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold, numberOfSteps=numberOfSteps, expansion=config.expansion)
         else:
             print("Not defined")
             return -1
@@ -388,10 +385,10 @@ def test_accuracy_population_2(config):
         print(f"Final spike accuracy: {final_spike_acc*100:.2f}%")
         print(f"Final membrane accuracy: {final_mem_acc*100:.2f}%")
         
-        return None
+        return final_spike_acc*100, final_mem_acc*100
 
 
-def test_metrics(case, nameID, methods,features='spikes'):
+def test_metrics(case, nameID, methods, features='spikes'):
     '''
     case:       for example case 01 is '01'
     nameID:     name of the In Distribution features, example 'MNIST'
@@ -404,6 +401,7 @@ def test_metrics(case, nameID, methods,features='spikes'):
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
         namesOOD = ['MNIST', 'FMNIST', 'Letters']
+        suffixID = '-on_kmnist'
     elif nameID == 'Letters':
         namesOOD = ['MNIST', 'FMNIST', 'KMNIST']
         suffixID = '-on_letters'

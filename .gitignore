@@ -10,6 +10,7 @@ metrics/__pycache__
 __pycache__
 weights_old
 weights/spike_old
+results
 features
 figures
 tsne

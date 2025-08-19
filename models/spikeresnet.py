@@ -316,6 +316,7 @@ class BasicModel(nn.Module):
             tLoss = []
             total_correct = 0
             total_samples = 0
+            start_time = time.time()
             for batch_idx, (batch, labels) in enumerate(train_load):
                 batch = batch.to(device)
                 labels = labels.to(device)
@@ -345,11 +346,13 @@ class BasicModel(nn.Module):
                 del batch, labels
 
             # Training stats
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
             meanTA = total_correct / total_samples
             meanTL = sum(tLoss) / len(tLoss)           
 
             # Make progress bar
-            suffixArray = ' ' + 'Training loss: ' + f'{meanTL:.2f} ' + 'Training accuracy: ' + f'{meanTA:.2f} '
+            suffixArray = ' ' + 'Training loss: ' + f'{meanTL:.2f} ' + 'Training accuracy: ' + f'{meanTA:.2f} ' + 'Time: ' + f'{execution_time:.2f} ' + 's'
 
             self.progressBar(i + 1, nEpochs, prefix = 'Progress: ', suffix = suffixArray, length = 40, fill = '#')
             currentHistory = [meanTL, meanTA]
@@ -1583,6 +1586,7 @@ class spikeConvNN2(BasicModel):
         feat_trace = []
         prob_trace = []
         spik_trace = []
+        memb_trace = []
 
         for _ in range(num_steps):
             cur1 = self.conv1(x)
@@ -1610,12 +1614,14 @@ class spikeConvNN2(BasicModel):
             feat_trace.append(spk4)
             prob_trace.append(mem5)
             spik_trace.append(spk_out)
+            memb_trace.append(mem4)
 
 
         spikes = torch.stack(spik_trace, dim=0)      # [T, B, classes*expansion]
         features = torch.stack(feat_trace, dim=0)    # [T, B, 300]
         membranes = torch.stack(prob_trace, dim=0)   # [T, B, classes*expansion]
-        return spikes, features, membranes
+        voltages = torch.stack(memb_trace, dim=0)
+        return spikes, features, membranes, voltages
 
 
 # Learnable IMP

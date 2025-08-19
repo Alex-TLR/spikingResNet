@@ -91,7 +91,7 @@ if __name__ == "__main__":
     print(f"  Case: {config.case}")
     print(f"  Batch size: {config.batch_size}")
     print(f"  Expansion: {config.expansion}")
-    print(f"  Mode: {config.mode}")
+    print(f"  Epochs: {config.epochs}")
 
     # # Get image size
     # channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_ID)
@@ -104,16 +104,11 @@ if __name__ == "__main__":
     # set pretrained=True if continious training is needed
 
     if config.expansion == 1:
-        # pass
-        # training(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, expansion=1, fullTrain=True, auto_aug=False, pretrained=False)
         training(config)
-        test_accuracy(config)
-        # test_accuracy(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion, auto_aug=False)
+        acc_spk, acc_mem = test_accuracy(config)
     elif config.expansion > 1:
         training_population_2(config)
-        test_accuracy_population_2(config)
-        # training_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, epochs=200, fullTrain=True, auto_aug=False, expansion=expansion, pretrained=False)
-        # test_accuracy_population_2(dataSet_ID, modelType, batchSize, numberOfClasses, ResNetModel, expansion=expansion, auto_aug=False)
+        acc_spk, acc_mem = test_accuracy_population_2(config)
         # pass
     else:
         print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
@@ -123,14 +118,14 @@ if __name__ == "__main__":
 
     # Statistics
     feature_types = ['features', 'spikes', 'probs', 'voltages']
-    results_filename = f'results/OoD_case_{config.case}_{config.dataset_ID}_ResNet{config.resnet_model}.txt'
+    results_filename = f'results/OoD_case_{config.case}_{config.dataset_ID}_ResNet{config.resnet_model}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_E_{config.expansion}_A_{config.auto_aug}.txt'
     ood_datasets = [dataset for dataset in config.dataset_feat if dataset != config.dataset_ID]
 
     # Open file for writing
     with open(results_filename, 'w') as f:
         # Write header information
         f.write(f"{'='*60}\n")
-        f.write(f"SPIKING RESNET STATISTICS RESULTS\n")
+        f.write(f"Spiking ResNet Out-of-Distribution Detection Results\n")
         f.write(f"{'='*60}\n")
         f.write(f"Experiment Configuration:\n")
         f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
@@ -138,18 +133,27 @@ if __name__ == "__main__":
         f.write(f"  Model: ResNet{config.resnet_model}\n")
         f.write(f"  Case: {config.case}\n")
         f.write(f"  Batch Size: {config.batch_size}\n")
-        f.write(f"  Expansion: {config.expansion}\n")
+        if config.expansion == 1:
+            f.write(f"  No population coding.\n")
+        elif config.expansion > 1:
+            f.write(f"  Population coding with {config.expansion} expansions.\n")
+        f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
+        f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
         f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"\n")
+        f.write(f"Accuracy on spikes: {acc_spk:05.2f}\n")
+        f.write(f"Accuracy on membrane: {acc_mem:05.2f}\n")
         f.write(f"{'='*60}\n\n")
         
         all_results = {}
+        methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
         
         # Process each feature type
         for feature_type in feature_types:
             print(f"Processing statistics for feature type: {feature_type}")
-            f.write(f"FEATURE TYPE: {feature_type.upper()}\n")
+            f.write(f"Feature Type: {feature_type.upper()}\n")
             f.write(f"{'-'*40}\n")
-            methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
+            
             try:
                 stats = test_metrics(case=config.case, nameID=config.dataset_ID, methods=methods, features=feature_type)
                 

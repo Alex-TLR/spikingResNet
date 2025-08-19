@@ -26,13 +26,6 @@
     # Number of classes: 10
     # Batch size: 32
 
-    # Case 05:
-    # InDistribution: MNIST
-    # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
-    # Network model: spikeLinearNet1 (ResNetModel = 21)
-    # Number of classes: 10
-    # Batch size: 32
-
     # Case 06:
     # InDistribution: MNIST
     # OutOfDistribution: 'FMNIST', 'KMNIST', 'EMNIST', 'Letters'
@@ -150,7 +143,7 @@
     # Training parameters
     # Number of classes: 10
     # Batch size: 32    
-    # Time steps: T = 4
+    # Time steps: T = 1
     # Expansion: E = 50
     # Auto augmentation: A = False
     # Take voltages of the preultimate membrane voltage layer
@@ -170,20 +163,22 @@
 class ExperimentConfig:
     def __init__(self):
         # Dataset parameters
-        self.dataset_ID = 'SVHN'
+        self.dataset_ID = 'CIFAR10'
         self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
-        # self.dataSet_ID = 'FMNIST'
-        # self.dataSet_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '16'
+        # self.dataset_ID = 'KMNIST'
+        # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
+        self.case = '04'
         
         # Model parameters
         self.model_type = 'spike'
-        self.resnet_model = 4
+        self.resnet_model = 2
         self.num_classes = 10
         self.expansion = 1
+        self.num_time_steps_train = 50
+        self.num_time_steps_extract = 50
         
         # Training parameters
-        self.batch_size = 32
+        self.batch_size = 64
         self.epochs = 200
         self.full_train = True
         self.auto_aug = False
@@ -199,6 +194,7 @@ class ExperimentConfig:
         self.momentum = 0.9
         self.weight_decay = 1e-4
         self.scheduler = 'cosine'
+        self.gradient_clipping = 0.5
         self.step_size = 30
     
     def update_from_args(self, args, provided_args):
