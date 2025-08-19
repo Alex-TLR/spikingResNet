@@ -292,8 +292,10 @@ def training(config):
 
                 start_time = time.time()
                 # Regular training fits according to the membrane voltages
-                # H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
-                H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                if config.fit == 'membrane':
+                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                elif config.fit == 'spike': 
+                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"Training time: {execution_time:.4f} seconds")
@@ -617,7 +619,20 @@ def training_population_2(config):
             
             model = model.to(device)
 
-            loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=True, num_classes=config.num_classes)
+            if config.loss == 'rate_loss':
+                print(f"For population coding we do not use rate loss.")
+                return -1
+                # loss_fn = SF.ce_rate_loss()
+            elif config.loss == 'count_loss':
+                print(f"For population coding we do not use count loss.")
+                return -1
+                # loss_fn = SF.ce_count_loss()
+            elif config.loss == 'cross_entropy':
+                print(f"For population coding we do not use cross entropy loss.")
+                return -1
+                # loss_fn = nn.CrossEntropyLoss()
+            elif config.loss == 'mse_count_loss':
+                loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=True, num_classes=config.num_classes)
 
             optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
             sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-4, epochs=config.epochs, steps_per_epoch=len(train_loader))
@@ -684,8 +699,12 @@ def training_population_2(config):
                 sys.stdout.flush()
                 
                 start_time = time.time()
-                H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
-                # H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                if config.fit == 'membrane':
+                    print(f"For population coding we can not fit on membrane voltage.")
+                    return -1 
+                    # H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                elif config.fit == 'spike':
+                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"Training time: {execution_time:.4f} seconds")

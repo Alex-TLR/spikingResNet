@@ -77,7 +77,10 @@ class Utils():
                         (0.2023, 0.1994, 0.2010)
                     )
                 ])
-            
+                # return transforms.Compose([transforms.Resize((32, 32)),
+                #                                     transforms.ToTensor(),
+                #                                     transforms.Normalize((0,0,0,), (1,1,1,))])
+        
         if database_name == 'MNIST':
             name = 'mnist' 
             Name = 'MNIST'

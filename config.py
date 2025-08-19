@@ -187,6 +187,7 @@ class ExperimentConfig:
         self.auto_aug = False
         self.pretrained = False
         self.loss = 'cross_entropy'
+        self.fit = 'membrane'
 
         # Parser defaults (only used if explicitly provided)
         self.seed = 42
