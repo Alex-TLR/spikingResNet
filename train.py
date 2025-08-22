@@ -1,5 +1,4 @@
 from utils.Utils import Utils
-#from metrics.Metrics import Metrics
 from torch.utils.data import random_split
 import torch.nn as nn
 import torch 
@@ -10,19 +9,10 @@ from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4,  SpikeR
 from models.plain import spikeLinearNet1
 import snntorch.functional as SF
 import numpy as np
-from snntorch import utils
-from snntorch import spikegen
 import sys
 import time
 import traceback
-import math
-from utils.Utils import CIFAR10Policy
 from snntorch import backprop
-from test import test_accuracy_population
-
-from spikingjelly.clock_driven import neuron, surrogate, functional
-from spikingjelly.clock_driven.model import sew_resnet
-from torch.cuda import amp
 
 _seed_ = 1984
 import random
@@ -84,21 +74,26 @@ def training(config):
     
     if (config.full_train == False):
         train_loader, val_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_ID, False, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(_seed_))
+        # train_loader, val_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_ID, False,)
     else:
         train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_ID, True, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(_seed_))
+        # train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_ID, True)
 
     # Get the device
     device = Utils.get_device()
 
     # Gradient clipping 
-    gClip = 0.5
+    gClip = config.gradient_clipping
     # Typical ranges
     # gClip = 0.5   # Common choice
     # gClip = 1.0   # Standard for many SNNs
     # gClip = 2.0   # For very deep networks
 
     # Weight decay
-    wDecay = 0.0001
+    wDecay = config.weight_decay
+
+    # Learning rate
+    lr = config.learning_rate
 
     if config.model_type == 'conv':    
 
@@ -204,7 +199,8 @@ def training(config):
                                     beta=beta, 
                                     threshold=threshold, 
                                     feature_size=feature_size)
-                # model.reset_mem(batchSize, device)
+                for name, param in model.named_parameters():
+                    print(f"{name}: {param.data.norm().item()}")
             elif config.resnet_model == 4:
                 model = spikeConvNN4(numberOfChannels=channels, 
                                     numberOfClasses=config.num_classes, 
@@ -251,6 +247,7 @@ def training(config):
             
             # Move model to device
             model = model.to(device)
+            summary(model, input_size=(channels, rows, cols))
 
             # Loss function
             if config.loss == 'rate_loss':
@@ -261,9 +258,9 @@ def training(config):
                 loss_fn = nn.CrossEntropyLoss()
             # Optimizer for gray 5e-4
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
-            # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
-            optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
-            sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-4, epochs=config.epochs, steps_per_epoch=len(train_loader))
+            optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=wDecay)
+            # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
+            sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, epochs=config.epochs, steps_per_epoch=len(train_loader))
             # sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=epochs)
             # sched = None
 
@@ -562,10 +559,14 @@ def training_population_2(config):
     print(f"Feature size: {feature_size}")
 
     # Gradient clipping 
-    gClip = 0.5
+    # gClip = 0.5
+    gClip = config.gradient_clipping
 
-    # # Weight decay
-    # wDecay = 0.0001
+    # Weight decay
+    wDecay = config.weight_decay
+
+    # Learning rate
+    lr = config.learning_rate
 
     if config.model_type == 'conv':
         pass 
@@ -634,9 +635,8 @@ def training_population_2(config):
             elif config.loss == 'mse_count_loss':
                 loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=True, num_classes=config.num_classes)
 
-            optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
-            sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-4, epochs=config.epochs, steps_per_epoch=len(train_loader))
-
+            optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
+            sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, epochs=config.epochs, steps_per_epoch=len(train_loader))
 
             # max_lr = 1e-2
             # div_factor = 5.0

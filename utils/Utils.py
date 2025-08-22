@@ -61,25 +61,26 @@ class Utils():
                     # aug.append(Cutout(n_holes=1, length=16))
                     pass
                 
-                aug.append(transforms.Normalize(
-                    (0.4914, 0.4822, 0.4465), 
-                    (0.2023, 0.1994, 0.2010)
-                ))
+                # aug.append(transforms.Normalize(
+                #     (0.4914, 0.4822, 0.4465), 
+                #     (0.2023, 0.1994, 0.2010)
+                # ))
+                aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
                 
                 return transforms.Compose(aug)
             else:
                 # Test/validation transform (no augmentation)
-                return transforms.Compose([
-                    transforms.Resize((32, 32)),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        (0.4914, 0.4822, 0.4465), 
-                        (0.2023, 0.1994, 0.2010)
-                    )
-                ])
-                # return transforms.Compose([transforms.Resize((32, 32)),
-                #                                     transforms.ToTensor(),
-                #                                     transforms.Normalize((0,0,0,), (1,1,1,))])
+                # return transforms.Compose([
+                #     transforms.Resize((32, 32)),
+                #     transforms.ToTensor(),
+                #     transforms.Normalize(
+                #         (0.4914, 0.4822, 0.4465), 
+                #         (0.2023, 0.1994, 0.2010)
+                #     )
+                # ])
+                return transforms.Compose([transforms.Resize((32, 32)),
+                                                    transforms.ToTensor(),
+                                                    transforms.Normalize((0,0,0,), (1,1,1,))])
         
         if database_name == 'MNIST':
             name = 'mnist' 
@@ -107,6 +108,8 @@ class Utils():
             # transformData = transformData_cifar10
             transformData_train = get_cifar10_transforms(auto_aug=auto_aug, training=True)
             transformData_test = get_cifar10_transforms(auto_aug=False, training=False)
+            transformData_train = transformData_rgb_32
+            transformData_test = transformData_rgb_32
         elif database_name == 'SVHN':
             name = 'svhn'
             Name =  'SVHN'

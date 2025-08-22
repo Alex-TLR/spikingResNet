@@ -1,13 +1,10 @@
-from snntorch import utils
 import torch
-from snntorch import spikegen
 from utils.Utils import Utils
 from torch.utils.data import DataLoader
 from models.resnet import ResNet9Model 
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model
 from models.plain import spikeLinearNet1
 import numpy as np
-import snntorch.functional as SF
 import matplotlib.pyplot as plt
 from metrics.Metrics import Metrics
 
@@ -138,17 +135,6 @@ def feature_extraction_spike(config):
         # print("Test data size: ", testDataSize)
         # print(f"Network models is {ResNetModel}")
 
-        # For spiking neural network we need number of steps
-        # if config.expansion == 1:
-        #     numberOfSteps = 4
-        #     steps_trained = 4
-        # elif config.expansion > 1:
-        #     numberOfSteps = 8
-        #     steps_trained = 1
-        # else:
-        #     print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
-        #     return -1
-
         # Parameter of the LIF neuron
         beta = 0.95
 
@@ -181,7 +167,7 @@ def feature_extraction_spike(config):
                                  numberOfClasses=config.num_classes, 
                                  beta=beta, threshold=threshold, 
                                  feature_size=feature_size, 
-                                 numberOfSteps=config.num_time_steps_train, 
+                                 numberOfSteps=config.num_time_steps_extract, 
                                  expansion=config.expansion)
             featSize = 256
         elif config.resnet_model == 9:
@@ -195,7 +181,7 @@ def feature_extraction_spike(config):
                                        numberOfClasses=config.num_classes, 
                                        beta=beta, 
                                        threshold=threshold, 
-                                       numberOfSteps=config.num_time_steps_train, 
+                                       numberOfSteps=config.num_time_steps_extract, 
                                        expansion=config.expansion)
             featSize = 512
         elif config.resnet_model == 18:
@@ -203,7 +189,7 @@ def feature_extraction_spike(config):
                                        numberOfClasses=config.num_classes, 
                                        beta=beta, 
                                        threshold=threshold, 
-                                       numberOfSteps=config.num_time_steps_train, 
+                                       numberOfSteps=config.num_time_steps_extract, 
                                        expansion=config.expansion)
             featSize = 512
         elif config.resnet_model == 20:
@@ -211,7 +197,7 @@ def feature_extraction_spike(config):
                                        numberOfClasses=config.num_classes, 
                                        beta=beta, 
                                        threshold=threshold, 
-                                       numberOfSteps=config.num_time_steps_train, 
+                                       numberOfSteps=config.num_time_steps_extract, 
                                        expansion=config.expansion)
             featSize = 512
         elif config.resnet_model == 21:
@@ -230,8 +216,6 @@ def feature_extraction_spike(config):
         # weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         print(f"weights file {weightsName}")
-        # file = torch.load(weightsName)
-        # model.load_state_dict(file["model"])
         model = model.to(device)
         # model.reset_mem(batchSize, device)
         # final_membranes = torch.load('final_membranes.pth')

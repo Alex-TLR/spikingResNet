@@ -84,7 +84,7 @@ if __name__ == "__main__":
     config = ExperimentConfig()
     
     # Override ONLY explicitly provided arguments (not parser defaults)
-    config.update_from_args(args, provided_args)
+    # config.update_from_args(args, provided_args)
 
     # Convert to dictionary for function calls
     # config_dict = config.to_dict()
@@ -97,6 +97,7 @@ if __name__ == "__main__":
     print(f"  Batch size: {config.batch_size}")
     print(f"  Expansion: {config.expansion}")
     print(f"  Epochs: {config.epochs}")
+
 
     # # Get image size
     # channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_ID)
@@ -144,6 +145,8 @@ if __name__ == "__main__":
             f.write(f"  Population coding with {config.expansion} expansions.\n")
         f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
         f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+        f.write(f"  Fitting method: {config.fit}\n")
+        f.write(f"  Loss function: {config.loss}\n")
         f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"\n")
         f.write(f"Accuracy on spikes: {acc_spk:05.2f}\n")

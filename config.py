@@ -170,37 +170,36 @@ class ExperimentConfig:
         self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '11'
+        self.case = '04'
         
         # Model parameters
         self.model_type = 'spike'
-        self.resnet_model = 10
+        self.resnet_model = 2
         self.num_classes = 10
         self.expansion = 1
-        self.num_time_steps_train = 4
-        self.num_time_steps_extract = 4
-        
+        self.num_time_steps_train = 50
+        self.num_time_steps_extract = 50
+
         # Training parameters
-        self.batch_size = 128
-        self.epochs = 400
+        self.batch_size = 64
+        self.epochs = 100
         self.full_train = True
         self.auto_aug = False
         self.pretrained = False
-        self.loss = 'cross_entropy'
-        self.fit = 'membrane'
+        self.loss = 'rate_loss'
+        self.fit = 'spike'
 
         # Parser defaults (only used if explicitly provided)
         self.seed = 42
         self.device = 'cuda'
         self.mode = 'test'
         self.num_workers = 4
-        self.learning_rate = 0.001
+        self.learning_rate = 2e-4
         self.optimizer = 'adam'
         self.momentum = 0.9
         self.weight_decay = 1e-4
         self.scheduler = 'cosine'
-        self.gradient_clipping = 0.5
-        self.step_size = 30
+        self.gradient_clipping = 0.1
     
     def update_from_args(self, args, provided_args):
         """Update config only with explicitly provided command line arguments"""
@@ -250,32 +249,3 @@ class ExperimentConfig:
         if 'population_coding' in provided_args:
             self.population_coding = args.population_coding
 
-    # def to_dict(self):
-    #     """Convert config to dictionary for function calls"""
-    #     return {
-    #         # Core experiment parameters
-    #         'dataSet_ID': self.dataset_ID,
-    #         'modelType': self.model_type,
-    #         'batchSize': self.batch_size,
-    #         'numberOfClasses': self.num_classes,
-    #         'ResNetModel': self.resnet_model,
-    #         'expansion': self.expansion,
-    #         'epochs': self.epochs,
-    #         'fullTrain': self.full_train,
-    #         'auto_aug': self.auto_aug,
-    #         'pretrained': self.pretrained,
-    #         'case': self.case,
-    #         'dataSet_feat': self.dataset_feat,
-            
-    #         # Parser parameters (available when needed)
-    #         'seed': self.seed,
-    #         'device': self.device,
-    #         'mode': self.mode,
-    #         'num_workers': self.num_workers,
-    #         'learning_rate': self.learning_rate,
-    #         'optimizer': self.optimizer,
-    #         'momentum': self.momentum,
-    #         'weight_decay': self.weight_decay,
-    #         'scheduler': self.scheduler,
-    #         'step_size': self.step_size
-    #     }
