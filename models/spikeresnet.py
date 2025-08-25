@@ -237,7 +237,7 @@ class BasicModel(nn.Module):
                     
                     # Check if model uses population coding
                     if hasattr(model, 'expansion') and model.expansion > 1:
-                        print(f"population coding!!!!!")
+                        # print(f"population coding!!!!!")
                         # Population coding accuracy
                         # spikes shape: [T, B, classes*expansion]
                         acc_rate = SF.accuracy_rate(
@@ -279,8 +279,8 @@ class BasicModel(nn.Module):
             if i%checkpointPeriod == 0:
                 fileName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
                 if sched is not None:
-                    print(sched.state_dict())
-                    print(f"sched.last_epoch: {sched.last_epoch}")
+                    # print(sched.state_dict())
+                    # print(f"sched.last_epoch: {sched.last_epoch}")
                     checkpoint = {
                         "model": model.state_dict(),
                         "optimizer": opt.state_dict(),
@@ -672,7 +672,7 @@ class SpikeResNet10Model(BasicModel):
                 normalized = self.bn3d(temporal_x)
                 return normalized[:, :, -1, :, :]
     
-    def forward(self, x, numberOfSteps):
+    def forward(self, x, numberOfSteps=1):
 
         for module in self.modules():
             if isinstance(module, self.TemporalBatchNorm):
@@ -1636,78 +1636,7 @@ class spikeConvNN2(BasicModel):
         membranes = torch.stack(prob_trace, dim=0)   # [T, B, classes*expansion]
         voltages = torch.stack(memb_trace, dim=0)
         return spikes, features, membranes, voltages
-
-class spikeConvNN2_old(BasicModel):
-    '''
-    Convolutional network model from:
-    https://github.com/aitor-martinez-seras/OoD_on_SNNs/blob/main/Explainable_OoD_detection_on_SNNs.ipynb
-    https://arxiv.org/abs/2210.00894
-
-    This is the convolutional model with two hidden layers
-    threshold should be set to 0.2
-
-    check the model in Norse.LIFCell alpha=100 (what does it mean)?
-    let's hold to the SNN.Leaky with beta decay
-
-    '''
-    def __init__(self, numberOfChannels, numberOfClasses, beta, threshold, feature_size=32):
-
-        super().__init__(numberOfClasses)
-        self.features = int(((feature_size -2)/2)-2)
-        self.averaging = int((feature_size - 2)/2)
-
-        self.conv1 = nn.Conv2d(numberOfChannels, 20, kernel_size=3, bias=False)
-        self.lif1 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.avg1 = nn.AdaptiveAvgPool2d(self.averaging)
-        self.conv2 = nn.Conv2d(20, 50, kernel_size=3, bias=False)
-        self.lif2 = snn.Leaky(beta=beta, threshold=threshold, reset_mechanism="zero")
-        self.fc3 = nn.Linear(self.features * self.features * 50, 500, bias=False)
-        self.lif3 = snn.Leaky(beta=beta, threshold=threshold/2, reset_mechanism="zero") 
-        self.fc4 = nn.Linear(500, 300, bias=False)
-        self.lif4 = snn.Leaky(beta=beta, threshold=threshold/4, reset_mechanism='zero')
-        self.fc5 = nn.Linear(300, numberOfClasses, bias=False)
-        self.lif5 = snn.Leaky(beta=beta) # this one should be only leaky integrate, not fire
-
-    def forward(self, x, num_steps=1):
-
-        # Initialize hidden states and outputs at t=0
-        mem1 = self.lif1.init_leaky()
-        mem2 = self.lif2.init_leaky()
-        mem3 = self.lif3.init_leaky()
-        mem4 = self.lif4.init_leaky()
-        mem5 = self.lif5.init_leaky()
-        
-        feat_trace = []
-        prob_trace = []
-        spik_trace = []
-
-        for _ in range(num_steps):
-            cur1 = self.conv1(x)
-            spk1, mem1 = self.lif1(cur1, mem1)
-            # print(f"Conv1 spk1.shape: {spk1.shape}")
-            spk1 = self.avg1(spk1)
-            # print(f"Avg1 spk1.shape: {spk1.shape}")
-
-            cur2 = self.conv2(spk1)
-            spk2, mem2 = self.lif2(cur2, mem2)
-            # print(f"Conv2 spk2.shape: {spk2.shape}")
-            spk2 = spk2.view(-1, self.features * self.features * 50)
-
-            cur3 = self.fc3(spk2)
-            spk3, mem3 = self.lif3(cur3, mem3)
-
-            cur4 = self.fc4(spk3)
-            spk4, mem4 = self.lif4(cur4, mem4)
-
-            cur5 = self.fc5(spk4)
-            spk_out, mem5 = self.lif5(cur5, mem5)
-
-            feat_trace.append(spk4)
-            prob_trace.append(mem5)
-            spik_trace.append(spk_out)
-
-        return torch.stack(spik_trace, dim=0), torch.stack(feat_trace, dim=0), torch.stack(prob_trace, dim=0)
-    
+ 
 # Learnable IMP
 # class spikeConvNN2(BasicModel):
 #     '''
@@ -1887,7 +1816,7 @@ class spikeConvNN4(BasicModel):
         
     #     return spk_out, mem_out  # Return [B, 500], [B, 500] - single time step
     
-    def forward(self, x, numberOfSteps):
+    def forward(self, x, numberOfSteps=1):
 
         # Initialize hidden states and outputs at t=0
         mem1 = self.lif1.init_leaky()

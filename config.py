@@ -127,6 +127,8 @@
     # Expansion: E = 1
     # Auto augmentation: A = False
     # Take voltages of the preultimate membrane voltage layer
+    # self.loss = 'cross_entropy'
+    # self.fit = 'membrane'
 
     # Case 17:
     # Network model: SpikeResNet4Model (ResNetModel = 4)
@@ -168,25 +170,25 @@ class ExperimentConfig:
         # Dataset parameters
         self.dataset_ID = 'CIFAR10'
         self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
-        # self.dataset_ID = 'KMNIST'
+        # self.dataset_ID = 'Letters'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '04'
+        self.case = '17'
         
         # Model parameters
         self.model_type = 'spike'
-        self.resnet_model = 2
+        self.resnet_model = 4
         self.num_classes = 10
-        self.expansion = 1
-        self.num_time_steps_train = 50
-        self.num_time_steps_extract = 50
+        self.expansion = 50
+        self.num_time_steps_train = 1
+        self.num_time_steps_extract = 4
 
         # Training parameters
         self.batch_size = 64
-        self.epochs = 100
+        self.epochs = 200
         self.full_train = True
         self.auto_aug = False
         self.pretrained = False
-        self.loss = 'rate_loss'
+        self.loss = 'mse_count_loss'
         self.fit = 'spike'
 
         # Parser defaults (only used if explicitly provided)

@@ -145,6 +145,7 @@ if __name__ == "__main__":
             f.write(f"  Population coding with {config.expansion} expansions.\n")
         f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
         f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+        f.write(f"  Number of epochs: {config.epochs}\n")
         f.write(f"  Fitting method: {config.fit}\n")
         f.write(f"  Loss function: {config.loss}\n")
         f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")

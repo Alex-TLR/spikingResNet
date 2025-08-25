@@ -151,9 +151,9 @@ class Utils():
             # print(command_test)
         elif database_name == 'Letters':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData, target_transform = Utils.targetTransform)'
-            print(command_train)
+            # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData, target_transform = Utils.targetTransform)'
-            print(command_test)
+            # print(command_test)
         elif database_name == 'Food101':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData)'
             # print(command_train)

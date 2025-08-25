@@ -367,7 +367,7 @@ def test_accuracy_population_2(config):
                 utils.reset(model)
                 
                 # Forward pass - get all three outputs
-                spikes, _, membranes, _ = model(data, numberOfSteps)
+                spikes, _, membranes, _ = model(data, config.num_time_steps_extract)
                 
                 # Use same spike accuracy logic as fit_spike_full_train
                 batch_size = data.size(0)
