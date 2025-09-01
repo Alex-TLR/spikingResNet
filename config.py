@@ -84,6 +84,7 @@
     # Expansion: E = 50
     # Auto augmentation: A = False
     # Take voltages of the preultimate membrane voltage layer
+    # Case 12b trains on mse and E = 1, mse_loss, it is like popCode but with no expansion
 
     # Case 13:
     # Network model: SpikeResNet10Model (ResNetModel = 10)
@@ -161,6 +162,15 @@
     # Auto augmentation: A = False
     # Take voltages of the preultimate membrane voltage layer
 
+    # Case 20:
+    # Network model: SpikeResNet10Model (ResNetModel = 10)
+    # Training parameters
+    # Number of classes: 10
+    # Batch size: 32    
+    # Time steps: T = 50
+    # Expansion: E = 1
+    # Auto augmentation: A = False
+    # mse_loss
 
 from email import parser
 
@@ -170,17 +180,19 @@ class ExperimentConfig:
         # Dataset parameters
         self.dataset_ID = 'CIFAR10'
         self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
-        # self.dataset_ID = 'Letters'
+        # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '17'
+        self.case = 'PCC-15'
+        self.methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
         
         # Model parameters
         self.model_type = 'spike'
-        self.resnet_model = 4
+        self.resnet_model = 18
         self.num_classes = 10
         self.expansion = 50
         self.num_time_steps_train = 1
-        self.num_time_steps_extract = 4
+        self.num_time_steps_extract = 1
+        self.override_feature_extraction = False
 
         # Training parameters
         self.batch_size = 64
@@ -191,10 +203,14 @@ class ExperimentConfig:
         self.loss = 'mse_count_loss'
         self.fit = 'spike'
 
+        # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
+        # set the "test_population" mode for the pipeline: train, test, feature extraction for different extraction time steps, statistics
+        self.mode = 'test_population'
+
         # Parser defaults (only used if explicitly provided)
         self.seed = 42
         self.device = 'cuda'
-        self.mode = 'test'
+        
         self.num_workers = 4
         self.learning_rate = 2e-4
         self.optimizer = 'adam'

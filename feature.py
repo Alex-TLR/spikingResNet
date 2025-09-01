@@ -223,7 +223,7 @@ def feature_extraction_spike(config):
         fileName = 'features/spike/case_' + config.case + '/' + config.dataset_feat[i] + '-on_' + config.dataset_ID.lower() + '.npz'
         # print(fileName)
 
-        if (Utils.does_file_exists(fileName)):
+        if (Utils.does_file_exists(fileName) or config.override_feature_extraction):
 
             torch.cuda.empty_cache()
             Spik_train = np.zeros((trainDataSize, config.num_classes))

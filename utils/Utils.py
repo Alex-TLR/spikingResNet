@@ -1,5 +1,5 @@
 from cProfile import label
-from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, SVHN, Places365, EMNIST, Food101
+from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, CIFAR100, SVHN, Places365, EMNIST, Food101, ImageNet
 from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
@@ -39,10 +39,26 @@ class Utils():
         
         # KMNIST transforms.Normalize((0.1918,), (0.3483,))
 
-        transformData_rgb_32  = transforms.Compose([transforms.Resize((32, 32)),
-                                                    transforms.ToTensor(),
-                                                    transforms.Normalize((0,0,0,), (1,1,1,))])
+        # transformData_rgb_32  = transforms.Compose([transforms.Resize((32, 32)),
+        #                                             transforms.ToTensor(),
+        #                                             transforms.Normalize((0,0,0,), (1,1,1,))])
         
+        transformData_rgb_32 = transforms.Compose([
+                transforms.Resize((32, 32)),
+                transforms.ToTensor(),
+                transforms.Normalize((0,0,0,), (1,1,1,))
+            ])
+        transformData_rgb_64 = transforms.Compose([
+                transforms.Resize((64, 64)),
+                transforms.ToTensor(),
+                transforms.Normalize((0,0,0,), (1,1,1,))
+            ])
+        transformData_rgb_224 = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize((0,0,0,), (1,1,1,))
+            ])
+
         # Updated CIFAR10 transform with AutoAugment support
         def get_cifar10_transforms(auto_aug=True, cutout=False, training=True):
             if training:
@@ -106,10 +122,12 @@ class Utils():
             name = 'cifar10'
             Name =  'CIFAR10'
             # transformData = transformData_cifar10
-            transformData_train = get_cifar10_transforms(auto_aug=auto_aug, training=True)
-            transformData_test = get_cifar10_transforms(auto_aug=False, training=False)
+            # transformData_train = get_cifar10_transforms(auto_aug=auto_aug, training=True)
+            # transformData_test = get_cifar10_transforms(auto_aug=False, training=False)
             transformData_train = transformData_rgb_32
             transformData_test = transformData_rgb_32
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
         elif database_name == 'SVHN':
             name = 'svhn'
             Name =  'SVHN'
@@ -122,6 +140,22 @@ class Utils():
             name = 'food'
             Name =  'Food101'
             transformData = transformData_rgb_32
+        elif database_name == 'CIFAR100':
+            name = 'cifar100'
+            Name = 'CIFAR100'
+            transformData_train = transformData_rgb_32
+            transformData_test = transformData_rgb_32
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
+        elif database_name == 'ImageNet':
+            name = 'imagenet'
+            Name = 'ImageNet'
+            transformData_train = transformData_rgb_224
+            transformData_test = transformData_rgb_224
+            # You may need to set the correct path to your ImageNet data
+            command_train = Name + '(root = \'data/' + name + '/\', split = \'train\', transform = transformData_train)'
+            command_test = Name + '(root = \'data/' + name + '/\', split = \'val\', transform = transformData_test)'
+
         else:
             print("Wrong database name!")
             return -1
@@ -131,10 +165,10 @@ class Utils():
         #     # print(command_train)
         #     command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
         #     # print(command_test)
-        if database_name == 'CIFAR10':
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
-        elif database_name == 'SVHN':
+        # if database_name == 'CIFAR10':
+        #     command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
+        #     command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
+        if database_name == 'SVHN':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', target_transform = transformData)'
             # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', target_transform = transformData)'
