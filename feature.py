@@ -96,6 +96,12 @@ def feature_extraction_conv(dataSet):
 
     return None
 
+RGB_DATASETS = ['CIFAR10', 'CIFAR100', 'SVHN', 'Food101', 'Textures', 'Places365']
+GRAYSCALE_DATASETS = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
+
+
+def needs_grayscale_to_rgb(train_dataset, feat_dataset):
+    return (train_dataset in RGB_DATASETS) and (feat_dataset in GRAYSCALE_DATASETS)
 
 # def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses, batchSize, expansion=1, auto_aug=False):
 def feature_extraction_spike(config):
@@ -113,8 +119,10 @@ def feature_extraction_spike(config):
     # print(f"Feature length is: {len(config.dataset_feat)}")
     for i in range(len(config.dataset_feat)):
         print(f"Extracting features for {config.dataset_feat[i]}")
-        dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i])
-
+        if needs_grayscale_to_rgb(config.dataset_ID, config.dataset_feat[i]):
+            dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], gray2rgb=True)
+        else:
+            dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i])
         # Get image size
         channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_feat[i])
         # print(f"Image size: {channels, rows, cols}")
@@ -226,85 +234,91 @@ def feature_extraction_spike(config):
         if (Utils.does_file_exists(fileName) or config.override_feature_extraction):
 
             torch.cuda.empty_cache()
-            Spik_train = np.zeros((trainDataSize, config.num_classes))
-            Feat_train = np.zeros((trainDataSize, featSize))
-            Prob_train = np.zeros((trainDataSize, config.num_classes))
-            Volt_train = np.zeros((trainDataSize, featSize))
+            Spik_train = []
+            Feat_train = []
+            Prob_train = []
+            Volt_train = []
             Tags_train = []
-            i = 0   
-            with torch.no_grad(): 
-                for batch, labels in train_loader:
-                    # if i == 0:
-                    #     Utils.showBatchImages(batch)
-                    batch = batch.to(device)
-                    labels = labels.to(device)
-                    # model.reset_mem(batchSize, device)
-                    # model.mem1 = final_membranes['mem1'].to(device)
-                    # model.mem2 = final_membranes['mem2'].to(device)
-                    # model.mem3 = final_membranes['mem3'].to(device)
-                    # model.mem4 = final_membranes['mem4'].to(device)
-                    # model.mem5 = final_membranes['mem5'].to(device)
-                    startIndex = i*config.batch_size
-                    endIndex = startIndex + config.batch_size
+            print(f"Extracting features for {config.dataset_feat[i]} on {config.dataset_ID}")
+            if config.dataset_feat[i] == config.dataset_ID:
+                Spik_train = np.zeros((trainDataSize, config.num_classes))
+                Feat_train = np.zeros((trainDataSize, featSize))
+                Prob_train = np.zeros((trainDataSize, config.num_classes))
+                Volt_train = np.zeros((trainDataSize, featSize))
+                ii = 0
+                with torch.no_grad(): 
+                    for batch, labels in train_loader:
+                        # if ii == 0:
+                        #     Utils.showBatchImages(batch)
+                        batch = batch.to(device)
+                        labels = labels.to(device)
+                        # model.reset_mem(batchSize, device)
+                        # model.mem1 = final_membranes['mem1'].to(device)
+                        # model.mem2 = final_membranes['mem2'].to(device)
+                        # model.mem3 = final_membranes['mem3'].to(device)
+                        # model.mem4 = final_membranes['mem4'].to(device)
+                        # model.mem5 = final_membranes['mem5'].to(device)
+                        startIndex = ii*config.batch_size
+                        endIndex = startIndex + config.batch_size
 
-                    s, f, p, v = model(batch, config.num_time_steps_extract)
-                    s = s.cpu().detach().numpy()
-                    f = f.cpu().detach().numpy()
-                    p = p.cpu().detach().numpy()
-                    v = v.cpu().detach().numpy()
-                    # print(f"v.shape: {v.shape}")
-                    # s = s.cpu().detach().numpy()
-                    # s = s.sum(axis=0)
-                    # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
-                    spikes = s.sum(axis=0)
-                    features = f.sum(axis=0)
-                    probs = p.max(axis=0)
-                    # print(f"v.shape: {v.shape}")
-                    volts = v.mean(axis=0)
-                    # print(f"volts.shape: {volts.shape}")
+                        s, f, p, v = model(batch, config.num_time_steps_extract)
+                        s = s.cpu().detach().numpy()
+                        f = f.cpu().detach().numpy()
+                        p = p.cpu().detach().numpy()
+                        v = v.cpu().detach().numpy()
+                        # print(f"v.shape: {v.shape}")
+                        # s = s.cpu().detach().numpy()
+                        # s = s.sum(axis=0)
+                        # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
+                        spikes = s.sum(axis=0)
+                        features = f.sum(axis=0)
+                        probs = p.max(axis=0)
+                        # print(f"v.shape: {v.shape}")
+                        volts = v.mean(axis=0)
+                        # print(f"volts.shape: {volts.shape}")
 
-                    if hasattr(model, 'expansion') and model.expansion > 1:
-                        # print(f"Population coding with expansion {model.expansion}")
-                        spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  # or .max(axis=2)
-                        probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2)    # Max is better for probs
-                        # volts = volts.reshape(volts.shape[0], config.num_classes, model.expansion).max(axis=2)  # Max is better for volts
+                        if hasattr(model, 'expansion') and model.expansion > 1:
+                            # print(f"Population coding with expansion {model.expansion}")
+                            spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  # or .max(axis=2)
+                            probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2)    # Max is better for probs
+                            # volts = volts.reshape(volts.shape[0], config.num_classes, model.expansion).max(axis=2)  # Max is better for volts
 
-                    probs = Metrics.softmax(probs)
-                    # if i == 0:
-                    #     print(f'{i}\n{features}\n{probs}')
-                        # plotProb(p, batchSize, numberOfSteps)
-                    # probs = Metrics.softmax(probs)
-                    # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
-                    labels = labels.cpu().detach().numpy()
-                    Spik_train[startIndex:endIndex, :] = spikes
-                    Feat_train[startIndex:endIndex, :] = features
-                    Prob_train[startIndex:endIndex, :] = probs
-                    Volt_train[startIndex:endIndex, :] = volts
-                    Tags_train.append(labels.flatten())
-                    del batch, labels, features, probs
-                    i += 1
-                    # if i == 1: 
-                    #     break
-                    print(f"\rProgress: {i}", end='', flush=True)
+                        probs = Metrics.softmax(probs)
+                        # if ii == 0:
+                        #     print(f'{ii}\n{features}\n{probs}')
+                            # plotProb(p, batchSize, numberOfSteps)
+                        # probs = Metrics.softmax(probs)
+                        # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
+                        labels = labels.cpu().detach().numpy()
+                        Spik_train[startIndex:endIndex, :] = spikes
+                        Feat_train[startIndex:endIndex, :] = features
+                        Prob_train[startIndex:endIndex, :] = probs
+                        Volt_train[startIndex:endIndex, :] = volts
+                        Tags_train.append(labels.flatten())
+                        del batch, labels, features, probs
+                        ii += 1
+                        # if ii == 1: 
+                        #     break
+                        print(f"\rProgress: {ii}/{len(train_loader)}", end='', flush=True)
 
-            # Tags_train = np.array(Tags_train)
-            Tags_train = np.concatenate(Tags_train)
-            print()
-            # print("Tags_train shape is ", Tags_train.shape)
+                # Tags_train = np.array(Tags_train)
+                Tags_train = np.concatenate(Tags_train)
+                print()
+                print("Tags_train shape is ", Tags_train.shape)
 
             Spik_test = np.zeros((testDataSize, config.num_classes))
             Feat_test = np.zeros((testDataSize, featSize))
             Prob_test = np.zeros((testDataSize, config.num_classes))
             Volt_test = np.zeros((testDataSize, featSize))
             Tags_test = []
-            i = 0
+            ii = 0
             with torch.no_grad():
                 for batch, labels in test_loader:
-                    # if i == 0:
+                    # if ii == 0:
                     #     Utils.showBatchImages(batch)
                     batch = batch.to(device)
                     labels = labels.to(device)
-                    startIndex = i*config.batch_size
+                    startIndex = ii*config.batch_size
                     endIndex = startIndex + config.batch_size
 
                     s, f, p, v = model(batch, config.num_time_steps_extract)
@@ -323,8 +337,8 @@ def feature_extraction_spike(config):
                         # volts = volts.reshape(volts.shape[0], config.num_classes, model.expansion).max(axis=2)  # Max is better for volts
 
                     probs = Metrics.softmax(probs)
-                    # if i == 0:
-                    #     print(f'{i}\n{features}\n{probs}')
+                    # if ii == 0:
+                    #     print(f'{ii}\n{features}\n{probs}')
                     labels = labels.cpu().detach().numpy()
                     Spik_test[startIndex:endIndex, :] = spikes
                     Feat_test[startIndex:endIndex, :] = features
@@ -333,10 +347,10 @@ def feature_extraction_spike(config):
                     # Tags_test.append(labels)
                     Tags_test.append(labels.flatten())
                     del batch, labels, features, probs
-                    i += 1
+                    ii += 1
                     # if i == 1: 
                     #     break
-                    print(f"\rProgress: {i}", end='', flush=True)
+                    print(f"\rProgress: {ii}/{len(test_loader)}", end='', flush=True)
 
             # Tags_test = np.array(Tags_test)
             Tags_test = np.concatenate(Tags_test)

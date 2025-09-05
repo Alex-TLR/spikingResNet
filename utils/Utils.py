@@ -1,5 +1,5 @@
 from cProfile import label
-from torchvision.datasets import MNIST, KMNIST, FashionMNIST, CIFAR10, CIFAR100, SVHN, Places365, EMNIST, Food101, ImageNet
+from torchvision.datasets import MNIST, KMNIST, FashionMNIST, DTD, Places365, CIFAR10, CIFAR100, SVHN, Places365, EMNIST, Food101, ImageNet
 from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
@@ -23,7 +23,7 @@ class Utils():
         return label - 1 
 
     @staticmethod
-    def load_data(database_name, auto_aug=False):
+    def load_data(database_name, auto_aug=False, gray2rgb=False):
         '''
         database_name:      Name of the database (MNIST, KMNIST, FMNIST)
         '''
@@ -43,7 +43,27 @@ class Utils():
         #                                             transforms.ToTensor(),
         #                                             transforms.Normalize((0,0,0,), (1,1,1,))])
         
-        transformData_rgb_32 = transforms.Compose([
+        if gray2rgb:
+            transformData_gray_28 = transforms.Compose([
+                transforms.Lambda(lambda img: img.convert("RGB")),
+                transforms.Resize((28, 28)),
+                transforms.ToTensor(),
+                transforms.Normalize((0,), (1,))
+            ])
+            transformData_rgb_32 = transforms.Compose([
+                # transforms.Lambda(lambda img: img.convert("RGB")),
+                transforms.Lambda(lambda img: img.repeat(3, 1, 1) if img.shape[0] == 1 else img),
+                transforms.Resize((32, 32)),
+                transforms.ToTensor(),
+                transforms.Normalize((0,0,0,), (1,1,1,))
+            ])
+        else:
+            transformData_gray_28 = transforms.Compose([
+                transforms.Resize((28, 28)),
+                transforms.ToTensor(),
+                transforms.Normalize((0,), (1,))
+            ])
+            transformData_rgb_32 = transforms.Compose([
                 transforms.Resize((32, 32)),
                 transforms.ToTensor(),
                 transforms.Normalize((0,0,0,), (1,1,1,))
@@ -147,15 +167,31 @@ class Utils():
             transformData_test = transformData_rgb_32
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
-        elif database_name == 'ImageNet':
-            name = 'imagenet'
-            Name = 'ImageNet'
-            transformData_train = transformData_rgb_224
-            transformData_test = transformData_rgb_224
-            # You may need to set the correct path to your ImageNet data
-            command_train = Name + '(root = \'data/' + name + '/\', split = \'train\', transform = transformData_train)'
-            command_test = Name + '(root = \'data/' + name + '/\', split = \'val\', transform = transformData_test)'
+        # elif database_name == 'ImageNet':
+        #     name = 'imagenet'
+        #     Name = 'ImageNet'
+        #     transformData_train = transformData_rgb_224
+        #     transformData_test = transformData_rgb_224
+        #     # You may need to set the correct path to your ImageNet data
+        #     command_train = Name + '(root = \'data/' + name + '/\', split = \'train\', transform = transformData_train)'
+        #     command_test = Name + '(root = \'data/' + name + '/\', split = \'val\', transform = transformData_test)'
+        elif database_name == 'Textures':
+            name = 'textures'
+            Name = 'DTD'
+            transformData_train = transformData_rgb_32
+            transformData_test = transformData_rgb_32
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData_train)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData_test)'
 
+        # elif database_name == 'Places365':
+        #     name = 'places'
+        #     Name = 'Places365'
+        #     transformData_train = transformData_rgb_32
+        #     transformData_test = transformData_rgb_32
+        #     command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train-standard\', small = True, transform = transformData_train)'
+        #     command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'val\', small = True, transform = transformData_test)'
+        #     print(command_train)
+        #     print(command_test)
         else:
             print("Wrong database name!")
             return -1
@@ -174,10 +210,10 @@ class Utils():
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', target_transform = transformData)'
             # print(command_test)
         elif database_name == 'Places365':
-            command_train = Name + '(root = \'data/' + name + '/\', download=False, split = \'train-standard\', small = True, target_transform = transformData)'
-            # print(command_train)
-            command_test = Name + '(root = \'data/' + name + '/\', download=False, split = \'val\', small = True, target_transform = transformData)'
-            # print(command_test)
+            command_train = Name + '(root = \'data/' + name + '/\', download=False, split = \'train-standard\', small = True, transform = transformData)'
+            print(command_train)
+            command_test = Name + '(root = \'data/' + name + '/\', download=False, split = \'val\', small = True, transform = transformData)'
+            print(command_test)
         elif database_name == 'EMNIST':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = True, transform = transformData)'
             # print(command_train)

@@ -621,17 +621,17 @@ def training_population_2(config):
             model = model.to(device)
 
             if config.loss == 'rate_loss':
-                print(f"For population coding we do not use rate loss.")
-                return -1
-                # loss_fn = SF.ce_rate_loss()
+                # print(f"For population coding we do not use rate loss.")
+                # return -1
+                loss_fn = SF.ce_rate_loss()
             elif config.loss == 'count_loss':
-                print(f"For population coding we do not use count loss.")
-                return -1
-                # loss_fn = SF.ce_count_loss()
+                # print(f"For population coding we do not use count loss.")
+                # return -1
+                loss_fn = SF.ce_count_loss()
             elif config.loss == 'cross_entropy':
-                print(f"For population coding we do not use cross entropy loss.")
-                return -1
-                # loss_fn = nn.CrossEntropyLoss()
+                # print(f"For population coding we do not use cross entropy loss.")
+                # return -1
+                loss_fn = nn.CrossEntropyLoss()
             elif config.loss == 'mse_count_loss':
                 loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=True, num_classes=config.num_classes)
 
