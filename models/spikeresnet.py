@@ -887,7 +887,7 @@ class SpikeResNet18Model(BasicModel):
                 normalized = self.bn3d(temporal_x)
                 return normalized[:, :, -1, :, :]
     
-    def forward(self, x, numberOfSteps):
+    def forward(self, x, numberOfSteps=1):
         
         # Reset all temporal buffers before starting new forward pass
         for module in self.modules():

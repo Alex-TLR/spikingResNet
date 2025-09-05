@@ -179,7 +179,8 @@ class ExperimentConfig:
     def __init__(self):
         # Dataset parameters
         self.dataset_ID = 'CIFAR10'
-        self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
+        # self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
+        self.dataset_feat = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
         self.case = 'PCC-15'
@@ -198,7 +199,7 @@ class ExperimentConfig:
         self.batch_size = 64
         self.epochs = 400
         self.full_train = True
-        self.auto_aug = False
+        self.auto_aug = True
         self.pretrained = False
         self.loss = 'mse_count_loss'
         self.fit = 'spike'

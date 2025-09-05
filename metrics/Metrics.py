@@ -576,29 +576,33 @@ class Metrics():
 
         return predictions(y_test, clusters, threshold), get_dist(y_test, clusters)
 
-def test_metrics(case, nameID, methods, features='spikes'):
+def test_metrics(config, case, nameID, methods, features='spikes'):
     '''
     case:       for example case 01 is '01'
     nameID:     name of the In Distribution features, example 'MNIST'
     '''
     if nameID == 'MNIST':
-        namesOOD = ['FMNIST', 'KMNIST', 'Letters']
+        # namesOOD = ['FMNIST', 'KMNIST', 'Letters']
         suffixID = '-on_mnist'
     elif nameID == 'FMNIST':
-        namesOOD = ['MNIST', 'KMNIST', 'Letters']   
+        # namesOOD = ['MNIST', 'KMNIST', 'Letters']   
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
-        namesOOD = ['MNIST', 'FMNIST', 'Letters']
+        # namesOOD = ['MNIST', 'FMNIST', 'Letters']
         suffixID = '-on_kmnist'
     elif nameID == 'Letters':
-        namesOOD = ['MNIST', 'FMNIST', 'KMNIST']
+        # namesOOD = ['MNIST', 'FMNIST', 'KMNIST']
         suffixID = '-on_letters'
     elif nameID == 'CIFAR10':
-        namesOOD = ['SVHN', 'Food101']
+        # namesOOD = ['SVHN', 'Food101']
         suffixID = '-on_cifar10'
     elif nameID == 'SVHN':
-        namesOOD = ['CIFAR10', 'Food101']
+        # namesOOD = ['CIFAR10', 'Food101']
         suffixID = '-on_svhn'
+
+    namesOOD = [dataset for dataset in config.dataset_feat if dataset != config.dataset_ID]
+    print(f"namesOOD: {namesOOD}")
+
 
     # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
     # methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
@@ -1049,6 +1053,7 @@ def statistics(config, acc_spk, acc_mem):
         f.write(f"  Number of epochs: {config.epochs}\n")
         f.write(f"  Fitting method: {config.fit}\n")
         f.write(f"  Loss function: {config.loss}\n")
+        f.write(f"  Augmentation: {config.auto_aug}\n")
         f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"\n")
         f.write(f"Accuracy on spikes: {acc_spk:05.2f}\n")
@@ -1065,7 +1070,7 @@ def statistics(config, acc_spk, acc_mem):
             f.write(f"{'-'*40}\n")
             
             try:
-                stats = test_metrics(case=config.case, nameID=config.dataset_ID, methods=methods, features=feature_type)
+                stats = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=feature_type)
                 
                 if stats is not None and len(stats) > 0:
                     formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
@@ -1131,7 +1136,7 @@ def statistics(config, acc_spk, acc_mem):
 
 
 def statistics_test_population(config, acc_spk, acc_mem):
-    from test import test_accuracy_population_2
+    from test import test_accuracy_population_2, test_accuracy
     from feature import feature_extraction_spike
     # Statistics for Population Coding Comparison
     feature_types = ['features', 'spikes', 'probs', 'voltages']
@@ -1160,6 +1165,7 @@ def statistics_test_population(config, acc_spk, acc_mem):
         f.write(f"  Number of epochs: {config.epochs}\n")
         f.write(f"  Fitting method: {config.fit}\n")
         f.write(f"  Loss function: {config.loss}\n")
+        f.write(f"  Augmentation: {config.auto_aug}\n")
         f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"{'='*60}\n\n")
         
@@ -1170,9 +1176,13 @@ def statistics_test_population(config, acc_spk, acc_mem):
         acc_mem_results = {}
 
         # Loop over time steps
-        for time_step in range(4, 48, 4):
+        for time_step in range(4, 20, 4):
             config.num_time_steps_extract = time_step
-            acc_spk, acc_mem = test_accuracy_population_2(config)
+            # acc_spk, acc_mem = test_accuracy_population_2(config)
+            if config.expansion == 1:
+                acc_spk, acc_mem = test_accuracy(config)
+            elif config.expansion > 1:
+                acc_spk, acc_mem = test_accuracy_population_2(config)
             acc_spk_results[time_step] = acc_spk
             acc_mem_results[time_step] = acc_mem
             print(f"Feature extraction using {config.num_time_steps_extract} time steps")
@@ -1182,7 +1192,7 @@ def statistics_test_population(config, acc_spk, acc_mem):
             for feature_type in feature_types:
                 print(f"Processing statistics for feature type: {feature_type}")
                 try:
-                    stats = test_metrics(case=config.case, nameID=config.dataset_ID, methods=methods, features=feature_type)
+                    stats = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=feature_type)
                     print(f"stats: {stats}")
                     # stats shape: [num_ood_datasets, num_methods*3]
                     if stats is not None and len(stats) > 0:
