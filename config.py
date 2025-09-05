@@ -196,7 +196,7 @@ class ExperimentConfig:
 
         # Training parameters
         self.batch_size = 64
-        self.epochs = 200
+        self.epochs = 400
         self.full_train = True
         self.auto_aug = False
         self.pretrained = False
