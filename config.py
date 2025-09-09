@@ -190,16 +190,16 @@ class ExperimentConfig:
         self.model_type = 'spike'
         self.resnet_model = 18
         self.num_classes = 10
-        self.expansion = 50
-        self.num_time_steps_train = 1
-        self.num_time_steps_extract = 1
+        self.expansion = 1
+        self.num_time_steps_train = 8
+        self.num_time_steps_extract = 8
         self.override_feature_extraction = False
 
         # Training parameters
         self.batch_size = 64
-        self.epochs = 400
+        self.epochs = 200
         self.full_train = True
-        self.auto_aug = True
+        self.auto_aug = False
         self.pretrained = False
         self.loss = 'mse_count_loss'
         self.fit = 'spike'
