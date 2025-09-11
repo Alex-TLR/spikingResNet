@@ -256,6 +256,8 @@ def training(config):
                 loss_fn = SF.ce_count_loss()
             elif config.loss == 'cross_entropy':
                 loss_fn = nn.CrossEntropyLoss()
+            elif config.loss == 'mse_count_loss':
+                loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=False, num_classes=config.num_classes)
             # Optimizer for gray 5e-4
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
             optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=wDecay)

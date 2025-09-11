@@ -85,7 +85,7 @@ if __name__ == "__main__":
     config = ExperimentConfig()
     
     # Override ONLY explicitly provided arguments (not parser defaults)
-    # config.update_from_args(args, provided_args)
+    config.update_from_args(args, provided_args)
 
     # Convert to dictionary for function calls
     # config_dict = config.to_dict()
@@ -97,6 +97,7 @@ if __name__ == "__main__":
     print(f"  Case: {config.case}")
     print(f"  Batch size: {config.batch_size}")
     print(f"  Expansion: {config.expansion}")
+    print(f"  Time steps Train: {config.num_time_steps_train}")
     print(f"  Epochs: {config.epochs}")
 
 
@@ -131,12 +132,12 @@ if __name__ == "__main__":
         # Utils.visualize_feature(str(self.dataset_ID), str(self.dataset_feat[1]), config.case, feature_type='voltages')
 
     elif config.mode == 'test_population':
-        if config.expansion == 1:
-            training(config)
-            acc_spk, acc_mem = test_accuracy(config)
-        elif config.expansion > 1:
-            training_population_2(config)
-            acc_spk, acc_mem = test_accuracy_population_2(config)
+        #if config.expansion == 1:
+        #    training(config)
+        #    acc_spk, acc_mem = test_accuracy(config)
+        #elif config.expansion > 1:
+        training_population_2(config)
+        acc_spk, acc_mem = test_accuracy_population_2(config)
         # Feature extraction for different steps
         config.override_feature_extraction = True
         config.methods = ['NCM', 'KNN']

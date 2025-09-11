@@ -172,6 +172,18 @@
     # Auto augmentation: A = False
     # mse_loss
 
+    # Case 21:
+    # Network model: SpikeResNet18Model (ResNetModel = 18)
+    # Training parameters
+    # Number of classes: 10
+    # Batch size: 64    
+    # Time steps: T = varying
+    # Expansion: E = 1
+    # Auto augmentation: A = False
+    # mse_loss
+    # Epochs = 200
+
+
 from email import parser
 
 
@@ -183,14 +195,14 @@ class ExperimentConfig:
         self.dataset_feat = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = 'PCC-15'
+        self.case = 'PCC-21'
         self.methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
         
         # Model parameters
         self.model_type = 'spike'
         self.resnet_model = 18
         self.num_classes = 10
-        self.expansion = 1
+        self.expansion = 50
         self.num_time_steps_train = 8
         self.num_time_steps_extract = 8
         self.override_feature_extraction = False
