@@ -296,7 +296,7 @@ def test_accuracy_population_2(config):
 
     if config.model_type == 'spike':
         # For spiking neural network we need number of steps
-        numberOfSteps = 1
+        numberOfSteps = config.num_time_steps_train
         beta = 0.95
         threshold = 0.25
 
@@ -339,7 +339,7 @@ def test_accuracy_population_2(config):
         # Load weights
         torch.cuda.empty_cache()
 
-        weightsName ='weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(numberOfSteps)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
+        weightsName ='weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
         print(f"Loading weights from {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=False))
         model = model.to(device)

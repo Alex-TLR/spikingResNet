@@ -173,16 +173,30 @@
     # mse_loss
 
     # Case 21:
+    # InDistribution: CIFAR10
+    # OutOfDistribution: 'MNIST', 'SVHN', 'Textures', 'Places365'
     # Network model: SpikeResNet18Model (ResNetModel = 18)
     # Training parameters
     # Number of classes: 10
     # Batch size: 64    
     # Time steps: T = varying
-    # Expansion: E = 1
+    # Expansion: E = 1 / 50
     # Auto augmentation: A = False
     # mse_loss
     # Epochs = 200
 
+    # Case 22:
+    # InDistribution: CIFAR10
+    # OutOfDistribution: 'MNIST', 'SVHN', 'Textures', 'Places365'
+    # Network model: SpikeResNet10Model (ResNetModel = 10)
+    # Training parameters
+    # Number of classes: 10
+    # Batch size: 64    
+    # Time steps: T = varying
+    # Expansion: E = 1 / 50
+    # Auto augmentation: A = False
+    # mse_loss
+    # Epochs = 200
 
 from email import parser
 
@@ -195,7 +209,7 @@ class ExperimentConfig:
         self.dataset_feat = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = 'PCC-21'
+        self.case = 'PCC-22'
         self.methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
         
         # Model parameters

@@ -2,7 +2,7 @@
 #SBATCH --job-name=SNNResNet18
 #SBATCH --time=96:00:00
 #SBATCH --cpus-per-task=8
-#SBATCH --array=2,4,8,12,16
+#SBATCH --array=1
 #SBATCH --mem=48GB
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
