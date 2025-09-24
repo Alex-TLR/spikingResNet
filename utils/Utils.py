@@ -97,26 +97,26 @@ class Utils():
                     # aug.append(Cutout(n_holes=1, length=16))
                     pass
                 
-                # aug.append(transforms.Normalize(
-                #     (0.4914, 0.4822, 0.4465), 
-                #     (0.2023, 0.1994, 0.2010)
-                # ))
-                aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                aug.append(transforms.Normalize(
+                    (0.4914, 0.4822, 0.4465), 
+                    (0.2023, 0.1994, 0.2010)
+                ))
+                # aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
                 
                 return transforms.Compose(aug)
             else:
                 # Test/validation transform (no augmentation)
-                # return transforms.Compose([
-                #     transforms.Resize((32, 32)),
-                #     transforms.ToTensor(),
-                #     transforms.Normalize(
-                #         (0.4914, 0.4822, 0.4465), 
-                #         (0.2023, 0.1994, 0.2010)
-                #     )
-                # ])
-                return transforms.Compose([transforms.Resize((32, 32)),
-                                                    transforms.ToTensor(),
-                                                    transforms.Normalize((0,0,0,), (1,1,1,))])
+                return transforms.Compose([
+                    transforms.Resize((32, 32)),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        (0.4914, 0.4822, 0.4465), 
+                        (0.2023, 0.1994, 0.2010)
+                    )
+                ])
+                # return transforms.Compose([transforms.Resize((32, 32)),
+                #                                     transforms.ToTensor(),
+                #                                     transforms.Normalize((0,0,0,), (1,1,1,))])
         
         if database_name == 'MNIST':
             name = 'mnist' 
@@ -155,7 +155,7 @@ class Utils():
         elif database_name == 'Places365':
             name = 'places'
             Name =  'Places365'
-            transformData = transformData_rgb_32
+            transformData = transformData_rgb_64
         elif database_name == 'Food101':
             name = 'food'
             Name =  'Food101'
@@ -178,8 +178,8 @@ class Utils():
         elif database_name == 'Textures':
             name = 'textures'
             Name = 'DTD'
-            transformData_train = transformData_rgb_32
-            transformData_test = transformData_rgb_32
+            transformData_train = transformData_rgb_64
+            transformData_test = transformData_rgb_64
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData_train)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData_test)'
 

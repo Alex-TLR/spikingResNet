@@ -1176,7 +1176,7 @@ def statistics_test_population(config, acc_spk, acc_mem):
         acc_mem_results = {}
 
         # Loop over time steps
-        for time_step in range(4, 20, 4):
+        for time_step in [2] + list(range(4, 12, 4)):
             config.num_time_steps_extract = time_step
             # acc_spk, acc_mem = test_accuracy_population_2(config)
             if config.expansion == 1:

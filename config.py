@@ -85,6 +85,8 @@
     # Auto augmentation: A = False
     # Take voltages of the preultimate membrane voltage layer
     # Case 12b trains on mse and E = 1, mse_loss, it is like popCode but with no expansion
+    # Case 12c trains on mse and E = 5, that is population coding
+    # Case 12d trains on mse and E = 10, that is population coding with more features
 
     # Case 13:
     # Network model: SpikeResNet10Model (ResNetModel = 10)
@@ -117,7 +119,9 @@
     # Expansion: E = 50
     # Auto augmentation: A = False
     # Take voltages of the preultimate membrane voltage layer
-    # Population coding, but for feature extraction more time steps are used
+    # Case 15b trains on mse and E = 1, mse_loss, it is like popCode but with no expansion
+    # Case 15c trains on mse and E = 5, that is population coding
+    # Case 15d trains on mse and E = 10, that is population coding with more features
 
     # Case 16:
     # Network model: SpikeResNet4Model (ResNetModel = 4)
@@ -135,11 +139,14 @@
     # Network model: SpikeResNet4Model (ResNetModel = 4)
     # Training parameters
     # Number of classes: 10
-    # Batch size: 32    
+    # Batch size: 64    
     # Time steps: T = 1
     # Expansion: E = 50
     # Auto augmentation: A = False
     # Take voltages of the preultimate membrane voltage layer
+    # Case 17b trains on mse and E = 1, mse_loss, it is like popCode but with no expansion
+    # Case 17c trains on mse and E = 5, that is population coding
+    # Case 17d trains on mse and E = 10, that is population coding
 
     # Case 18:
     # Network model: SpikeResNet4Model (ResNetModel = 4)
@@ -209,20 +216,20 @@ class ExperimentConfig:
         self.dataset_feat = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = 'PCC-22'
-        self.methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
+        self.case = '15d'
+        self.methods = ['NCM', 'KNN', 'FKM', 'CKM']
         
         # Model parameters
         self.model_type = 'spike'
         self.resnet_model = 18
         self.num_classes = 10
-        self.expansion = 50
-        self.num_time_steps_train = 8
-        self.num_time_steps_extract = 8
+        self.expansion = 10
+        self.num_time_steps_train = 1
+        self.num_time_steps_extract = 1
         self.override_feature_extraction = False
 
         # Training parameters
-        self.batch_size = 64
+        self.batch_size = 32
         self.epochs = 200
         self.full_train = True
         self.auto_aug = False

@@ -113,10 +113,10 @@ if __name__ == "__main__":
         # Training/testing
         # set pretrained=True if continious training is needed
 
-        if config.expansion == 1:
+        if config.loss != 'mse_count_loss':
             training(config)
             acc_spk, acc_mem = test_accuracy(config)
-        elif config.expansion > 1:
+        elif config.loss == 'mse_count_loss':
             training_population_2(config)
             acc_spk, acc_mem = test_accuracy_population_2(config)
         else:
@@ -132,12 +132,14 @@ if __name__ == "__main__":
         # Utils.visualize_feature(str(self.dataset_ID), str(self.dataset_feat[1]), config.case, feature_type='voltages')
 
     elif config.mode == 'test_population':
-        #if config.expansion == 1:
-        #    training(config)
-        #    acc_spk, acc_mem = test_accuracy(config)
-        #elif config.expansion > 1:
-        training_population_2(config)
-        acc_spk, acc_mem = test_accuracy_population_2(config)
+        # if config.expansion == 1:
+        if config.loss != 'mse_count_loss':
+            training(config)
+            acc_spk, acc_mem = test_accuracy(config)
+        # elif config.expansion > 1:
+        elif config.loss == 'mse_count_loss':
+            training_population_2(config)
+            acc_spk, acc_mem = test_accuracy_population_2(config)
         # Feature extraction for different steps
         config.override_feature_extraction = True
         config.methods = ['NCM', 'KNN']

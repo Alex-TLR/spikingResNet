@@ -274,7 +274,8 @@ def feature_extraction_spike(config):
                         features = f.sum(axis=0)
                         probs = p.max(axis=0)
                         # print(f"v.shape: {v.shape}")
-                        volts = v.mean(axis=0)
+                        # volts = v.mean(axis=0)
+                        volts = v.max(axis=0)
                         # print(f"volts.shape: {volts.shape}")
 
                         if hasattr(model, 'expansion') and model.expansion > 1:
@@ -330,6 +331,7 @@ def feature_extraction_spike(config):
                     spikes = s.sum(axis=0)    
                     features = f.sum(axis=0)
                     probs = p.max(axis=0)
+                    # volts = v.mean(axis=0)
                     volts = v.max(axis=0)
                     if hasattr(model, 'expansion') and model.expansion > 1:
                         spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  # or .max(axis=2)
