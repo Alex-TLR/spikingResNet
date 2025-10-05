@@ -1,7 +1,7 @@
 import torch
-from test import test_accuracy, test_accuracy_population_2
+from test import test_accuracy, test_accuracy_population
 from feature import feature_extraction_spike
-from train import training, training_population_2
+from train import training, training_population
 import numpy as np
 from utils.Utils import Utils
 # To enable downloading some datasets from pytorch
@@ -10,7 +10,7 @@ import argparse
 import sys
 from config import ExperimentConfig
 from datetime import datetime
-from metrics.Metrics import statistics, statistics_test_population
+from metrics.Metrics import statistics, statistics_test_population, statistics_test_1
 
 def get_parser():
     parser = argparse.ArgumentParser(description="SpikingResNet Training Configuration")
@@ -117,8 +117,8 @@ if __name__ == "__main__":
             training(config)
             acc_spk, acc_mem = test_accuracy(config)
         elif config.loss == 'mse_count_loss':
-            training_population_2(config)
-            acc_spk, acc_mem = test_accuracy_population_2(config)
+            training_population(config)
+            acc_spk, acc_mem = test_accuracy_population(config)
         else:
             print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
 
@@ -138,14 +138,39 @@ if __name__ == "__main__":
             acc_spk, acc_mem = test_accuracy(config)
         # elif config.expansion > 1:
         elif config.loss == 'mse_count_loss':
-            training_population_2(config)
-            acc_spk, acc_mem = test_accuracy_population_2(config)
+            training_population(config)
+            acc_spk, acc_mem = test_accuracy_population(config)
         # Feature extraction for different steps
         config.override_feature_extraction = True
-        config.methods = ['NCM', 'KNN']
+        config.methods = ['NCM', 'KNN'] # specify only one for test_1
         statistics_test_population(config, acc_spk, acc_mem)
 
         print("Done testing different extraction time steps.")
+
+    elif config.mode == 'test_1':
+        if config.num_time_steps_train == 1:
+            if config.loss != 'mse_count_loss':
+                training(config)
+                acc_spk, acc_mem = test_accuracy(config)
+            elif config.loss == 'mse_count_loss':
+                training_population(config)
+                acc_spk, acc_mem = test_accuracy_population(config)
+            else:
+                print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
+
+            # Feature extraction
+            # feature_extraction_spike(config)
+
+            # Statistics
+            # statistics(config, acc_spk, acc_mem)
+        else:
+            print("For this mode, the training time steps should be set to 1.")
+        # Feature extraction for different steps
+        config.override_feature_extraction = True
+        config.methods = ['KNN']
+        statistics_test_1(config, acc_spk, acc_mem)
+
+        print("Done testing for 1-step training.")
 
 
     else:

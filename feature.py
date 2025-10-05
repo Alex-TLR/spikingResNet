@@ -6,7 +6,9 @@ from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeRe
 from models.plain import spikeLinearNet1
 import numpy as np
 import matplotlib.pyplot as plt
-from metrics.Metrics import Metrics
+import torch.nn as nn
+import gc
+import snntorch.functional as SF
 
 
 def feature_extraction_conv(dataSet):
@@ -103,7 +105,6 @@ GRAYSCALE_DATASETS = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 def needs_grayscale_to_rgb(train_dataset, feat_dataset):
     return (train_dataset in RGB_DATASETS) and (feat_dataset in GRAYSCALE_DATASETS)
 
-# def feature_extraction_spike(dataSet_ID, dataSet_feat, ResNetModel, case, numOfClasses, batchSize, expansion=1, auto_aug=False):
 def feature_extraction_spike(config):
     '''
     Spiking models only
@@ -116,6 +117,16 @@ def feature_extraction_spike(config):
     numOfChannels:  number of input channels
     '''
 
+    if config.loss == 'rate_loss':
+        loss_fn = SF.ce_rate_loss()
+    elif config.loss == 'count_loss':
+        loss_fn = SF.ce_count_loss()
+    elif config.loss == 'cross_entropy':
+        loss_fn = nn.CrossEntropyLoss()
+    elif config.loss == 'mse_count_loss':
+        loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=True, num_classes=config.num_classes)
+
+
     # print(f"Feature length is: {len(config.dataset_feat)}")
     for i in range(len(config.dataset_feat)):
         print(f"Extracting features for {config.dataset_feat[i]}")
@@ -125,7 +136,6 @@ def feature_extraction_spike(config):
             dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i])
         # Get image size
         channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_feat[i])
-        # print(f"Image size: {channels, rows, cols}")
 
         device = Utils.get_device()
 
@@ -138,10 +148,7 @@ def feature_extraction_spike(config):
             feature_size = 28
 
         trainDataSize = len(dataset_train)
-        # print("Train data size: ", trainDataSize)
         testDataSize = len(dataset_test)
-        # print("Test data size: ", testDataSize)
-        # print(f"Network models is {ResNetModel}")
 
         # Parameter of the LIF neuron
         beta = 0.95
@@ -151,10 +158,6 @@ def feature_extraction_spike(config):
 
         # Load OoD data
         train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_feat[i], True)
-
-        # Loss function
-        # loss_fn = SF.ce_rate_loss()
-        # loss_fn = SF.ce_count_loss() 
 
         # Define 
         if config.resnet_model == 1:
@@ -220,16 +223,11 @@ def feature_extraction_spike(config):
         
         # Load weights
         # Loading the weights for the ID-trained network
-        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'.pth'
-        # weightsName = 'weights/spike/resnet' + str(ResNetModel) + '_weights_' + dataSet_ID + '.pth'
+        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
-        print(f"weights file {weightsName}")
         model = model.to(device)
-        # model.reset_mem(batchSize, device)
-        # final_membranes = torch.load('final_membranes.pth')
 
         fileName = 'features/spike/case_' + config.case + '/' + config.dataset_feat[i] + '-on_' + config.dataset_ID.lower() + '.npz'
-        # print(fileName)
 
         if (Utils.does_file_exists(fileName) or config.override_feature_extraction):
 
@@ -266,46 +264,37 @@ def feature_extraction_spike(config):
                         f = f.cpu().detach().numpy()
                         p = p.cpu().detach().numpy()
                         v = v.cpu().detach().numpy()
-                        # print(f"v.shape: {v.shape}")
-                        # s = s.cpu().detach().numpy()
-                        # s = s.sum(axis=0)
-                        # print(f'feats.shape is {f.shape} and probs.shape is {p.shape}')
                         spikes = s.sum(axis=0)
                         features = f.sum(axis=0)
                         probs = p.max(axis=0)
-                        # print(f"v.shape: {v.shape}")
-                        # volts = v.mean(axis=0)
                         volts = v.max(axis=0)
-                        # print(f"volts.shape: {volts.shape}")
 
                         if hasattr(model, 'expansion') and model.expansion > 1:
-                            # print(f"Population coding with expansion {model.expansion}")
-                            spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  # or .max(axis=2)
-                            probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2)    # Max is better for probs
-                            # volts = volts.reshape(volts.shape[0], config.num_classes, model.expansion).max(axis=2)  # Max is better for volts
-
-                        probs = Metrics.softmax(probs)
-                        # if ii == 0:
-                        #     print(f'{ii}\n{features}\n{probs}')
-                            # plotProb(p, batchSize, numberOfSteps)
+                            spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  
+                            probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2)
                         # probs = Metrics.softmax(probs)
-                        # print(f'feats.shape is {features.shape} and probs.shape is {probs.shape}')
+
                         labels = labels.cpu().detach().numpy()
                         Spik_train[startIndex:endIndex, :] = spikes
                         Feat_train[startIndex:endIndex, :] = features
                         Prob_train[startIndex:endIndex, :] = probs
                         Volt_train[startIndex:endIndex, :] = volts
                         Tags_train.append(labels.flatten())
-                        del batch, labels, features, probs
+                        del batch, labels, features, probs, volts, s, f, p, v
+                        gc.collect()
+                        torch.cuda.empty_cache()
                         ii += 1
-                        # if ii == 1: 
-                        #     break
                         print(f"\rProgress: {ii}/{len(train_loader)}", end='', flush=True)
 
-                # Tags_train = np.array(Tags_train)
                 Tags_train = np.concatenate(Tags_train)
-                print()
-                print("Tags_train shape is ", Tags_train.shape)
+                # print()
+                # print("Tags_train shape is ", Tags_train.shape)
+
+            # print("CUDA Memory Summary before training feature extraction:")
+            # print(f"Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+            # print(f"Reserved:  {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
+            # print(f"Max Allocated: {torch.cuda.max_memory_allocated() / 1024**2:.2f} MB")
+            # print(f"Max Reserved:  {torch.cuda.max_memory_reserved() / 1024**2:.2f} MB")
 
             Spik_test = np.zeros((testDataSize, config.num_classes))
             Feat_test = np.zeros((testDataSize, featSize))
@@ -315,14 +304,15 @@ def feature_extraction_spike(config):
             ii = 0
             with torch.no_grad():
                 for batch, labels in test_loader:
-                    # if ii == 0:
-                    #     Utils.showBatchImages(batch)
                     batch = batch.to(device)
                     labels = labels.to(device)
                     startIndex = ii*config.batch_size
                     endIndex = startIndex + config.batch_size
 
                     s, f, p, v = model(batch, config.num_time_steps_extract)
+                    # loss = loss_fn(s, labels) 
+                    # print(f"Loss: {loss.item()}, loss.shape is {loss.shape}")
+                        
                     s = s.cpu().detach().numpy()
                     f = f.cpu().detach().numpy()
                     p = p.cpu().detach().numpy()
@@ -331,34 +321,25 @@ def feature_extraction_spike(config):
                     spikes = s.sum(axis=0)    
                     features = f.sum(axis=0)
                     probs = p.max(axis=0)
-                    # volts = v.mean(axis=0)
                     volts = v.max(axis=0)
                     if hasattr(model, 'expansion') and model.expansion > 1:
-                        spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  # or .max(axis=2)
-                        probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2)    # Max is better for probs
-                        # volts = volts.reshape(volts.shape[0], config.num_classes, model.expansion).max(axis=2)  # Max is better for volts
-
-                    probs = Metrics.softmax(probs)
-                    # if ii == 0:
-                    #     print(f'{ii}\n{features}\n{probs}')
+                        spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  
+                        probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2) 
+                    # probs = Metrics.softmax(probs)
+ 
                     labels = labels.cpu().detach().numpy()
                     Spik_test[startIndex:endIndex, :] = spikes
                     Feat_test[startIndex:endIndex, :] = features
                     Prob_test[startIndex:endIndex, :] = probs
                     Volt_test[startIndex:endIndex, :] = volts
-                    # Tags_test.append(labels)
                     Tags_test.append(labels.flatten())
-                    del batch, labels, features, probs
+                    del batch, labels, features, probs, volts, s, f, p, v
+                    torch.cuda.empty_cache()
+                    gc.collect()
                     ii += 1
-                    # if i == 1: 
-                    #     break
                     print(f"\rProgress: {ii}/{len(test_loader)}", end='', flush=True)
 
-            # Tags_test = np.array(Tags_test)
             Tags_test = np.concatenate(Tags_test)
-            # print("Tags_test shape is ", Tags_test.shape)
-            # fileName = 'features/spike/case_' + case + '/' + dataSet_feat + '-on_' + dataSet_ID.lower() + '.npz'
-            # print(fileName)
             print()
             np.savez(fileName, arr0=Spik_train, 
                             arr1=Feat_train, 
@@ -371,12 +352,31 @@ def feature_extraction_spike(config):
                             arr8=Volt_train,
                             arr9=Volt_test)
 
+            # print("CUDA Memory Summary before test extraction:")
+            # print(f"Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+            # print(f"Reserved:  {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
+            # print(f"Max Allocated: {torch.cuda.max_memory_allocated() / 1024**2:.2f} MB")
+            # print(f"Max Reserved:  {torch.cuda.max_memory_reserved() / 1024**2:.2f} MB")
+
             del Spik_train, Feat_train, Prob_train, Tags_train, Spik_test, Feat_test, Prob_test, Tags_test, Volt_train, Volt_test
+            del model 
+            del train_loader, test_loader
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            # print("CUDA Memory Summary after model deletion:")
+            # print(f"Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+            # print(f"Reserved:  {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
+            # print(f"Max Allocated: {torch.cuda.max_memory_allocated() / 1024**2:.2f} MB")
+            # print(f"Max Reserved:  {torch.cuda.max_memory_reserved() / 1024**2:.2f} MB")
 
         else:
             # pass
             print("Features " + str(fileName) + " already exists.")
-        
+
+    gc.collect()
+    torch.cuda.empty_cache()
+    print(f"Summary of CUDA memory: {torch.cuda.memory_summary()}")
     return None
 
 def plotProb(prob, batchSize, numOfSteps):

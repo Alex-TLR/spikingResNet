@@ -147,6 +147,7 @@
     # Case 17b trains on mse and E = 1, mse_loss, it is like popCode but with no expansion
     # Case 17c trains on mse and E = 5, that is population coding
     # Case 17d trains on mse and E = 10, that is population coding
+    # Case 17e trains on mse and E = 25, that is population coding
 
     # Case 18:
     # Network model: SpikeResNet4Model (ResNetModel = 4)
@@ -205,6 +206,15 @@
     # mse_loss
     # Epochs = 200
 
+    # Case 30:
+    # InDistribution: CIFAR10
+    # OutOfDistribution: 'MNIST', 'SVHN', 'Textures', 'Places
+    # Auto augmentation: A = False
+    # mse_loss
+    # Epochs = 200
+    # Test_1
+
+
 from email import parser
 
 
@@ -216,20 +226,22 @@ class ExperimentConfig:
         self.dataset_feat = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '15d'
-        self.methods = ['NCM', 'KNN', 'FKM', 'CKM']
+        self.case = '17'
+        self.methods = ['MSP', 'MSP2']
+        # self.methods = ['NCM', 'KNN', 'FKM', 'CKM']
         
         # Model parameters
         self.model_type = 'spike'
-        self.resnet_model = 18
+        self.resnet_model = 4
         self.num_classes = 10
-        self.expansion = 10
+        self.expansion = 50
         self.num_time_steps_train = 1
         self.num_time_steps_extract = 1
         self.override_feature_extraction = False
+        self.seed = 42
 
         # Training parameters
-        self.batch_size = 32
+        self.batch_size = 64
         self.epochs = 200
         self.full_train = True
         self.auto_aug = False
@@ -239,10 +251,11 @@ class ExperimentConfig:
 
         # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
         # set the "test_population" mode for the pipeline: train, test, feature extraction for different extraction time steps, statistics
-        self.mode = 'test_population'
+        # set the "test_1" mode for testing with different setup when T = 1 is used for training
+        self.mode = 'test'
 
         # Parser defaults (only used if explicitly provided)
-        self.seed = 42
+        # self.seed = 42
         self.device = 'cuda'
         
         self.num_workers = 4

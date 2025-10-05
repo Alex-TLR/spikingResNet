@@ -155,7 +155,7 @@ class Utils():
         elif database_name == 'Places365':
             name = 'places'
             Name =  'Places365'
-            transformData = transformData_rgb_64
+            transformData = transformData_rgb_32
         elif database_name == 'Food101':
             name = 'food'
             Name =  'Food101'
@@ -178,8 +178,8 @@ class Utils():
         elif database_name == 'Textures':
             name = 'textures'
             Name = 'DTD'
-            transformData_train = transformData_rgb_64
-            transformData_test = transformData_rgb_64
+            transformData_train = transformData_rgb_32
+            transformData_test = transformData_rgb_32
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData_train)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData_test)'
 
@@ -211,9 +211,9 @@ class Utils():
             # print(command_test)
         elif database_name == 'Places365':
             command_train = Name + '(root = \'data/' + name + '/\', download=False, split = \'train-standard\', small = True, transform = transformData)'
-            print(command_train)
+            # print(command_train)
             command_test = Name + '(root = \'data/' + name + '/\', download=False, split = \'val\', small = True, transform = transformData)'
-            print(command_test)
+            # print(command_test)
         elif database_name == 'EMNIST':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = True, transform = transformData)'
             # print(command_train)
@@ -297,7 +297,7 @@ class Utils():
             return True
 
     @staticmethod
-    def data_loader(dataset_train, dataset_test, batchSize, dataset_name, fullTrain=False, worker_init_fn=None, generator=None):
+    def data_loader(dataset_train, dataset_test, batchSize, dataset_name, fullTrain=False, worker_init_fn=0, generator=None):
         '''
         Define data loaders
         '''

@@ -1,8 +1,10 @@
+import gc
 from sklearn.metrics import roc_curve
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import average_precision_score, precision_recall_curve, auc
 from sklearn.metrics import roc_auc_score
 from sklearn.neighbors import NearestCentroid
+import torch
 from utils.Utils import Utils, distances_from_average_clusters
 import math
 from scipy.spatial import distance
@@ -12,12 +14,13 @@ import time
 import numpy as np
 from scipy.spatial.distance import cdist
 from datetime import datetime
+from train import training_population
+import gc
 
 class Metrics():
 
     def __init__(self, name):
         pass
-
 
     @staticmethod
     def metrics(labels, predictions, distances):
@@ -36,7 +39,7 @@ class Metrics():
         '''
 
         cm = confusion_matrix(labels, predictions, labels=[0, 1])
-        print(f"Confusion matrix:\n{cm}")
+        # print(f"Confusion matrix:\n{cm}")
         TPR = cm[1][1] / (cm[1][1] + cm[1][0])
         FPR = cm[0][1] / (cm[0][1] + cm[0][0])
         # print(f"True positive rate: {TPR}")
@@ -60,30 +63,133 @@ class Metrics():
         return e_x / np.sum(e_x, axis=1, keepdims=True)
 
 
-    @staticmethod
-    def MSP(test_data, threshold):
-        '''
-        Calculates the Maximum Softmax Probability (MSP) metrics of input 
-        features, regarding the threshold value. MSP finds maximum softmax
-        row-wise, and checks if it is larger then threshold.
+    # @staticmethod
+    # def MSP(test_data, threshold):
+    #     '''
+    #     Calculates the Maximum Softmax Probability (MSP) metrics of input 
+    #     features, regarding the threshold value. MSP finds maximum softmax
+    #     row-wise, and checks if it is larger then threshold.
 
-        Large sofmtax values indicates larger probability that feature vector
-        belongs to the In-distribution pattern.
+    #     Large sofmtax values indicates larger probability that feature vector
+    #     belongs to the In-distribution pattern.
+
+    #     Inputs:
+    #         test_data:      Matrix of input row-wise features
+    #         threshold:      Threshold value
+
+    #     Outputs:
+    #         predictions:    Array of predicted labels
+    #         max_probs:      Array of output features, 1-D 
+    #     '''
+
+    #     # start_time = time.time()
+    #     # ID_labels = np.ones((len(ID_feat_test)))
+    #     # OOD_labels = np.zeros((len(OOD_feat_test)))
+    #     # test_labels = np.concatenate((ID_labels, OOD_labels))
+
+    #     s = Metrics.softmax(test_data)
+    #     max_probs = np.max(s, axis=1)
+    #     predictions = (max_probs > threshold).astype(np.int32)
+    #     return predictions, max_probs
+    
+    def MSP(ID_feat_test, OOD_feat_test, threshold):
+        '''
+        Calculates the Maximum Softmax Probability (MSP) 
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        # Calculates softmax probabilities
+        ID_distances = np.max(Metrics.softmax(ID_feat_test), axis=1)
+        OOD_distances = np.max(Metrics.softmax(OOD_feat_test), axis=1)
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+
+        # Concatenate predictions
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"MSP Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def ENGY(test_data, threshold, T=1.0):
+        '''
+        Energy-based OOD detection method.
+        Low energy of input logit means ID sample, while high energy indicates OOD sample.
+        Energy is calculated as: E(x) = -T * log(sum(exp(f_i(x)/T))), where f_i(x) is the i-th logit of input x,
+        and T is the temperature scaling parameter.
+
+        Additional minus sign is added, so that higher energy means more likely ID sample.
 
         Inputs:
             test_data:      Matrix of input row-wise features
             threshold:      Threshold value
+            T:              Temperature scaling parameter
 
         Outputs:
             predictions:    Array of predicted labels
-            max_probs:      Array of output features, 1-D 
+            energies:       Array of energy values
         '''
 
-        s = Metrics.softmax(test_data)
-        max_probs = np.max(s, axis=1)
-        predictions = (max_probs > threshold).astype(np.int32)
-        return predictions, max_probs
+        e = -(-T * torch.logsumexp(torch.Tensor(test_data) / T, dim=1)).numpy()
+        predictions = (e > threshold).astype(np.int32)
+        return predictions, e
     
+    @staticmethod
+    def ODIN(test_data, test_grads, threshold, T=1.0):
+        '''
+        ODIN method for OOD detection.
+        '''
+        pass
+
+    @staticmethod
+    def VIM(test_data, test_features, mu, null_space_eigvecs, threshold, alpha=0.1):
+        '''
+        VIM method for OOD detection.
+        
+        Inputs:
+            test_data:      Matrix of input row-wise features
+            test_features:  Matrix of input row-wise features
+            mu:             Mean of the training features
+            null_space_eigvecs: Null space eigenvectors
+            threshold:      Threshold value
+            alpha:         Regularization parameter
+
+        Outputs:
+            predictions:    Array of predicted labels
+            max_probs:      Array of output features, 1-D
+        '''
+        residual = (test_features - mu) @ null_space_eigvecs
+        r_norm = torch.norm(residual, dim=1) 
+        logit_norm = torch.norm(test_data, dim=1)
+        vim = -(logit_norm - alpha * r_norm)
+        predictions = (vim > threshold).astype(np.int32)
+        return predictions, vim
+    
+    @staticmethod
+    def ASH(test_data, test_features, threshold, keep_ratio=0.25):
+        '''
+        ASH method for OOD detection.
+        '''
+        
+        # Keep top-k% activations
+        k = int(test_features.numel() * keep_ratio)
+        thresh = torch.topk(test_features.flatten(), k)[0][-1]
+        feats = torch.where(test_data >= thresh, test_data, torch.zeros_like(test_data))
+        ash = -torch.logsumexp(feats, dim=1)
+
+        predictions = (ash > threshold).astype(np.int32)
+        return predictions, ash
 
     @staticmethod
     def NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes):
@@ -340,36 +446,6 @@ class Metrics():
 
         return test_labels, test_predictions, test_distances
     
-    @staticmethod
-    def AGGLO(test_X, averagePerClass, threshold, number_classes):
-        '''
-        Distances after agglomerative clustering
-
-        Inputs:
-            train_X:        matrix with train features
-            train_Y:        an array with train labels
-            test_X:         matrix with test features
-            clusters:       list of cluster per class
-
-        Outputs:
-            predictions:    an array of predicted labels
-            distances:      an array of output features, 1-D 
-
-        '''
-
-        predictions = np.zeros(len(test_X))
-        distances = np.zeros(len(test_X))
-
-        distances = get_dist(test_X, averagePerClass)
-        # print(f"distances.shape: {distances.shape}")
-        # print(f"test_X.shape: {test_X.shape}")
-        # print(f"Number of clusters: {np.sum(i.shape[1] for i in averagePerClass)}")
-        print(f"Number of clusters: {averagePerClass.shape}")
-
-        for i in range(len(test_X)):    
-            predictions[i] = 1 if distances[i] > threshold else 0
-
-        return predictions, distances
     
     @staticmethod
     def SD(train_X, train_Y, test_X, threshold, num_classes):
@@ -399,61 +475,6 @@ class Metrics():
             
         for i in range(len(test_X)):    
             predictions[i] = 1 if distances[i] > threshold else 0
-
-        return predictions, distances
-    
-    @staticmethod
-    def DBSCAN(train_X, test_X, threshold):
-        '''
-        Density-Based Spatial Clustering of Applications with Noise
-        '''
-
-        predictions = np.zeros(len(test_X))
-
-        # Apply dbscan to training data
-        dbscan = DBSCAN(eps=200, min_samples=5)
-        predictated_labels = dbscan.fit_predict(train_X)
-        print(f"predictated_labels: {predictated_labels.shape}")
-
-        # Identify core points
-        core_samples_mask = predictated_labels != -1  # Ignore noise (-1)
-        core_points = train_X[core_samples_mask]
-        print(f"core_points: {core_points}")
-
-        # Compute cluster centers
-        unique_clusters = np.unique(predictated_labels[core_samples_mask])
-        cluster_centers = np.array([train_X[predictated_labels == c].mean(axis=0) for c in unique_clusters])
-        print(f"DBSCAN: {cluster_centers}")
-        print(f"DBSCAN: {cluster_centers.shape}")
-        if cluster_centers.ndim == 1:
-            cluster_centers = cluster_centers.reshape(1, -1)
-
-        print(f"cluster_centers: {cluster_centers.shape}")
-
-        # Compute distance of each test sample from the nearest cluster center
-        # distances = cdist(test_X, cluster_centers, metric='euclidean')  # Pairwise distance
-        distances = np.zeros(len(test_X))
-
-        for i in range(len(test_X)):
-            dist = np.zeros(len(cluster_centers))
-            for j in range(len(cluster_centers)):
-                dist[j] = np.sqrt(np.sum((cluster_centers[j] - test_X[i])**2))
-                # dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p)
-            distances[i] = -dist.min()
-
-
-
-        # print(f"distances: {distances}")
-        # print(f"distances: {distances.shape}")
-        # nearest_distances = np.min(distances, axis=1)  # Minimum distance to any cluster center
-
-        # (Optional) Convert distances to scores (e.g., negative distance for ROC analysis)
-        # distances = -nearest_distances  # Higher score means closer to a cluster
-         
-        for i in range(len(test_X)):    
-            predictions[i] = 1 if distances[i] > threshold else 0
-
-        print(f"predictions: {predictions}")
 
         return predictions, distances
     
@@ -550,31 +571,7 @@ class Metrics():
         print(br)
         return prediction, distances
 
-
-    @staticmethod
-    def KMEANS(data: np.ndarray, labels: np.ndarray, ncpc, y_test, threshold):
-        num_classes = len(set(labels))
-        
-        clusters = np.zeros((num_classes * ncpc, data.shape[1]))
-
-        for i in range(num_classes):
-            clusters[i: i + ncpc] = k_means(data[labels == i], ncpc)[0]
-        
-        # print(clusters)
-
-        return predictions(y_test, clusters, threshold), get_dist(y_test, clusters)
     
-    @staticmethod
-    def KMEANSFull(data: np.ndarray, labels: np.ndarray, ncpc, y_test, threshold):
-        num_classes = len(set(labels))
-        
-        clusters = np.zeros((ncpc, data.shape[1]))
-
-        clusters = k_means(data, ncpc)[0]
-        
-        print(f"clusters: {clusters.shape}")
-
-        return predictions(y_test, clusters, threshold), get_dist(y_test, clusters)
 
 def test_metrics(config, case, nameID, methods, features='spikes'):
     '''
@@ -582,36 +579,28 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
     nameID:     name of the In Distribution features, example 'MNIST'
     '''
     if nameID == 'MNIST':
-        # namesOOD = ['FMNIST', 'KMNIST', 'Letters']
         suffixID = '-on_mnist'
-    elif nameID == 'FMNIST':
-        # namesOOD = ['MNIST', 'KMNIST', 'Letters']   
+    elif nameID == 'FMNIST':  
         suffixID = '-on_fmnist'
     elif nameID == 'KMNIST':
-        # namesOOD = ['MNIST', 'FMNIST', 'Letters']
         suffixID = '-on_kmnist'
     elif nameID == 'Letters':
-        # namesOOD = ['MNIST', 'FMNIST', 'KMNIST']
         suffixID = '-on_letters'
     elif nameID == 'CIFAR10':
-        # namesOOD = ['SVHN', 'Food101']
         suffixID = '-on_cifar10'
     elif nameID == 'SVHN':
-        # namesOOD = ['CIFAR10', 'Food101']
         suffixID = '-on_svhn'
+    else:
+        raise ValueError("Unknown ID dataset name")
 
+    # Find the names of OOD datasets
     namesOOD = [dataset for dataset in config.dataset_feat if dataset != config.dataset_ID]
-    print(f"namesOOD: {namesOOD}")
 
-
-    # methods = ['MSP', 'NCM', 'KNN', 'NNDR', 'MD']
-    # methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
-    # methods = ['NCM', 'NCM2']
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
+    # Load In-Distribution data
     ID = np.load(IDpath)
-    # print(f"\nIDpath: {IDpath}")
     ID_spik_train = ID['arr0']  # In-Distribution training set spikes
     ID_feat_train = ID['arr1']  # In-Distribution training set features
     ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
@@ -625,8 +614,6 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
         ID_volt_test  = ID['arr9']  # In-Distribution test set voltages
     # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
     number_classes = ID_prob_train.shape[1]
-    # clusters = Clustering.clustering_1(ID_feat_train, ID_tags_train, number_classes)
-    # print(f"Clustering ID base: {clusters}")
 
     if features == 'features':
         print(f"Using spiking feature vector {ID_feat_train.shape}:")
@@ -637,7 +624,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
         ID_features_train = ID_spik_train
         ID_features_test = ID_spik_test
     elif features == 'probs':
-        print(f"Using softmax probabilities {ID_prob_train.shape}:")
+        print(f"Using logits {ID_prob_train.shape}:")
         ID_features_train = ID_prob_train
         ID_features_test = ID_prob_test
     elif features == 'voltages':
@@ -649,8 +636,8 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
 
     for i in range(len(namesOOD)):
         OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
-        # print(f"OODpath: {OODpath}")
-        print(f"OOD is: {namesOOD[i]}")
+
+        # Load Out-of-Distribution data
         OOD = np.load(OODpath)
         OOD_spik_train = OOD['arr0']  # Out-of-Distribution training set spikes
         OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
@@ -680,33 +667,10 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
         else:
             raise ValueError("Unknown OOD feature type")
 
-        # print(f"OOD_prob_train.shape: {OOD_prob_train.shape}, OOD_prob_test.shape: {OOD_prob_test.shape}")
-        # print(f"ID_feat_train.shape: {ID_feat_train.shape}, ID_feat_test.shape: {ID_feat_test.shape}, OOD_feat_train.shape: {OOD_feat_train.shape}")
-
         # Methodology includes the IN/OOD classification where ID are positive samples taken from ID_test_set
         # and OOD are negative samples taken from OOD_train_set (or maybe OOD_train_set + OOD_test_set)
 
         for j in range(len(methods)):
-
-            # iterate trought each of classification methods and calculate the metrics
-            # This is the baseline method that uses the outputs of the network number_of_classes-D 
-            # if methods[j] == 'MSP':
-            #     print("MSP")
-            #     start_time = time.time() 
-            #     ID_labels   = np.ones((len(ID_prob_test)))
-            #     OOD_labels  = np.zeros((len(OOD_prob_train)))
-            #     test_labels = np.concatenate((ID_labels, OOD_labels))
-            #     # print(f"test_labels: {test_labels.shape}")
-            #     threshold = 0
-
-            #     # Calculates the distances between row-wise max probabilities and 0,
-            #     # only to check the acctual max of probabilities (predictions are not
-            #     # important in this step). 
-            #     _ , ID_distances = Metrics.MSP(ID_prob_test, threshold)
-            #     _, OOD_distances = Metrics.MSP(OOD_prob_train, threshold)
-            #     # OOD_prob = np.concatenate((OOD_prob_train, OOD_prob_test), axis=0)
-            #     test_distances = np.concatenate((ID_distances, OOD_distances))
-            #     # plot test_label and test_distances
 
             #     # plt.figure(figsize=(10, 6))
             #     # plt.plot(test_distances[0:20000], alpha=0.5, label="Distances")
@@ -718,34 +682,39 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
             #     # plt.legend()
             #     # plt.show()
 
-
-            #     _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-            #     threshold = threshold_tpr95
-            #     ID_predictions, _  = Metrics.MSP(ID_prob_test, threshold)
-            #     OOD_predictions, _ = Metrics.MSP(OOD_prob_train, threshold)
-            #     test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-            #     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-            #     # print(f"threshold_tpr95: {threshold_tpr95}")
-            #     print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
-            #     stats[i, j] = auroc 
-            #     stats[i, len(methods) + j] = aupr
-            #     stats[i, len(methods)*2 + j] = fpr95 
-            #     end_time = time.time()  # Record end time
-            #     execution_time = end_time - start_time  # Calculate execution time
-            #     print(f"MSP Execution time: {execution_time:.4f} seconds.\n")
-
             if methods[j] == 'MSP':
-                # MSP is the maximum softmax probability method
-                # this method is optimized
-                print("MSP")
+                # print(f"New MSP on {namesOOD[i]}")
+                test_labels, test_predictions, test_distances = Metrics.MSP2(ID_features_test, OOD_features_test, number_classes)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+
+                # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                # print(f"MSP Done.\n")
+            
+            elif methods[j] == 'NCM':
+                # print(f"NCM on {namesOOD[i]}")
+                number_classes = ID_prob_train.shape[1]
+                test_labels, test_predictions, test_distances = Metrics.NCM(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_classes)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+
+                # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                # print(f"NCM Done.\n")
+               
+            elif methods[j] == 'MLS':
+                # MLS is the maximum logit score method
                 start_time = time.time() 
                 ID_labels   = np.ones((len(ID_prob_test)))
                 OOD_labels  = np.zeros((len(OOD_prob_train)))
                 test_labels = np.concatenate((ID_labels, OOD_labels))
 
                 # Calculates softmax probabilities
-                ID_distances = np.max(Metrics.softmax(ID_prob_test), axis=1)
-                OOD_distances = np.max(Metrics.softmax(OOD_prob_train), axis=1)
+                ID_distances = np.max(ID_prob_test, axis=1)
+                OOD_distances = np.max(OOD_prob_train, axis=1)
                 test_distances = np.concatenate((ID_distances, OOD_distances))
 
                 _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
@@ -758,13 +727,13 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 test_predictions = np.concatenate((ID_predictions, OOD_predictions))
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
-                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
-                print(f"MSP Execution time: {execution_time:.4f} seconds.\n")
+                print(f"MLS Execution time: {execution_time:.4f} seconds.\n")
 
             elif methods[j] == 'SD':
                 # this method needs revision
@@ -813,39 +782,26 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"SD (spike distance) Execution time: {execution_time:.4f} seconds.\n")
 
-            elif methods[j] == 'NCM':
-                print(f"NCM on {namesOOD[i]}, spike features.")
-                number_classes = ID_prob_train.shape[1]
-                test_labels, test_predictions, test_distances = Metrics.NCM(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_classes)
-                # test_labels, test_predictions, test_distances = Metrics.NCM(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes)
-                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-
-                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-                # print(f"NCM Done.\n")
-
             elif methods[j] == 'MD':
-                print(f"MD on {namesOOD[i]}")
+                # print(f"MD on {namesOOD[i]}")
                 number_classes = ID_prob_train.shape[1]
                 number_features = ID_features_train.shape[1]
                 test_labels, test_predictions, test_distances = Metrics.MD(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_classes, number_features)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
-                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 # print(f"MD Done.")
 
             elif methods[j] == 'KNN':
-                print(f"KNN on {namesOOD[i]}")
+                # print(f"KNN on {namesOOD[i]}")
                 number_neighbors = 10
                 test_labels, test_predictions, test_distances = Metrics.KNN(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_neighbors)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
-                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
@@ -901,121 +857,6 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"NNDR Execution time: {execution_time:.4f} seconds")
-
-            # elif methods[j] == 'AGGLO':
-            #     # needs revision
-            #     start_time = time.time()
-            #     number_classes = ID_prob_train.shape[1]
-            #     ID_labels = np.ones((len(ID_prob_test)))
-            #     OOD_labels = np.zeros((len(OOD_prob_train)))
-            #     test_labels = np.concatenate((ID_labels, OOD_labels))
-            #     threshold = 0
-
-            #     # total = 0
-            #     # for ii in range(number_classes):
-            #     #     samples = ID_feat_train[ID_tags_train == ii]
-            #     #     print(f"number of samples of class {ii} is {samples.shape}")
-            #     #     total += samples.shape[0]
-            #     # print(f"total: {total}")
-
-
-            #     # Find clusters (centroids) per class
-            #     clusterName = 'clustering/cluster_2.npy'
-            #     if (Utils.does_file_exists(clusterName)):
-            #         predictions = get_preds_from_probs_vector(ID_prob_train) 
-            #         clusters = Clustering.clustering_2(ID_feat_train, predictions, number_classes)
-            #         print(f"Cluster per class: {len(clusters)}")
-            #         np.save(clusterName, clusters, allow_pickle=True)
-            #     else:
-            #         # Load cluster
-            #         clusters = np.load(clusterName, allow_pickle=True)
-
-            #     # Calculate cluster average clusters (centroids) for train features
-            #     averagePerClass = []
-            #     for ii in range(number_classes):
-            #         averageCluster = []
-            #         for cluster_index in np.unique(clusters[ii].labels_):
-            #             averageCluster.append(np.median(ID_feat_train[np.where(clusters[ii].labels_ == cluster_index)[0]], axis=0))
-            #         averagePerClass.append(np.array(averageCluster))
-
-            #     # Compute distance for each sample from centroids according to predicted class
-            #     ID_train_distances = distances_from_average_clusters(
-            #         ID_feat_train, ID_spik_train, averagePerClass, ID_prob_train)
-            #     ID_distances = distances_from_average_clusters(
-            #         ID_feat_test, ID_spik_test, averagePerClass, ID_prob_test)
-            #     OOD_distances = distances_from_average_clusters(
-            #         OOD_feat_train, OOD_spik_train, averagePerClass, OOD_prob_test)
-                
-            #     # averagePerClass = np.row_stack(averagePerClass)
-
-            #     # Compute thresholds for each class based on ID_train_distances
-            #     thresholds = compute_thresholds(ID_train_distances)
-            #     print(thresholds[:, 94])
-
-            #     precision, tpr_values, fpr_values = compute_precision_tpr_fpr_for_test_and_ood(
-            #         ID_distances, OOD_distances, thresholds)
-            #     # print(precision, tpr_values, fpr_values)
-            #     # Appending that when FPR = 1 the TPR is also 1:
-            #     tpr_values_auroc = np.append(tpr_values, 1)
-            #     fpr_values_auroc = np.append(fpr_values, 1)
-            #     # Metrics
-            #     auroc = round(np.trapz(tpr_values_auroc,
-            #                   fpr_values_auroc), 2)
-            #     aupr = round(np.trapz(precision, tpr_values), 2)
-            #     fpr95 = round(fpr_values_auroc[95], 2)
-            #     fpr80 = round(fpr_values_auroc[80], 2)
-            #     print(f"auroc: {auroc}, aupr: {aupr}, fpr95: {fpr95}")
-
-            #     averagePerClass = np.row_stack(averagePerClass)
-
-
-            #     _, ID_distances  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
-            #     _, OOD_distances = Metrics.AGGLO(OOD_feat_train, averagePerClass, threshold, number_classes)
-            #     test_distances = np.concatenate((ID_distances, OOD_distances))
-            #     _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-            #     threshold = threshold_tpr95
-            #     ID_predictions, _  = Metrics.AGGLO(ID_feat_test, averagePerClass, threshold, number_classes)
-            #     OOD_predictions, _ = Metrics.AGGLO(OOD_feat_train, averagePerClass, threshold, number_classes)
-            #     test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-            #     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-            #     print(f"threshold_tpr95: {threshold_tpr95}")
-            #     print(f"True positive rate: {tpr95}, False positive rate {fpr95}")
-            #     stats[i, j] = auroc 
-            #     stats[i, len(methods) + j] = aupr
-            #     stats[i, len(methods)*2 + j] = fpr95 
-            #     end_time = time.time()  # Record end time
-            #     execution_time = end_time - start_time  # Calculate execution time
-            #     print(f"AGGLO Execution time: {execution_time:.4f} seconds")
-
-            elif methods[j] == 'DBSCAN':
-                print("DBSCAN")
-                start_time = time.time()
-                number_classes = ID_prob_train.shape[1]
-                ID_labels = np.ones((len(ID_prob_test)))
-                OOD_labels = np.zeros((len(OOD_prob_train)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
-                threshold = 0
-
-                _, ID_distances  = Metrics.DBSCAN(ID_feat_train, ID_feat_test, threshold)
-                _, OOD_distances = Metrics.DBSCAN(ID_feat_train, OOD_feat_train, threshold)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-                print(f"threshold_tpr95: {threshold_tpr95}")
-
-                ID_predictions, _  = Metrics.DBSCAN(ID_feat_train, ID_feat_test, threshold)
-                OOD_predictions, _ = Metrics.DBSCAN(ID_feat_train, OOD_feat_train, threshold)
-
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-                # print(f"threshold_tpr95: {threshold_tpr95}")
-                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
-                stats[i, j] = auroc 
-                stats[i, len(methods) + j] = aupr
-                stats[i, len(methods)*2 + j] = fpr95 
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                print(f"DBSCAN Execution time: {execution_time:.4f} seconds")
 
             else:
                 pass
@@ -1247,35 +1088,115 @@ def statistics_test_population(config, acc_spk, acc_mem):
     print(f"\nDetailed statistics saved to: {results_filename}")
 
 
-def get_dist(features, centroids):
-    '''
-        Calculate distance of each feature samples from centroids.
-    '''
-    # TODO: Test different distances/metrics other than Euclidian
-    # TODO: Replace 10 with number of classes
+def statistics_test_1(config, acc_spk, acc_mem):
+    from feature import feature_extraction_spike
 
-    distances = np.zeros(len(features))
-    epsilon = 1e-10
-    p = 100
+    feature_types = ['features', 'spikes', 'probs', 'voltages']
+    ood_datasets = [dataset for dataset in config.dataset_feat if dataset != config.dataset_ID]
+    resnet_models = [4, 10, 18]
 
-    num_centroids = len(centroids)
+    results_filename = f'results/{config.methods[0]}_{config.case}_{config.dataset_ID}_A_{config.auto_aug}.txt'
 
-    for i in range(len(features)):
-        dist = np.zeros(num_centroids)
-        for j in range(num_centroids):
-            # dist[j] = np.sqrt(np.sum((centroids[j] - features[i])**2))
-            # dist[j] = np.power(np.sum(np.abs(centroids[j] - data[i])**p), 1/p)
-            dist[j] = np.sum(np.abs(centroids[j] - features[i]))
-        distances[i] = -dist.min()
+    with open(results_filename, 'w') as f:
+        # Write header information
+        f.write(f"{'='*60}\n")
+        f.write(f"Spiking ResNet Out-of-Distribution Detection Results\n")
+        f.write(f"Compare the results for different population coding expansions\n")
+        f.write(f"{'='*60}\n")
+        f.write(f"Experiment Configuration:\n")
+        f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
+        f.write(f"  Out-of-Distribution Datasets: {', '.join(ood_datasets)}\n")
+        f.write(f"  Case: {config.case}\n")
+        f.write(f"  Batch Size: {config.batch_size}\n")
+        f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
+        f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+        f.write(f"  Number of epochs: {config.epochs}\n")
+        f.write(f"  Fitting method: {config.fit}\n")
+        f.write(f"  Loss function: {config.loss}\n")
+        f.write(f"  Augmentation: {config.auto_aug}\n")
+        f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"\n")
+        f.write(f"Accuracy on spikes: {acc_spk:05.2f}\n")
+        f.write(f"Accuracy on membrane: {acc_mem:05.2f}\n")
+        f.write(f"{'='*60}\n\n")
+
+        # for expansion in expansions:
+        #     config.expansion = expansion
+        f.write(f"\n{' ' * 30}population coding expansion {config.expansion}\n")
+
+        # For each resnet model, train and extract features ONCE
+        all_stats = {}
+        for resnet_model in resnet_models:
+            print(f"Training ResNet{resnet_model} with expansion {config.expansion}")
+            if resnet_model == 4:
+                model_name = "spike-Conv"
+            elif resnet_model == 10:
+                model_name = "spike-ResNet10"
+            elif resnet_model == 18:
+                model_name = "spike-ResNet18"
+            else:
+                model_name = f"resnet{resnet_model}"
+            config.resnet_model = resnet_model
     
-    return distances
+            torch.cuda.empty_cache()
+            training_population(config)
+            feature_extraction_spike(config)
+            gc.collect()
+            torch.cuda.empty_cache()
+            # Collect stats for all feature types
+            all_stats[resnet_model] = {}
+            for feature_type in feature_types:
+                stats = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=config.methods, features=feature_type)
+                print(f"stats: {stats}")
+                all_stats[resnet_model][feature_type] = stats
+            gc.collect()
+            torch.cuda.empty_cache()
+
+        # Now, for each OOD dataset, build the table row
+        for ood_idx, ood_dataset in enumerate(ood_datasets):
+            row = ood_dataset.ljust(15)
+            for resnet_model in resnet_models:
+                feature_aurocs = []
+                for feature_type in feature_types:
+                    stats = all_stats[resnet_model][feature_type]
+                    auroc = stats[ood_idx, 0] if stats is not None and len(stats) > ood_idx else float('nan')
+                    feature_aurocs.append(f"{auroc*100:.2f}")
+                cell = " / ".join(feature_aurocs)
+                row += f"| {cell:<40}"
+            f.write(row + "\n")
+        f.write("\n")
+    print(f"\nDetailed statistics saved to: {results_filename}")
 
 
-def predictions(data, centroids, threshold):
-    '''
-        Make Id/Ood predictions regarding the given distances and threshold
-    '''
+# def get_dist(features, centroids):
+#     '''
+#         Calculate distance of each feature samples from centroids.
+#     '''
+#     # TODO: Test different distances/metrics other than Euclidian
+#     # TODO: Replace 10 with number of classes
 
-    distances = get_dist(data, centroids)
-    predictions = [1 if x > threshold else 0 for x in distances]
-    return predictions
+#     distances = np.zeros(len(features))
+#     epsilon = 1e-10
+#     p = 100
+
+#     num_centroids = len(centroids)
+
+#     for i in range(len(features)):
+#         dist = np.zeros(num_centroids)
+#         for j in range(num_centroids):
+#             # dist[j] = np.sqrt(np.sum((centroids[j] - features[i])**2))
+#             # dist[j] = np.power(np.sum(np.abs(centroids[j] - data[i])**p), 1/p)
+#             dist[j] = np.sum(np.abs(centroids[j] - features[i]))
+#         distances[i] = -dist.min()
+    
+#     return distances
+
+
+# def predictions(data, centroids, threshold):
+    # '''
+    #     Make Id/Ood predictions regarding the given distances and threshold
+    # '''
+
+    # distances = get_dist(data, centroids)
+    # predictions = [1 if x > threshold else 0 for x in distances]
+    # return predictions
