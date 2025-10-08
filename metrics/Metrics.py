@@ -92,6 +92,7 @@ class Metrics():
     #     predictions = (max_probs > threshold).astype(np.int32)
     #     return predictions, max_probs
     
+    @staticmethod
     def MSP(ID_feat_test, OOD_feat_test, threshold):
         '''
         Calculates the Maximum Softmax Probability (MSP) 
@@ -115,14 +116,43 @@ class Metrics():
 
         # Concatenate predictions
         test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-        end_time = time.time()  # Record end time
-        execution_time = end_time - start_time  # Calculate execution time
+        end_time = time.time()  
+        execution_time = end_time - start_time 
         print(f"MSP Execution time: {execution_time:.4f} seconds.")
 
         return test_labels, test_predictions, test_distances
     
     @staticmethod
-    def ENGY(test_data, threshold, T=1.0):
+    def MLS(ID_feat_test, OOD_feat_test, threshold):
+        '''
+        Calculates the Maximum Logit Score (MLS)
+        '''
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        ID_distances = np.max(ID_feat_test, axis=1)
+        OOD_distances = np.max(OOD_feat_test, axis=1)
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances < threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances < threshold).astype(np.int32)
+
+        # Concatenate predictions
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  
+        execution_time = end_time - start_time 
+        print(f"MLS Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+    
+    @staticmethod
+    def ENGY(ID_feat_test, OOD_feat_test, T=1.0):
         '''
         Energy-based OOD detection method.
         Low energy of input logit means ID sample, while high energy indicates OOD sample.
@@ -141,25 +171,53 @@ class Metrics():
             energies:       Array of energy values
         '''
 
-        e = -(-T * torch.logsumexp(torch.Tensor(test_data) / T, dim=1)).numpy()
-        predictions = (e > threshold).astype(np.int32)
-        return predictions, e
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        ID_distances = (-T * torch.logsumexp(torch.Tensor(ID_feat_test) / T, dim=1)).numpy()
+        OOD_distances = (-T * torch.logsumexp(torch.Tensor(OOD_feat_test) / T, dim=1)).numpy()
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        # Make predictions based on the distances
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
+
+        # Concatenate predictions
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  # Record end time
+        execution_time = end_time - start_time  # Calculate execution time
+        print(f"ENERGY Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
+
+        # e = -(-T * torch.logsumexp(torch.Tensor(ID_feat_test) / T, dim=1)).numpy()
+        # predictions = (e > threshold).astype(np.int32)
+        # return predictions, e
     
     @staticmethod
     def ODIN(test_data, test_grads, threshold, T=1.0):
         '''
         ODIN method for OOD detection.
+        Original ODIN requires model to be passed here, so this implementation
+        needs revision.
+        TODO: Revise the implementation.
         '''
         pass
 
     @staticmethod
-    def VIM(test_data, test_features, mu, null_space_eigvecs, threshold, alpha=0.1):
+    def VIM(ID_penultimate_test, ID_features_test, OOD_penultimate_test, OOD_features_test, mu, null_space_eigvecs, alpha=0.1):
         '''
         VIM method for OOD detection.
         
+        Needs revision
         Inputs:
-            test_data:      Matrix of input row-wise features
-            test_features:  Matrix of input row-wise features
+            test_data:      Matrix of input row-wise features (num_classes)
+            test_features:  Matrix of input row-wise features (penultimate layer)
             mu:             Mean of the training features
             null_space_eigvecs: Null space eigenvectors
             threshold:      Threshold value
@@ -169,26 +227,54 @@ class Metrics():
             predictions:    Array of predicted labels
             max_probs:      Array of output features, 1-D
         '''
-        residual = (test_features - mu) @ null_space_eigvecs
-        r_norm = torch.norm(residual, dim=1) 
-        logit_norm = torch.norm(test_data, dim=1)
-        vim = -(logit_norm - alpha * r_norm)
-        predictions = (vim > threshold).astype(np.int32)
-        return predictions, vim
+
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_features_test)))
+        OOD_labels = np.zeros((len(OOD_features_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        ID_residual = (ID_penultimate_test - mu) @ null_space_eigvecs
+        r_norm = np.linalg.norm(ID_residual, axis=1)
+        logit_norm = np.linalg.norm(ID_features_test, axis=1)
+        ID_distances = -(logit_norm - alpha * r_norm)
+        OOD_residual = (OOD_penultimate_test - mu) @ null_space_eigvecs
+        r_norm = np.linalg.norm(OOD_residual, axis=1)
+        logit_norm = np.linalg.norm(OOD_features_test, axis=1)
+        OOD_distances = -(logit_norm - alpha * r_norm)
+        test_distances = np.concatenate((ID_distances, OOD_distances))
+
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        threshold = threshold_tpr95
+
+        ID_predictions = (ID_distances < threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances < threshold).astype(np.int32)
+
+        # Concatenate predictions
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+        end_time = time.time()  
+        execution_time = end_time - start_time 
+        print(f"VIM Execution time: {execution_time:.4f} seconds.")
+
+        return test_labels, test_predictions, test_distances
     
     @staticmethod
-    def ASH(test_data, test_features, threshold, keep_ratio=0.25):
+    def ASH(ID_penultimate_test, ID_features_test, OOD_penultimate_test, OOD_features_test, number_features, keep_ratio=0.25):
         '''
         ASH method for OOD detection.
+        The ASH requires the model to be passed here. 
+        TODO: Revise the implementation.
         '''
         
         # Keep top-k% activations
-        k = int(test_features.numel() * keep_ratio)
-        thresh = torch.topk(test_features.flatten(), k)[0][-1]
-        feats = torch.where(test_data >= thresh, test_data, torch.zeros_like(test_data))
-        ash = -torch.logsumexp(feats, dim=1)
+        k = int(number_features * keep_ratio)
+        thresh = torch.topk(ID_penultimate_test.flatten(), k)[0][-1]
+        shaped_feats = torch.where(ID_penultimate_test >= thresh, ID_penultimate_test, torch.zeros_like(ID_penultimate_test))
+        norm_factor = ID_penultimate_test.sum(dim=1, keepdim=True) / (shaped_feats.sum(dim=1, keepdim=True) + 1e-12)
+        shaped_feats = shaped_feats * norm_factor
+        
+        ash = -torch.logsumexp(ID_features_test, dim=1)
 
-        predictions = (ash > threshold).astype(np.int32)
+        predictions = (ash > 0).astype(np.int32)
         return predictions, ash
 
     @staticmethod
@@ -605,13 +691,11 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
     ID_feat_train = ID['arr1']  # In-Distribution training set features
     ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
     ID_tags_train = ID['arr3']  # In-Distribution training set labels
-    if features == 'voltages':
-        ID_volt_train = ID['arr8']  # In-Distribution training set voltages
+    ID_volt_train = ID['arr8']  # In-Distribution training set voltages
     ID_spik_test  = ID['arr7']  # In-Distribution test set spikes
     ID_feat_test  = ID['arr4']  # In-Distribution test set features
     ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
-    if features == 'voltages':
-        ID_volt_test  = ID['arr9']  # In-Distribution test set voltages
+    ID_volt_test  = ID['arr9']  # In-Distribution test set voltages
     # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
     number_classes = ID_prob_train.shape[1]
 
@@ -622,11 +706,15 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
     elif features == 'spikes':
         print(f"Using final spikings {ID_spik_train.shape}:")
         ID_features_train = ID_spik_train
+        ID_penultimate_train = ID_feat_train
         ID_features_test = ID_spik_test
+        ID_penultimate_test = ID_feat_test
     elif features == 'probs':
         print(f"Using logits {ID_prob_train.shape}:")
         ID_features_train = ID_prob_train
+        ID_penultimate_train = ID_volt_train
         ID_features_test = ID_prob_test
+        ID_penultimate_test = ID_volt_test
     elif features == 'voltages':
         print(f"Using voltage feature vector {ID_volt_train.shape}:")
         ID_features_train = ID_volt_train
@@ -643,24 +731,26 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
         OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
         OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
         OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
-        if features == "voltages":
-            OOD_volt_train = OOD['arr8']  # Out-of-Distribution training set voltages
+        OOD_volt_train = OOD['arr8']  # Out-of-Distribution training set voltages
         OOD_spik_test  = OOD['arr7']  # Out-of-Distribution test set spikes
         OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
         OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
         OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
-        if features == "voltages":
-            OOD_volt_test  = OOD['arr9']  # Out-of-Distribution test set voltages
+        OOD_volt_test  = OOD['arr9']  # Out-of-Distribution test set voltages
 
         if features == 'features':
             OOD_features_train = OOD_feat_train
             OOD_features_test = OOD_feat_test
         elif features == 'spikes':
             OOD_features_train = OOD_spik_train
+            OOD_penultimate_train = OOD_feat_train
             OOD_features_test = OOD_spik_test
+            OOD_penultimate_test = OOD_feat_test
         elif features == 'probs':
             OOD_features_train = OOD_prob_train
+            OOD_penultimate_train = OOD_volt_train
             OOD_features_test = OOD_prob_test
+            OOD_penultimate_test = OOD_volt_test
         elif features == 'voltages':
             OOD_features_train = OOD_volt_train
             OOD_features_test = OOD_volt_test
@@ -683,8 +773,8 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
             #     # plt.show()
 
             if methods[j] == 'MSP':
-                # print(f"New MSP on {namesOOD[i]}")
-                test_labels, test_predictions, test_distances = Metrics.MSP2(ID_features_test, OOD_features_test, number_classes)
+                # print(f"MSP on {namesOOD[i]}")
+                test_labels, test_predictions, test_distances = Metrics.MSP(ID_features_test, OOD_features_test, number_classes)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
                 # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
@@ -692,6 +782,17 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 # print(f"MSP Done.\n")
+
+            elif methods[j] == 'MLS':
+                # print(f"MLS on {namesOOD[i]}")
+                test_labels, test_predictions, test_distances = Metrics.MLS(ID_features_test, OOD_features_test, number_classes)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+
+                # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                stats[i, j] = auroc 
+                stats[i, len(methods) + j] = aupr
+                stats[i, len(methods)*2 + j] = fpr95 
+                # print(f"MLS Done.\n")
             
             elif methods[j] == 'NCM':
                 # print(f"NCM on {namesOOD[i]}")
@@ -704,36 +805,17 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
                 # print(f"NCM Done.\n")
-               
-            elif methods[j] == 'MLS':
-                # MLS is the maximum logit score method
-                start_time = time.time() 
-                ID_labels   = np.ones((len(ID_prob_test)))
-                OOD_labels  = np.zeros((len(OOD_prob_train)))
-                test_labels = np.concatenate((ID_labels, OOD_labels))
 
-                # Calculates softmax probabilities
-                ID_distances = np.max(ID_prob_test, axis=1)
-                OOD_distances = np.max(OOD_prob_train, axis=1)
-                test_distances = np.concatenate((ID_distances, OOD_distances))
-
-                _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-                threshold = threshold_tpr95
-
-                # Make predictions based on distances and threshold
-                ID_predictions = (ID_distances > threshold).astype(np.int32)
-                OOD_predictions = (OOD_distances > threshold).astype(np.int32)
-
-                test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+            elif methods[j] == 'ENGY':
+                # print(f"ENGY on {namesOOD[i]}")
+                test_labels, test_predictions, test_distances = Metrics.ENGY(ID_features_test, OOD_features_test, T=1.0)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
-                # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                print(f"MLS Execution time: {execution_time:.4f} seconds.\n")
+                # print(f"ENGY Done.\n")
 
             elif methods[j] == 'SD':
                 # this method needs revision
@@ -805,6 +887,59 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 stats[i, j] = auroc 
                 stats[i, len(methods) + j] = aupr
                 stats[i, len(methods)*2 + j] = fpr95 
+
+            elif methods[j] == 'VIM':
+                number_classes = ID_prob_train.shape[1]
+                number_features = ID_features_train.shape[1]
+                number_residuals = number_features - number_classes
+
+                if features == 'probs' or features == 'spikes':
+
+                    print(f"VIM on {namesOOD[i]}")
+                    mu = ID_penultimate_train.mean(axis=0)
+                    # print(f"mu shape: {mu.shape}")
+                    X = ID_penultimate_train - mu
+                    _, _, Vt = np.linalg.svd(X, full_matrices=False)
+                    V = Vt.T[:, number_classes:number_classes + number_residuals]
+
+                    test_labels, test_predictions, test_distances = Metrics.VIM(ID_penultimate_test, ID_features_test, OOD_penultimate_test, OOD_features_test, mu, V)
+
+                    auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                    
+                    # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                    # print(f"auroc: {auroc:.2f}, aupr {aupr:.2f}, tpr95 {tpr95:.2f}, fpr95 {fpr95:.2f}")
+                    stats[i, j] = auroc 
+                    stats[i, len(methods) + j] = aupr
+                    stats[i, len(methods)*2 + j] = fpr95  
+
+                elif methods[j] == 'ASH':
+                    number_classes = ID_prob_train.shape[1]
+                    number_features = ID_features_train.shape[1]
+                    number_residuals = number_features - number_classes
+
+                if features == 'probs' or features == 'spikes':
+
+                    print(f"ASH on {namesOOD[i]}")
+                    mu = ID_penultimate_train.mean(axis=0)
+                    # X = ID_penultimate_train - mu
+                    # _, _, Vt = np.linalg.svd(X, full_matrices=False)
+                    # V = Vt.T[:, number_classes:number_classes + number_residuals]
+
+                    test_labels, test_predictions, test_distances = Metrics.ASH(ID_penultimate_test, ID_features_test, OOD_penultimate_test, OOD_features_test, number_features)
+
+                    auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+                    
+                    # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
+                    # print(f"auroc: {auroc:.2f}, aupr {aupr:.2f}, tpr95 {tpr95:.2f}, fpr95 {fpr95:.2f}")
+                    stats[i, j] = auroc 
+                    stats[i, len(methods) + j] = aupr
+                    stats[i, len(methods)*2 + j] = fpr95  
+
+                else:
+                    print(f"ASH method is not applicable for {features}.")
+                    stats[i, j] = -0.01
+                    stats[i, len(methods) + j] = -0.01
+                    stats[i, len(methods)*2 + j] = -0.01
 
             elif methods[j] == 'FKM':
                 print(f"K-MEANS Full Clustering on {namesOOD[i]}")

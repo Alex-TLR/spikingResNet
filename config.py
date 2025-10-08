@@ -226,15 +226,15 @@ class ExperimentConfig:
         self.dataset_feat = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '17'
-        self.methods = ['MSP', 'MSP2']
+        self.case = '30'
+        self.methods = ['MSP', 'MLS', 'NCM', 'KNN', 'ENGY', 'VIM']
         # self.methods = ['NCM', 'KNN', 'FKM', 'CKM']
         
         # Model parameters
         self.model_type = 'spike'
-        self.resnet_model = 4
+        self.resnet_model = 10
         self.num_classes = 10
-        self.expansion = 50
+        self.expansion = 1
         self.num_time_steps_train = 1
         self.num_time_steps_extract = 1
         self.override_feature_extraction = False
@@ -252,7 +252,8 @@ class ExperimentConfig:
         # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
         # set the "test_population" mode for the pipeline: train, test, feature extraction for different extraction time steps, statistics
         # set the "test_1" mode for testing with different setup when T = 1 is used for training
-        self.mode = 'test'
+        self.mode = 'multi_train'
+        # self.mode = 'multi_train' to train with different seeds
 
         # Parser defaults (only used if explicitly provided)
         # self.seed = 42

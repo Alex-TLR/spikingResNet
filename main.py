@@ -129,7 +129,7 @@ if __name__ == "__main__":
         statistics(config, acc_spk, acc_mem)
 
         # Vizualizer
-        # Utils.visualize_feature(str(self.dataset_ID), str(self.dataset_feat[1]), config.case, feature_type='voltages')
+        Utils.visualize_feature(str(config.dataset_ID), str(config.dataset_feat[1]), config.case, feature_type='features')
 
     elif config.mode == 'test_population':
         # if config.expansion == 1:
@@ -167,11 +167,27 @@ if __name__ == "__main__":
             print("For this mode, the training time steps should be set to 1.")
         # Feature extraction for different steps
         config.override_feature_extraction = True
-        config.methods = ['KNN']
+        config.methods = ['NCM']
         statistics_test_1(config, acc_spk, acc_mem)
 
         print("Done testing for 1-step training.")
 
+    elif config.mode == 'multi_train':
+        expansions = [1, 5, 10, 25, 50]
+        for expansion in expansions:
+            config.expansion = expansion
+            seeds = [42, 1987, 1991, 2020, 2024]
+            for seed in seeds:
+                config.seed = seed
+                if config.num_time_steps_train == 1:
+                    if config.loss != 'mse_count_loss':
+                        training(config)
+                        acc_spk, acc_mem = test_accuracy(config)
+                    elif config.loss == 'mse_count_loss':
+                        training_population(config)
+                        acc_spk, acc_mem = test_accuracy_population(config)
+                else:
+                    print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
 
     else:
         print("Mode not recognized. Use 'test' or 'test_population'.")
