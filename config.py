@@ -223,13 +223,13 @@ class ExperimentConfig:
         self.model_type = 'spike'
         self.resnet_model = 18
         self.num_classes = 10
-        self.expansion = 10
+        self.expansion = 1
         self.num_time_steps_train = 1
         self.num_time_steps_extract = 1
         self.override_feature_extraction = False
 
         # Training parameters
-        self.batch_size = 32
+        self.batch_size = 64
         self.epochs = 200
         self.full_train = True
         self.auto_aug = False
