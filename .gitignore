@@ -17,3 +17,5 @@ tsne
 *.out
 *.log
 *.pth
+*.zip
+*.xlsx
