@@ -10,7 +10,7 @@ import argparse
 import sys
 from config import ExperimentConfig
 from datetime import datetime
-from metrics.Metrics import statistics, statistics_test_population, statistics_test_1
+from metrics.Metrics import statistics, statistics_test_population, statistics_test_1, statistics_exp_1
 
 def get_parser():
     parser = argparse.ArgumentParser(description="SpikingResNet Training Configuration")
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         statistics(config, acc_spk, acc_mem)
 
         # Vizualizer
-        Utils.visualize_feature(str(config.dataset_ID), str(config.dataset_feat[1]), config.case, feature_type='features')
+        # Utils.visualize_feature(str(config.dataset_ID), str(config.dataset_feat[2]), config.case, feature_type='features')
 
     elif config.mode == 'test_population':
         # if config.expansion == 1:
@@ -173,136 +173,95 @@ if __name__ == "__main__":
         print("Done testing for 1-step training.")
 
     elif config.mode == 'multi_train':
-        expansions = [1, 5, 10, 25, 50]
+        expansions = [5, 10, 25, 50]
         for expansion in expansions:
             config.expansion = expansion
             seeds = [42, 1987, 1991, 2020, 2024]
             for seed in seeds:
                 config.seed = seed
-                if config.num_time_steps_train == 1:
-                    if config.loss != 'mse_count_loss':
+                if config.num_time_steps_train >= 1:
+                    if config.expansion == 1:
                         training(config)
                         acc_spk, acc_mem = test_accuracy(config)
-                    elif config.loss == 'mse_count_loss':
+                    elif config.expansion != 1:
                         training_population(config)
                         acc_spk, acc_mem = test_accuracy_population(config)
                 else:
                     print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
 
+    elif config.mode == 'multi_test':
+        expansions = [1, 5, 10, 25, 50]
+        seeds = [42, 1987, 1991, 2020, 2024]
+        resnet_models = [4, 10, 18]  # Add ResNet models to iterate over
+
+        # Prepare results file
+        results_filename = f"results/multi_test_{config.dataset_ID}_{config.auto_aug}_{config.loss}.txt"
+        with open(results_filename, 'w') as f:
+            # Write header information
+            f.write(f"{'='*60}\n")
+            f.write(f"Spiking ResNet Multi-Test Results\n")
+            f.write(f"{'='*60}\n")
+            f.write(f"Experiment Configuration:\n")
+            f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
+            f.write(f"  Case: {config.case}\n")
+            f.write(f"  Batch Size: {config.batch_size}\n")
+            f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
+            f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+            f.write(f"  Number of epochs: {config.epochs}\n")
+            f.write(f"  Fitting method: {config.fit}\n")
+            f.write(f"  Loss function: {config.loss}\n")
+            f.write(f"  Augmentation: {config.auto_aug}\n")
+            f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"\n")
+
+            for resnet_model in resnet_models:
+                config.resnet_model = resnet_model
+
+                # Write ResNet model header
+                f.write(f"ResNet Model: {resnet_model}\n")
+                f.write(f"{'Expansion':<12}{'Spike Accuracy':<20}{'Membrane Accuracy':<20}\n")
+                f.write(f"{'-'*60}\n")
+
+                for expansion in expansions:
+                    config.expansion = expansion
+                    config.override_feature_extraction = True
+
+                    spike_accuracies = []
+                    membrane_accuracies = []
+
+                    for seed in seeds:
+                        config.seed = seed
+
+                        # Perform test accuracy for the current seed
+                        if config.expansion == 1:
+                            training(config)
+                            acc_spk, acc_mem = test_accuracy(config)
+                        elif config.expansion != 1:
+                            training_population(config)
+                            acc_spk, acc_mem = test_accuracy_population(config)
+                        spike_accuracies.append(acc_spk)
+                        membrane_accuracies.append(acc_mem)
+
+                    # Average accuracies over all seeds
+                    avg_spike_accuracy = sum(spike_accuracies) / len(spike_accuracies)
+                    avg_membrane_accuracy = sum(membrane_accuracies) / len(membrane_accuracies)
+
+                    # Write results to file
+                    f.write(f"{expansion:<12}{avg_spike_accuracy:<20.2f}{avg_membrane_accuracy:<20.2f}\n")
+
+                f.write(f"{'='*60}\n\n")
+
+        print("Done multi-test for different expansions and ResNet models.")
+
+    elif config.mode == 'ex_1':
+        seeds = [42, 1987, 1991, 2020, 2024]
+        config.override_feature_extraction = True
+        statistics_exp_1(config, seeds)
+        print("Done experiment 1.")
+
     else:
         print("Mode not recognized. Use 'test' or 'test_population'.")
 
-
-    # # Statistics
-    # feature_types = ['features', 'spikes', 'probs', 'voltages']
-    # results_filename = f'results/OoD_case_{config.case}_{config.dataset_ID}_ResNet{config.resnet_model}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_E_{config.expansion}_A_{config.auto_aug}.txt'
-    # ood_datasets = [dataset for dataset in config.dataset_feat if dataset != config.dataset_ID]
-
-    # # Open file for writing
-    # with open(results_filename, 'w') as f:
-    #     # Write header information
-    #     f.write(f"{'='*60}\n")
-    #     f.write(f"Spiking ResNet Out-of-Distribution Detection Results\n")
-    #     f.write(f"{'='*60}\n")
-    #     f.write(f"Experiment Configuration:\n")
-    #     f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
-    #     f.write(f"  Out-of-Distribution Datasets: {', '.join(ood_datasets)}\n")
-    #     f.write(f"  Model: ResNet{config.resnet_model}\n")
-    #     f.write(f"  Case: {config.case}\n")
-    #     f.write(f"  Batch Size: {config.batch_size}\n")
-    #     if config.expansion == 1:
-    #         f.write(f"  No population coding.\n")
-    #     elif config.expansion > 1:
-    #         f.write(f"  Population coding with {config.expansion} expansions.\n")
-    #     f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
-    #     f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
-    #     f.write(f"  Number of epochs: {config.epochs}\n")
-    #     f.write(f"  Fitting method: {config.fit}\n")
-    #     f.write(f"  Loss function: {config.loss}\n")
-    #     f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    #     f.write(f"\n")
-    #     f.write(f"Accuracy on spikes: {acc_spk:05.2f}\n")
-    #     f.write(f"Accuracy on membrane: {acc_mem:05.2f}\n")
-    #     f.write(f"{'='*60}\n\n")
-        
-    #     all_results = {}
-    #     methods = ['NCM', 'MD', 'KNN', 'FKM', 'CKM']
-        
-    #     # Process each feature type
-    #     for feature_type in feature_types:
-    #         print(f"Processing statistics for feature type: {feature_type}")
-    #         f.write(f"Feature Type: {feature_type.upper()}\n")
-    #         f.write(f"{'-'*40}\n")
-            
-    #         try:
-    #             stats = test_metrics(case=config.case, nameID=config.dataset_ID, methods=methods, features=feature_type)
-                
-    #             if stats is not None and len(stats) > 0:
-    #                 formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-    #                 all_results[feature_type] = formatted_stats
-                    
-    #                 # Build the exact format you want
-    #                 # Each method gets 5 characters, separated by ' | ' (3 chars)
-    #                 # AUROC section: 5 methods = 5 chars + 4 separators = 37 chars total
-    #                 # AUPR section: same = 37 chars
-    #                 # FPR95 section: same = 37 chars
-    #                 span = len(methods) * 6 + (len(methods) - 1) * 3
-                    
-    #                 # Top header with metric spans
-    #                 auroc_span = "AUROC".center(span)
-    #                 aupr_span = "AUPR".center(span)
-    #                 fpr95_span = "FPR95".center(span)
-
-    #                 top_header = f"  {'Dataset':10s}: {auroc_span} | {aupr_span} | {fpr95_span}"
-                    
-    #                 # Method header - repeat methods 3 times
-    #                 methods_line = ' | '.join([f'{method:>6s}' for method in methods])
-    #                 method_header = f"  {'':10s}: {methods_line} | {methods_line} | {methods_line}"
-
-    #                 # Separator line matching the total width
-    #                 total_width = len(method_header)
-    #                 separator = '-' * total_width
-                    
-    #                 # Write formatted table
-    #                 f.write(f"{top_header}\n")
-    #                 f.write(f"{method_header}\n")
-    #                 f.write(f"{separator}\n")
-                    
-    #                 # Data rows
-    #                 for i, row in enumerate(formatted_stats):
-    #                     if i < len(ood_datasets):
-    #                         dataset_name = ood_datasets[i]
-    #                         formatted_row = ' | '.join([f'{cell:>6s}' for cell in row])
-    #                         f.write(f"  {dataset_name:<10s}: {formatted_row}\n")
-
-    #                 # Console output
-    #                 # print(f"  Results for {feature_type}:")
-    #                 # print(f"{top_header}")
-    #                 # print(f"{method_header}")  
-    #                 # print(f"{separator}")
-    #                 # for i, row in enumerate(formatted_stats):
-    #                 #     if i < len(ood_datasets):
-    #                 #         dataset_name = ood_datasets[i]
-    #                 #         formatted_row = ' | '.join([f'{cell:>6s}' for cell in row])
-    #                 #         print(f"  {dataset_name:<10s}: {formatted_row}")
-    #             else:
-    #                 f.write("  No data available\n")
-    #                 print(f"  No data available for {feature_type}")
-                    
-    #         except Exception as e:
-    #             error_msg = f"Error: {str(e)}"
-    #             f.write(f"  {error_msg}\n")
-    #             print(f"  {error_msg}")
-    #         finally:
-    #             f.write("\n")
-    #             print()
-
-    # print(f"\nDetailed statistics saved to: {results_filename}")
-
-    # stats = test_metrics(case=config.case, nameID=config.dataset_ID, features='features')
-    # formatted_stats = np.array([[f'{elem*100:.2f}' for elem in row] for row in stats])
-    # for row in formatted_stats:
-    #     print(' '.join(row))
 
     # Vizualizer
     # Utils.visualize_feature('CIFAR10', 'Food101', case, feature_type='voltages')

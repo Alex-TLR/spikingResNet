@@ -261,6 +261,9 @@ def training(config):
                 loss_fn = nn.CrossEntropyLoss()
             elif config.loss == 'mse_count_loss':
                 loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=False, num_classes=config.num_classes)
+            else:
+                print("Loss function not defined")
+                return -1
             # Optimizer for gray 5e-4
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
             optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=wDecay)
@@ -504,9 +507,9 @@ def training_population(config):
                 
                 start_time = time.time()
                 if config.fit == 'membrane':
-                    print(f"For population coding we can not fit on membrane voltage.")
-                    return -1 
-                    # H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                    # print(f"For population coding we can not fit on membrane voltage.")
+                    # return -1 
+                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 elif config.fit == 'spike':
                     H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time

@@ -98,7 +98,7 @@ def feature_extraction_conv(dataSet):
 
     return None
 
-RGB_DATASETS = ['CIFAR10', 'CIFAR100', 'SVHN', 'Food101', 'Textures', 'Places365']
+RGB_DATASETS = ['CIFAR10', 'CIFAR100', 'SVHN', 'Food101', 'Textures', 'Places365', 'tiny-imagenet-200']
 GRAYSCALE_DATASETS = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 
 
@@ -131,8 +131,10 @@ def feature_extraction_spike(config):
     for i in range(len(config.dataset_feat)):
         print(f"Extracting features for {config.dataset_feat[i]}")
         if needs_grayscale_to_rgb(config.dataset_ID, config.dataset_feat[i]):
+            # print(1)
             dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], gray2rgb=True)
         else:
+            # print(2)
             dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i])
         # Get image size
         channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_feat[i])

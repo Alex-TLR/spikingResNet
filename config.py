@@ -223,16 +223,16 @@ class ExperimentConfig:
         # Dataset parameters
         self.dataset_ID = 'CIFAR10'
         # self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
-        self.dataset_feat = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
+        self.dataset_feat = ['CIFAR10', 'CIFAR100', 'tImage200']
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '30'
-        self.methods = ['MSP', 'MLS', 'NCM', 'KNN', 'ENGY', 'VIM']
-        # self.methods = ['NCM', 'KNN', 'FKM', 'CKM']
+        self.case = '42'
+        self.methods = ['ENGY', 'MSP', 'MLS', 'NCM', 'ODIN', 'KNN']
+        # self.methods = ['VIM', 'NCM', 'ENGY', 'MSP']
         
         # Model parameters
         self.model_type = 'spike'
-        self.resnet_model = 10
+        self.resnet_model = 18
         self.num_classes = 10
         self.expansion = 1
         self.num_time_steps_train = 1
@@ -241,19 +241,22 @@ class ExperimentConfig:
         self.seed = 42
 
         # Training parameters
+        # Training parameters
         self.batch_size = 64
         self.epochs = 200
         self.full_train = True
         self.auto_aug = False
         self.pretrained = False
-        self.loss = 'mse_count_loss'
-        self.fit = 'spike'
+        self.loss = 'cross_entropy'
+        self.fit = 'membrane'
 
         # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
         # set the "test_population" mode for the pipeline: train, test, feature extraction for different extraction time steps, statistics
         # set the "test_1" mode for testing with different setup when T = 1 is used for training
-        self.mode = 'multi_train'
         # self.mode = 'multi_train' to train with different seeds
+        # self.mode = 'multi_test' to test accuracy with different seeds
+        # self.mode = 'ex_1' the first part of the experiment 1
+        self.mode = 'multi_train'
 
         # Parser defaults (only used if explicitly provided)
         # self.seed = 42

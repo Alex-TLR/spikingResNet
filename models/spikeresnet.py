@@ -335,9 +335,24 @@ class BasicModel(nn.Module):
                 # Generate predictions/ forward pass
                 _, _, membrane, _ = model(batch, nSteps)
                 mem = membrane.mean(0)
+                # print(f"Membrane shape before reshape: {mem.shape}")
+                # print(f"Membrane sample before reshape: {mem[0:5,:]}")
+                if hasattr(model, 'expansion') and model.expansion > 1:
+                    # print(f"membrane shape before reshape: {membrane.shape}")
+                    # We need to fix this part to make it suitable for mutli-step training.
+                    # in feature extraction, we have 
+                    # spikes = s.sum(axis=0)
+                    # probs = p.max(axis=0)
+                    mem = membrane.reshape(membrane.shape[1], model.numberOfClasses , model.expansion).sum(axis=2)                    
+
+                # mem = mem.mean(0)
+                # print(f"Membrane shape after reshape: {mem.shape}")
+                # print(f"Membrane sample after reshape: {mem[0:5,:]}")
                 # Calculate loss should be calculated on membrane potential
                 loss = lossF(mem, labels) 
                 tLoss.append(loss.detach().item())
+                # print(f"Loss: {loss.detach().item():.4f}")
+                # return -1
                 # Set opt grad
                 opt.zero_grad()
                 # Update weights
@@ -349,6 +364,8 @@ class BasicModel(nn.Module):
                     sched.step()
                 # Check train accuracy
                 # a, _ = self.accuracy_membrane(model, nSteps, batch, labels, device)
+                if hasattr(model, 'expansion') and model.expansion > 1:
+                    mem = membrane.reshape(membrane.shape[1], model.numberOfClasses , model.expansion).sum(axis=2)
                 predicted = torch.argmax(mem, dim=1)
                 correct = (predicted == labels).float()
                 a = correct.sum()
@@ -991,14 +1008,12 @@ class SpikeResNet18Model(BasicModel):
             cur8_2 = self.resBlock8_2(spk8_1)
             spk8_2, mem8_2 = self.r8_lif2(cur8_2, mem8_2)
             # make skip connection
-            # spk_r8_1 = spk8_2 + identity_7
             spk_r8_1 = torch.clamp(spk8_2 + identity_7, max = 1)
             cur8_3 = self.resBlock8_3(spk_r8_1)
             spk8_3, mem8_3 = self.r8_lif3(cur8_3, mem8_3)
             cur8_4 = self.resBlock8_4(spk8_3)
             spk8_4, mem8_4 = self.r8_lif4(cur8_4, mem8_4)
             # make skip connection
-            # spk_r8_2 = spk8_4 + spk_r8_1
             spk_r8_2 = torch.clamp(spk8_4 + spk_r8_1, max = 1)
 
             memF = self.amax9_mem(mem8_4)  # [B, 512, 1, 1]

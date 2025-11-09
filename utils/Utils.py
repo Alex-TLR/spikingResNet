@@ -1,5 +1,5 @@
 from cProfile import label
-from torchvision.datasets import MNIST, KMNIST, FashionMNIST, DTD, Places365, CIFAR10, CIFAR100, SVHN, Places365, EMNIST, Food101, ImageNet
+from torchvision.datasets import MNIST, KMNIST, FashionMNIST, DTD, Places365, CIFAR10, CIFAR100, SVHN, Places365, EMNIST, Food101, ImageNet, ImageFolder
 from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
@@ -21,12 +21,30 @@ class Utils():
 
     def targetTransform(label):
         return label - 1 
+    
 
     @staticmethod
     def load_data(database_name, auto_aug=False, gray2rgb=False):
         '''
         database_name:      Name of the database (MNIST, KMNIST, FMNIST)
         '''
+
+        class TinyImageNetTestDataset(Dataset):
+            def __init__(self, root, transform=None):
+                self.root = root
+                self.transform = transform
+                self.image_paths = sorted(os.listdir(os.path.join(root, 'images')))
+                self.image_paths = [os.path.join(root, 'images', img) for img in self.image_paths]
+
+            def __len__(self):
+                return len(self.image_paths)
+
+            def __getitem__(self, idx):
+                img_path = self.image_paths[idx]
+                image = Image.open(img_path).convert("RGB")
+                if self.transform:
+                    image = self.transform(image)
+                return image, -1  # Return -1 as the label since test labels are not provided
 
         transformData_gray_28 = transforms.Compose([transforms.Resize((28, 28)),
                                                     # transforms.RandomCrop(28, padding=4),
@@ -87,8 +105,8 @@ class Utils():
                 aug.append(transforms.RandomCrop(32, padding=4))
                 aug.append(transforms.RandomHorizontalFlip())
                 
-                if auto_aug:
-                    aug.append(CIFAR10Policy())  # Add AutoAugment policy
+                # if auto_aug:
+                #     aug.append(CIFAR10Policy())  # Add AutoAugment policy
                 
                 aug.append(transforms.ToTensor())
                 
@@ -97,26 +115,26 @@ class Utils():
                     # aug.append(Cutout(n_holes=1, length=16))
                     pass
                 
-                aug.append(transforms.Normalize(
-                    (0.4914, 0.4822, 0.4465), 
-                    (0.2023, 0.1994, 0.2010)
-                ))
-                # aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                # aug.append(transforms.Normalize(
+                #     (0.4914, 0.4822, 0.4465), 
+                #     (0.2023, 0.1994, 0.2010)
+                # ))
+                aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
                 
                 return transforms.Compose(aug)
             else:
                 # Test/validation transform (no augmentation)
-                return transforms.Compose([
-                    transforms.Resize((32, 32)),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        (0.4914, 0.4822, 0.4465), 
-                        (0.2023, 0.1994, 0.2010)
-                    )
-                ])
-                # return transforms.Compose([transforms.Resize((32, 32)),
-                #                                     transforms.ToTensor(),
-                #                                     transforms.Normalize((0,0,0,), (1,1,1,))])
+                # return transforms.Compose([
+                #     transforms.Resize((32, 32)),
+                #     transforms.ToTensor(),
+                #     transforms.Normalize(
+                #         (0.4914, 0.4822, 0.4465), 
+                #         (0.2023, 0.1994, 0.2010)
+                #     )
+                # ])
+                return transforms.Compose([transforms.Resize((32, 32)),
+                                                    transforms.ToTensor(),
+                                                    transforms.Normalize((0,0,0,), (1,1,1,))])
         
         if database_name == 'MNIST':
             name = 'mnist' 
@@ -142,10 +160,10 @@ class Utils():
             name = 'cifar10'
             Name =  'CIFAR10'
             # transformData = transformData_cifar10
-            # transformData_train = get_cifar10_transforms(auto_aug=auto_aug, training=True)
-            # transformData_test = get_cifar10_transforms(auto_aug=False, training=False)
-            transformData_train = transformData_rgb_32
-            transformData_test = transformData_rgb_32
+            transformData_train = get_cifar10_transforms(auto_aug=auto_aug, training=True)
+            transformData_test = get_cifar10_transforms(auto_aug=False, training=False)
+            # transformData_train = transformData_rgb_32
+            # transformData_test = transformData_rgb_32
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
         elif database_name == 'SVHN':
@@ -182,28 +200,31 @@ class Utils():
             transformData_test = transformData_rgb_32
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData_train)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData_test)'
+        elif database_name == 'tImage200':
+            name = 'tImage200'
+            Name = 'TinyImageNet'
+            # transformData_train = transforms.Compose([
+            #     transforms.Resize((64, 64)),  # Resize to 64x64 as per TinyImageNet
+            #     transforms.RandomHorizontalFlip(),
+            #     transforms.ToTensor(),
+            #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalize to [-1, 1]
+            # ])
+            # transformData_test = transforms.Compose([
+            #     transforms.Resize((64, 64)),
+            #     transforms.ToTensor(),
+            #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            # ])
+            transformData_train = transformData_rgb_32
+            transformData_test = transformData_rgb_32
 
-        # elif database_name == 'Places365':
-        #     name = 'places'
-        #     Name = 'Places365'
-        #     transformData_train = transformData_rgb_32
-        #     transformData_test = transformData_rgb_32
-        #     command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train-standard\', small = True, transform = transformData_train)'
-        #     command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'val\', small = True, transform = transformData_test)'
-        #     print(command_train)
-        #     print(command_test)
+            # Define paths to train and validation data
+            train_dir = os.path.join('data', name, 'train')
+            test_dir = os.path.join('data', name, 'test')
+
         else:
-            print("Wrong database name!")
+            print("UTILS Wrong database name!")
             return -1
 
-        # if (database_name != 'SVHN') and (database_name != 'Places365') and (database_name != 'EMNIST') and (database_name != 'Letters') and (database_name != 'Food101'):
-        #     command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
-        #     # print(command_train)
-        #     command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
-        #     # print(command_test)
-        # if database_name == 'CIFAR10':
-        #     command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
-        #     command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
         if database_name == 'SVHN':
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', target_transform = transformData)'
             # print(command_train)
@@ -238,12 +259,18 @@ class Utils():
         elif database_name == "KMNIST":
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
+        elif database_name == 'tImage200':
+            # Use ImageFolder to load the dataset
+            dataset_train = ImageFolder(root=train_dir, transform=transformData_train)
+            # dataset_test = ImageFolder(root=test_dir, transform=transformData_test)
+            dataset_test = TinyImageNetTestDataset(root=test_dir, transform=transformData_test)
         else:
             print(f"Wrong data set name.")
 
         # print(command_train)
-        dataset_train = eval(command_train)
-        dataset_test = eval(command_test)
+        if database_name != 'tImage200':
+            dataset_train = eval(command_train)
+            dataset_test = eval(command_test)
 
         return dataset_train, dataset_test
     
@@ -488,26 +515,16 @@ class Utils():
             Plot reduced features Id/Ood
         
             Id (str):   In distribution dataset
-            Ood (str):  Out of distribution dataset  
-
-            spik_train = F['arr0']
-            feat_train = F['arr1']  
-            prob_train = F['arr2']  
-            tags_train = F['arr3']
-            volt_train = F['arr8']
-            spik_test  = F['arr7']  
-            feat_test  = F['arr4']  
-            prob_test  = F['arr5']  
-            tags_test  = F['arr6']
-            volt_test  = F['arr9']  
-        
+            Ood (str):  Out of distribution dataset 
+            case (str): Case identifier
+            
         '''
 
         fileName = 'tsne/' + str(case) + '_' + str(Id) + '_' + str(Ood) + '_feature_type_' + str(feature_type) + '.npz'
         print(fileName)
-        
+
         if (Utils.does_file_exists(fileName)):
-            
+
             tsne = TSNE(n_components=2, random_state=42)
             folderName = 'features/spike/case_' + case + '/'
             print(folderName)
@@ -515,62 +532,83 @@ class Utils():
             print(files)
 
             filePathId = folderName + str(Id) + '-on_' + Id.lower() + '.npz'
+            print(f"filePathId: {filePathId}")
             if Ood is not None:
                 filePathOod = folderName + str(Ood) + '-on_' + Id.lower() + '.npz'
+                print(f"filePathOod: {filePathOod}")
 
             features = []
-            border = 0
+            border_id = 0
+            border_ood = 0
 
             F_id = np.load(filePathId)
+            features_id_test = []
+            features_id_train = []
             if feature_type == 'features':
-                features1 = F_id['arr4']
+                print(f"Loading features from {filePathId}")
+                print(f"F_id['arr4']: {F_id['arr4'].shape}")
+                print(f"F_id['arr1']: {F_id['arr1'].shape}")
+                features_id_test.append(F_id['arr4'])
+                features_id_train.append(F_id['arr1'])
             elif feature_type == 'spikes':
-                features1 = F_id['arr0']
+                features_id_test.append(F_id['arr7'])
+                features_id_train.append(F_id['arr0'])
             elif feature_type == 'probs':
-                features1 = F_id['arr2']
+                features_id_test.append(F_id['arr5'])
+                features_id_train.append(F_id['arr2'])
             elif feature_type == 'voltages':
-                features1 = F_id['arr8']
+                features_id_test.append(F_id['arr9'])
+                features_id_train.append(F_id['arr8'])
+            features_id_test = np.concatenate(features_id_test, axis=1)
+            features_id_train = np.concatenate(features_id_train, axis=1)
 
             if Ood is not None:
-                border = len(features1)
                 F_ood = np.load(filePathOod)
+                features_ood_test = []
                 if feature_type == 'features':
-                    features2 = F_ood['arr4']
+                    features_ood_test.append(F_ood['arr4'])
                 elif feature_type == 'spikes':
-                    features2 = F_ood['arr0']
+                    features_ood_test.append(F_ood['arr7'])
                 elif feature_type == 'probs':
-                    features2 = F_ood['arr2']
+                    features_ood_test.append(F_ood['arr5'])
                 elif feature_type == 'voltages':
-                    features2 = F_ood['arr8']
+                    features_ood_test.append(F_ood['arr9'])
+                features_ood_test = np.concatenate(features_ood_test, axis=1)
 
-            print(f'features1.shape is {features1.shape}')
+            print(f'features_id_test.shape is {features_id_test.shape}')
+            print(f'features_id_train.shape is {features_id_train.shape}')
 
             if Ood is not None:
-                print(f'features2.shape is {features2.shape}')
-                features = np.vstack((features1, features2))
+                print(f'features_ood_test.shape is {features_ood_test.shape}')
+                features = np.vstack((features_id_test, features_ood_test, features_id_train))
+                border_id = len(features_id_test)
+                border_ood = border_id + len(features_ood_test)
             else:
-                features = features1 
+                features = np.vstack((features_id_test, features_id_train))
+                border_id = len(features_id_test)
+
             print(f'features.shape is {features.shape}')
             features_tsne = tsne.fit_transform(features)
 
+            features_id_test_tsne = features_tsne[:border_id]
             if Ood is not None:
-                features1_tsne = features_tsne[:border]
-                features2_tsne = features_tsne[border:]
+                features_ood_test_tsne = features_tsne[border_id:border_ood]
+                features_id_train_tsne = features_tsne[border_ood:]
+            else:
+                features_id_train_tsne = features_tsne[border_id:]
 
             if Ood is not None:
-                np.savez(fileName, arr1=features1_tsne, arr2=features2_tsne)
+                np.savez(fileName, arr1=features_id_test_tsne, arr2=features_ood_test_tsne, arr3=features_id_train_tsne)
             else:
-                np.savez(fileName, arr1=features_tsne)
+                np.savez(fileName, arr1=features_id_test_tsne, arr3=features_id_train_tsne)
             print(f'features_tsne shape is {features_tsne.shape}')
 
         else:
             # Load data
             F = np.load(fileName)
-            features1_tsne = F['arr1']
-            features2_tsne = F['arr2']
-
-        # available_fonts = sorted([f.name for f in matplotlib.font_manager.fontManager.ttflist])
-        # print(available_fonts)
+            features_id_test_tsne = F['arr1']
+            features_ood_test_tsne = F['arr2'] if 'arr2' in F else None
+            features_id_train_tsne = F['arr3'] if 'arr3' in F else None
 
         plt.rcParams.update({
             'text.usetex': True,  # Use LaTeX for rendering text
@@ -586,18 +624,11 @@ class Utils():
 
         plt.figure(figsize=(10, 8))
 
+        # Plot the features
+        plt.scatter(features_id_test_tsne[:, 0], features_id_test_tsne[:, 1], marker='.', c='blue', label=str(Id) + ' Test', alpha=0.5)
         if Ood is not None:
-            # Plot the first set of features
-            plt.scatter(features1_tsne[:, 0], features1_tsne[:, 1], marker='.', c='blue', label=str(Id), alpha=0.5)
-            # Plot the second set of features
-            plt.scatter(features2_tsne[:, 0], features2_tsne[:, 1], marker='x', c='orange', label=str(Ood), alpha=0.5)
-        else:
-            plt.scatter(features_tsne[:, 0], features_tsne[:, 1], marker='.', c='blue', label=str(Id), alpha=0.5)
-
-        # Add labels and legend
-        # plt.xlabel('t-SNE Dimension 1')
-        # plt.ylabel('t-SNE Dimension 2'
-        # , fontname='Liberation Serif',
+            plt.scatter(features_ood_test_tsne[:, 0], features_ood_test_tsne[:, 1], marker='x', c='orange', label=str(Ood) + ' Test', alpha=0.5)
+        plt.scatter(features_id_train_tsne[:, 0], features_id_train_tsne[:, 1], marker='^', c='green', label=str(Id) + ' Train', alpha=0.5)
 
         if case == '03':
             plt.title('t-SNE visualization of spike-ResNet10 feature vectors', fontsize=24)
@@ -612,45 +643,8 @@ class Utils():
         plt.yticks([])
         plt.grid(False)
 
-        # ax = plt.gca()  # Get current axis
-        # # for spine in ax.spines.values():
-        # #     spine.set_visible(False)
-        # # plt.tight_layout(pad=0)
-        # plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
-
-        # # Show the plot
-        # plt.show()
-
         fileName = 'tsne/' + str(case) + '_' + str(Id) + '_' + str(Ood) + '.pdf'
         plt.savefig(fileName, format="pdf", dpi=300, bbox_inches="tight", transparent=False)
-
-        # Initialize interactive mode
-        # plt.ion()
-
-        # # Create a 3D plot
-        # fig = plt.figure(figsize=(12, 10))
-        # ax = fig.add_subplot(111, projection='3d')
-
-        # # Plot the first set of features
-        # ax.scatter(features1_tsne[:, 0], features1_tsne[:, 1], features1_tsne[:, 2], 
-        #         c='blue', label='Dataset 1', alpha=0.6, s=50)
-
-        # # Plot the second set of features
-        # ax.scatter(features2_tsne[:, 0], features2_tsne[:, 1], features2_tsne[:, 2], 
-        #         c='red', label='Dataset 2', alpha=0.6, s=50)
-
-        # # Add labels and legend
-        # ax.set_xlabel('t-SNE Dimension 1')
-        # ax.set_ylabel('t-SNE Dimension 2')
-        # ax.set_zlabel('t-SNE Dimension 3')
-        # ax.set_title('3D t-SNE Visualization of Feature Vectors')
-        # ax.legend()
-
-        # # Show the plot
-        # plt.show()
-
-        # # Disable interactive mode
-        # plt.ioff()
 
         return None
     

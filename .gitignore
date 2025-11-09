@@ -9,7 +9,7 @@ utils/__pycache__
 metrics/__pycache__
 __pycache__
 weights_old
-weights/spike_old
+weights
 results
 features
 figures
