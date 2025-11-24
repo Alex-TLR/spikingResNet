@@ -10,6 +10,12 @@ from sklearn.metrics import roc_curve, precision_recall_curve
 import os
 from sklearn.manifold import TSNE
 
+# NOTE: avoid importing `training` here to prevent a circular import.
+# The `train` module imports `utils.Utils` as well; importing `training`
+# at module import time creates a circular dependency that breaks
+# when Python tries to initialize these modules. If `training` is
+# needed at runtime, import it locally inside the function that uses it.
+
 '''
 Utility functions
 '''
@@ -24,7 +30,7 @@ class Utils():
     
 
     @staticmethod
-    def load_data(database_name, auto_aug=False, gray2rgb=False):
+    def load_data(database_name, config, auto_aug=False, gray2rgb=False):
         '''
         database_name:      Name of the database (MNIST, KMNIST, FMNIST)
         '''
@@ -54,14 +60,113 @@ class Utils():
                                                     transforms.Normalize((0,), (1,))
                                                     # transforms.Normalize((0.1918,), (0.3483,))
                                                     ])
-        
-        # KMNIST transforms.Normalize((0.1918,), (0.3483,))
+        def get_cifar10_transforms(auto_aug=False, cutout=False, training=True):
+            """
+            Return a torchvision.transforms.Compose for CIFAR10-like datasets.
 
-        # transformData_rgb_32  = transforms.Compose([transforms.Resize((32, 32)),
-        #                                             transforms.ToTensor(),
-        #                                             transforms.Normalize((0,0,0,), (1,1,1,))])
+            auto_aug: if True apply augmentation (RandomCrop, RandomHorizontalFlip, optional AutoAugment)
+            cutout: whether to apply Cutout (not implemented here)
+            training: whether to return training (augmentations) or test transforms
+            """
+            if not auto_aug:
+                aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                return transforms.Compose(aug)
+
+            # auto_aug == True
+            if config.fit == 'spike':
+                # Spike-based fitting: geometric augmentations only; keep normalization as identity
+                if training:
+                    aug = [
+                        transforms.Resize((32, 32)),
+                        transforms.RandomCrop(32, padding=4),
+                        transforms.RandomHorizontalFlip(),
+                        # CIFAR10PolicyPreserveDR(),
+                        transforms.ToTensor(),
+                    ]
+                    if cutout:
+                        # Placeholder for Cutout implementation
+                        pass
+                    aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                    return transforms.Compose(aug)
+                else:
+                    aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                    return transforms.Compose(aug)
+
+            if config.fit == 'membrane':
+                # Membrane-based fitting: stronger augmentation + standard CIFAR normalization
+                if training:
+                    aug = [
+                        transforms.Resize((32, 32)),
+                        transforms.RandomCrop(32, padding=4),
+                        transforms.RandomHorizontalFlip(),
+                        CIFAR10Policy(),
+                        transforms.ToTensor(),
+                    ]
+                    if cutout:
+                        pass
+                    aug.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)))
+                    # aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                    return transforms.Compose(aug)
+                else:
+                    aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
+                    # aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                    return transforms.Compose(aug)
         
-        if gray2rgb:
+        def get_cifar100_transforms(auto_aug=False, cutout=False, training=True):
+            """
+            Return a torchvision.transforms.Compose for CIFAR10-like datasets, CIFAR100 is that kind of dataset.
+
+            auto_aug: if True apply augmentation (RandomCrop, RandomHorizontalFlip, optional AutoAugment)
+            cutout: whether to apply Cutout (not implemented here)
+            training: whether to return training (augmentations) or test transforms
+            """
+            if not auto_aug:
+                aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                return transforms.Compose(aug)
+
+            # auto_aug == True
+            if config.fit == 'spike':
+                # Spike-based fitting: geometric augmentations only; keep normalization as identity
+                if training:
+                    aug = [
+                        transforms.Resize((32, 32)),
+                        transforms.RandomCrop(32, padding=4),
+                        transforms.RandomHorizontalFlip(),
+                        # CIFAR10PolicyPreserveDR(),
+                        transforms.ToTensor(),
+                    ]
+                    if cutout:
+                        # Placeholder for Cutout implementation
+                        pass
+                    aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                    return transforms.Compose(aug)
+                else:
+                    aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                    return transforms.Compose(aug)
+
+            if config.fit == 'membrane':
+                # Membrane-based fitting: stronger augmentation + standard CIFAR normalization
+                if training:
+                    aug = [
+                        transforms.Resize((32, 32)),
+                        transforms.RandomCrop(32, padding=4),
+                        transforms.RandomHorizontalFlip(),
+                        CIFAR10Policy(),
+                        transforms.ToTensor(),
+                    ]
+                    if cutout:
+                        pass
+                    aug.append(transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)))
+                    return transforms.Compose(aug)
+                else:
+                    aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))]
+                    return transforms.Compose(aug)
+        
+        if (gray2rgb == True) and (auto_aug == False):
+            ''' 
+            Defines the case when Gray scale images are converted to RGB by repeating channels
+            and it does not include augmentation of any kind.
+            '''
             transformData_gray_28 = transforms.Compose([
                 transforms.Lambda(lambda img: img.convert("RGB")),
                 transforms.Resize((28, 28)),
@@ -69,13 +174,16 @@ class Utils():
                 transforms.Normalize((0,), (1,))
             ])
             transformData_rgb_32 = transforms.Compose([
-                # transforms.Lambda(lambda img: img.convert("RGB")),
                 transforms.Lambda(lambda img: img.repeat(3, 1, 1) if img.shape[0] == 1 else img),
                 transforms.Resize((32, 32)),
                 transforms.ToTensor(),
                 transforms.Normalize((0,0,0,), (1,1,1,))
             ])
-        else:
+        elif (gray2rgb == False) and (auto_aug == False):
+            '''
+            No normalization or augmentation
+            Input images are resized and converted to tensor
+            '''
             transformData_gray_28 = transforms.Compose([
                 transforms.Resize((28, 28)),
                 transforms.ToTensor(),
@@ -86,113 +194,103 @@ class Utils():
                 transforms.ToTensor(),
                 transforms.Normalize((0,0,0,), (1,1,1,))
             ])
-        transformData_rgb_64 = transforms.Compose([
-                transforms.Resize((64, 64)),
-                transforms.ToTensor(),
-                transforms.Normalize((0,0,0,), (1,1,1,))
+            transformData_rgb_64 = transforms.Compose([
+                    transforms.Resize((64, 64)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0,0,0,), (1,1,1,))
             ])
-        transformData_rgb_224 = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                transforms.Normalize((0,0,0,), (1,1,1,))
+            transformData_rgb_224 = transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0,0,0,), (1,1,1,))
             ])
 
-        # Updated CIFAR10 transform with AutoAugment support
-        def get_cifar10_transforms(auto_aug=True, cutout=False, training=True):
-            if training:
-                aug = []
-                aug.append(transforms.Resize((32, 32)))
-                aug.append(transforms.RandomCrop(32, padding=4))
-                aug.append(transforms.RandomHorizontalFlip())
+            # get_cifar10_transforms is defined above (unified) and reused here
+        
+        # elif (gray2rgb == False) and (auto_aug == True) and config.fit == 'spike':
+        #     '''
+        #     Augmentation when spike-based fitting is used. Than means, no normalization is applied.
+
+        #     Notably, no data normalization was applied during training, as the spike-count loss function 
+        #     operates directly on the raw input features and relies on discrete spike patterns to encode 
+        #     class information. Data augmentation was therefore limited to geometric transformations only
+        #     (e.g., random horizontal flip and random crop), since any augmentation strategy that includes
+        #     normalization, standardization, or photometric transforms would distort the absolute activation 
+        #     scale that the spike-count objective depends on.
+
+        #     '''
+
+        #     # (replaced by unified get_cifar10_transforms defined earlier)
                 
-                # if auto_aug:
-                #     aug.append(CIFAR10Policy())  # Add AutoAugment policy
-                
-                aug.append(transforms.ToTensor())
-                
-                if cutout:
-                    # You'll need to implement Cutout class or import it
-                    # aug.append(Cutout(n_holes=1, length=16))
-                    pass
-                
-                # aug.append(transforms.Normalize(
-                #     (0.4914, 0.4822, 0.4465), 
-                #     (0.2023, 0.1994, 0.2010)
-                # ))
-                aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
-                
-                return transforms.Compose(aug)
-            else:
-                # Test/validation transform (no augmentation)
-                # return transforms.Compose([
-                #     transforms.Resize((32, 32)),
-                #     transforms.ToTensor(),
-                #     transforms.Normalize(
-                #         (0.4914, 0.4822, 0.4465), 
-                #         (0.2023, 0.1994, 0.2010)
-                #     )
-                # ])
-                return transforms.Compose([transforms.Resize((32, 32)),
-                                                    transforms.ToTensor(),
-                                                    transforms.Normalize((0,0,0,), (1,1,1,))])
+        # elif (gray2rgb == False) and (auto_aug == True) and config.fit == 'membrane':
+        #     '''
+        #     Augmentation when membrane-based fitting is used. Normalization is applied.
+        #     Much more aggressive augmentation is used here.
+        #     '''
+        #     # (replaced by unified get_cifar10_transforms defined earlier)
         
         if database_name == 'MNIST':
             name = 'mnist' 
             Name = 'MNIST'
             transformData = transformData_gray_28
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
         elif database_name == 'KMNIST':
             name = 'kmnist' 
             Name = 'KMNIST'
             transformData = transformData_gray_28
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
         elif database_name == 'FMNIST':
             name = 'fmnist'
             Name = 'FashionMNIST'
             transformData = transformData_gray_28
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
         elif database_name == 'EMNIST':
             name = 'emnist'
             Name = 'EMNIST'
             transformData = transformData_gray_28
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = True, transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = False, transform = transformData)'
         elif database_name == 'Letters':
             name = 'letters'
             Name = 'EMNIST'
             transformData = transformData_gray_28
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData, target_transform = Utils.targetTransform)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData, target_transform = Utils.targetTransform)'
         elif database_name == 'CIFAR10':
             name = 'cifar10'
             Name =  'CIFAR10'
-            # transformData = transformData_cifar10
             transformData_train = get_cifar10_transforms(auto_aug=auto_aug, training=True)
             transformData_test = get_cifar10_transforms(auto_aug=False, training=False)
-            # transformData_train = transformData_rgb_32
-            # transformData_test = transformData_rgb_32
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
         elif database_name == 'SVHN':
             name = 'svhn'
             Name =  'SVHN'
             transformData = transformData_rgb_32
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', target_transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', target_transform = transformData)'
         elif database_name == 'Places365':
             name = 'places'
             Name =  'Places365'
             transformData = transformData_rgb_32
+            command_train = Name + '(root = \'data/' + name + '/\', download=False, split = \'train-standard\', small = True, transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=False, split = \'val\', small = True, transform = transformData)'
         elif database_name == 'Food101':
             name = 'food'
             Name =  'Food101'
             transformData = transformData_rgb_32
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData)'
         elif database_name == 'CIFAR100':
             name = 'cifar100'
             Name = 'CIFAR100'
-            transformData_train = transformData_rgb_32
-            transformData_test = transformData_rgb_32
+            transformData_train = get_cifar100_transforms(auto_aug=auto_aug, training=True)
+            transformData_test = get_cifar100_transforms(auto_aug=False, training=False)
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
-        # elif database_name == 'ImageNet':
-        #     name = 'imagenet'
-        #     Name = 'ImageNet'
-        #     transformData_train = transformData_rgb_224
-        #     transformData_test = transformData_rgb_224
-        #     # You may need to set the correct path to your ImageNet data
-        #     command_train = Name + '(root = \'data/' + name + '/\', split = \'train\', transform = transformData_train)'
-        #     command_test = Name + '(root = \'data/' + name + '/\', split = \'val\', transform = transformData_test)'
         elif database_name == 'Textures':
             name = 'textures'
             Name = 'DTD'
@@ -203,69 +301,16 @@ class Utils():
         elif database_name == 'tImage200':
             name = 'tImage200'
             Name = 'TinyImageNet'
-            # transformData_train = transforms.Compose([
-            #     transforms.Resize((64, 64)),  # Resize to 64x64 as per TinyImageNet
-            #     transforms.RandomHorizontalFlip(),
-            #     transforms.ToTensor(),
-            #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalize to [-1, 1]
-            # ])
-            # transformData_test = transforms.Compose([
-            #     transforms.Resize((64, 64)),
-            #     transforms.ToTensor(),
-            #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-            # ])
             transformData_train = transformData_rgb_32
             transformData_test = transformData_rgb_32
-
-            # Define paths to train and validation data
             train_dir = os.path.join('data', name, 'train')
             test_dir = os.path.join('data', name, 'test')
+            dataset_train = ImageFolder(root=train_dir, transform=transformData_train)
+            dataset_test = TinyImageNetTestDataset(root=test_dir, transform=transformData_test)
 
         else:
             print("UTILS Wrong database name!")
             return -1
-
-        if database_name == 'SVHN':
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', target_transform = transformData)'
-            # print(command_train)
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', target_transform = transformData)'
-            # print(command_test)
-        elif database_name == 'Places365':
-            command_train = Name + '(root = \'data/' + name + '/\', download=False, split = \'train-standard\', small = True, transform = transformData)'
-            # print(command_train)
-            command_test = Name + '(root = \'data/' + name + '/\', download=False, split = \'val\', small = True, transform = transformData)'
-            # print(command_test)
-        elif database_name == 'EMNIST':
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = True, transform = transformData)'
-            # print(command_train)
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = False, transform = transformData)'
-            # print(command_test)
-        elif database_name == 'Letters':
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = True, transform = transformData, target_transform = Utils.targetTransform)'
-            # print(command_train)
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'letters\', train = False, transform = transformData, target_transform = Utils.targetTransform)'
-            # print(command_test)
-        elif database_name == 'Food101':
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'train\', transform = transformData)'
-            # print(command_train)
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'test\', transform = transformData)'
-            # print(command_test)
-        elif database_name == "MNIST":
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
-        elif database_name == "FMNIST":
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
-        elif database_name == "KMNIST":
-            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
-            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
-        elif database_name == 'tImage200':
-            # Use ImageFolder to load the dataset
-            dataset_train = ImageFolder(root=train_dir, transform=transformData_train)
-            # dataset_test = ImageFolder(root=test_dir, transform=transformData_test)
-            dataset_test = TinyImageNetTestDataset(root=test_dir, transform=transformData_test)
-        else:
-            print(f"Wrong data set name.")
 
         # print(command_train)
         if database_name != 'tImage200':
@@ -295,7 +340,6 @@ class Utils():
         # print(f'Image size: {imageSize[0]}, {imageSize[1]}, {imageSize[2]}')
 
         return imageSize[0], imageSize[1], imageSize[2]
-    
 
     @staticmethod
     def make_features_dir(modelType, case = '00'):
@@ -414,7 +458,6 @@ class Utils():
                 )
 
             return train_loader, test_loader
-
   
     @staticmethod
     def showBatch(inputData):
@@ -440,12 +483,10 @@ class Utils():
         ax.imshow(make_grid(inputImages, nrow=8).permute(1, 2, 0))  # Arrange images in a grid
         plt.show()
 
-
     @staticmethod
     def get_device():
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
         return device 
-    
 
     @staticmethod
     def find_threshold(test_labels, test_dist, positive_label, drop = True): 
@@ -500,7 +541,6 @@ class Utils():
             targets[i, start_idx:end_idx] = 1.0
         
         return targets
-
 
     @staticmethod
     def plot_train_val_stats(history):
@@ -961,3 +1001,44 @@ class CIFAR10Policy(object):
 
     def __repr__(self):
         return "AutoAugment CIFAR10 Policy"
+
+
+class CIFAR10PolicyPreserveDR(object):
+    """A reduced AutoAugment-style policy that uses only operations which preserve
+    the dynamic range (global min/max) of input images. This policy is intended
+    for spike-based fitting where preserving absolute activation scale matters.
+
+    The allowed operations here are geometric transforms (shear, translate, rotate)
+    plus a few value-preserving photometric ops (invert, posterize). Each
+    SubPolicy is a pair of operations with associated probabilities and magnitudes
+    (same SubPolicy API used by the original CIFAR10Policy).
+    """
+
+    def __init__(self, fillcolor=(128, 128, 128)):
+        # Construct a smaller set of SubPolicies restricted to DR-preserving ops
+        self.policies = [
+            # geometric + geometric
+            SubPolicy(0.7, "rotate", 2, 0.3, "translateX", 9, fillcolor),
+            SubPolicy(0.6, "shearX", 3, 0.4, "shearY", 3, fillcolor),
+            SubPolicy(0.5, "translateY", 4, 0.5, "rotate", 1, fillcolor),
+            SubPolicy(0.8, "translateX", 2, 0.2, "translateY", 2, fillcolor),
+
+            # geometric + posterize (posterize typically preserves extremes)
+            SubPolicy(0.4, "shearY", 5, 0.6, "posterize", 3, fillcolor),
+            SubPolicy(0.3, "rotate", 4, 0.7, "posterize", 2, fillcolor),
+
+            # geometric + invert (invert preserves span)
+            SubPolicy(0.2, "translateX", 6, 0.8, "invert", 0, fillcolor),
+            SubPolicy(0.5, "shearX", 1, 0.5, "invert", 0, fillcolor),
+
+            # simple small geometric ops
+            SubPolicy(0.6, "rotate", 1, 0.4, "shearX", 2, fillcolor),
+            SubPolicy(0.7, "translateY", 1, 0.3, "rotate", 0, fillcolor),
+        ]
+
+    def __call__(self, img):
+        idx = random.randint(0, len(self.policies) - 1)
+        return self.policies[idx](img)
+
+    def __repr__(self):
+        return "CIFAR10Policy (DR-preserving subset)"

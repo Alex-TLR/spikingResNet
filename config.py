@@ -227,7 +227,8 @@ class ExperimentConfig:
         # self.dataset_ID = 'KMNIST'
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
         self.case = '42'
-        self.methods = ['ENGY', 'MSP', 'MLS', 'NCM', 'ODIN', 'KNN']
+        # self.methods = ['ENGY', 'MSP', 'MLS', 'NCM', 'ODIN', 'KNN']
+        self.methods = ['KNN']
         # self.methods = ['VIM', 'NCM', 'ENGY', 'MSP']
         
         # Model parameters
@@ -235,20 +236,23 @@ class ExperimentConfig:
         self.resnet_model = 18
         self.num_classes = 10
         self.expansion = 1
-        self.num_time_steps_train = 1
-        self.num_time_steps_extract = 1
+        self.num_time_steps_train = 4
+        self.num_time_steps_extract = 4
         self.override_feature_extraction = False
         self.seed = 42
 
         # Training parameters
         # Training parameters
         self.batch_size = 64
-        self.epochs = 200
         self.full_train = True
         self.auto_aug = False
         self.pretrained = False
-        self.loss = 'cross_entropy'
-        self.fit = 'membrane'
+        if self.auto_aug == True:
+            self.epochs = 400
+        else:
+            self.epochs = 200 
+        self.loss = 'mse_count_loss'
+        self.fit = 'spike'
 
         # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
         # set the "test_population" mode for the pipeline: train, test, feature extraction for different extraction time steps, statistics

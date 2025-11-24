@@ -5,7 +5,8 @@ from torch.utils.data import DataLoader
 # Test train posibilities
 dataSet = 'MNIST'
 
-dataset_train, dataset_test = Utils.load_data(dataSet)
+# pass None as config here because this small check script doesn't use augmentation
+dataset_train, dataset_test = Utils.load_data(dataSet, None)
 
 # Get the image size
 print("Get image size ...")

@@ -11,11 +11,11 @@ import gc
 import snntorch.functional as SF
 
 
-def feature_extraction_conv(dataSet):
+def feature_extraction_conv(dataSet, config=None):
     '''
     Feature extraction out of regular ResNet9
     '''
-    dataset_train, dataset_test = Utils.load_data(dataSet)
+    dataset_train, dataset_test = Utils.load_data(dataSet, config)
 
     device = Utils.get_device()
 
@@ -132,10 +132,10 @@ def feature_extraction_spike(config):
         print(f"Extracting features for {config.dataset_feat[i]}")
         if needs_grayscale_to_rgb(config.dataset_ID, config.dataset_feat[i]):
             # print(1)
-            dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], gray2rgb=True)
+            dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], config, gray2rgb=True)
         else:
             # print(2)
-            dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i])
+            dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], config)
         # Get image size
         channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_feat[i])
 
@@ -378,7 +378,7 @@ def feature_extraction_spike(config):
 
     gc.collect()
     torch.cuda.empty_cache()
-    print(f"Summary of CUDA memory: {torch.cuda.memory_summary()}")
+    # print(f"Summary of CUDA memory: {torch.cuda.memory_summary()}")
     return None
 
 def plotProb(prob, batchSize, numOfSteps):

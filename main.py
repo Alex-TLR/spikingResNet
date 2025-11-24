@@ -173,23 +173,44 @@ if __name__ == "__main__":
         print("Done testing for 1-step training.")
 
     elif config.mode == 'multi_train':
-        expansions = [5, 10, 25, 50]
-        for expansion in expansions:
-            config.expansion = expansion
-            seeds = [42, 1987, 1991, 2020, 2024]
-            for seed in seeds:
-                config.seed = seed
-                if config.num_time_steps_train >= 1:
-                    if config.expansion == 1:
-                        training(config)
-                        acc_spk, acc_mem = test_accuracy(config)
-                    elif config.expansion != 1:
+        resnet_models = [4, 10, 18]
+        expansions = [1, 5, 10, 25, 50]
+        seeds = [42, 1987, 1991, 2020, 2024]
+
+        for resnet_model in resnet_models:
+            config.resnet_model = resnet_model
+            print(f"Starting multi-train for ResNet{resnet_model}")
+
+            for expansion in expansions:
+                config.expansion = expansion
+
+                for seed in seeds:
+                    config.seed = seed
+
+                    if config.loss == 'cross_entropy':
+                        if config.expansion == 1:
+                            training(config)
+                            acc_spk, acc_mem = test_accuracy(config)
+                        else:
+                            training_population(config)
+                            acc_spk, acc_mem = test_accuracy_population(config)
+                    else:
                         training_population(config)
                         acc_spk, acc_mem = test_accuracy_population(config)
-                else:
-                    print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
+
+                    # if config.num_time_steps_train >= 1:
+                    #     if config.expansion == 1:
+                    #         config.loss = 'count_loss'
+                    #         training(config)
+                    #         acc_spk, acc_mem = test_accuracy(config)
+                    #     else:
+                    #         training_population(config)
+                    #         acc_spk, acc_mem = test_accuracy_population(config)
+                    # else:
+                    #     print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
 
     elif config.mode == 'multi_test':
+        
         expansions = [1, 5, 10, 25, 50]
         seeds = [42, 1987, 1991, 2020, 2024]
         resnet_models = [4, 10, 18]  # Add ResNet models to iterate over
@@ -228,35 +249,53 @@ if __name__ == "__main__":
 
                     spike_accuracies = []
                     membrane_accuracies = []
+                    missing_weights = False
 
                     for seed in seeds:
                         config.seed = seed
 
                         # Perform test accuracy for the current seed
                         if config.expansion == 1:
-                            training(config)
+                            # training(config)
                             acc_spk, acc_mem = test_accuracy(config)
                         elif config.expansion != 1:
-                            training_population(config)
+                            # training_population(config)
                             acc_spk, acc_mem = test_accuracy_population(config)
+
+                        # If the test functions signal missing weights, mark as not trained
+                        if acc_spk == -1 and acc_mem == -1:
+                            missing_weights = True
+                            # No point in testing other seeds for this expansion if weights are missing
+                            break
+
                         spike_accuracies.append(acc_spk)
                         membrane_accuracies.append(acc_mem)
 
-                    # Average accuracies over all seeds
-                    avg_spike_accuracy = sum(spike_accuracies) / len(spike_accuracies)
-                    avg_membrane_accuracy = sum(membrane_accuracies) / len(membrane_accuracies)
+                    # If any seed indicated missing weights, write "not trained"
+                    if missing_weights or len(spike_accuracies) == 0:
+                        f.write(f"{expansion:<12}{'not trained':<20}{'not trained':<20}\n")
+                    else:
+                        # Average accuracies over all seeds
+                        avg_spike_accuracy = sum(spike_accuracies) / len(spike_accuracies)
+                        avg_membrane_accuracy = sum(membrane_accuracies) / len(membrane_accuracies)
 
-                    # Write results to file
-                    f.write(f"{expansion:<12}{avg_spike_accuracy:<20.2f}{avg_membrane_accuracy:<20.2f}\n")
+                        # Write numeric results to file
+                        f.write(f"{expansion:<12}{avg_spike_accuracy:<20.2f}{avg_membrane_accuracy:<20.2f}\n")
 
                 f.write(f"{'='*60}\n\n")
 
         print("Done multi-test for different expansions and ResNet models.")
 
     elif config.mode == 'ex_1':
-        seeds = [42, 1987, 1991, 2020, 2024]
+        # python3 tools/plot_ex1_from_json.py results/ex_1/EX1_CIFAR10_L_mse_count_loss_data.json
+        seeds = [42, 1987]
+        expansions = [10, 25, 50]
+        resnet_models = [4, 10] 
+        config.near_ood = ['CIFAR10', 'CIFAR100', 'tImage200']
+        config.far_ood = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
+
         config.override_feature_extraction = True
-        statistics_exp_1(config, seeds)
+        statistics_exp_1(config, seeds, expansions, resnet_models)
         print("Done experiment 1.")
 
     else:

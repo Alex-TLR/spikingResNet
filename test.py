@@ -1,6 +1,7 @@
 from xml.parsers.expat import model
 import numpy as np
 import time 
+import os
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
 from clustering.Clustering import Clustering
@@ -37,7 +38,7 @@ def test_accuracy(config):
 
     # Load database
     # print(f"dataSet: {dataSet}")
-    dataset_train, dataset_test = Utils.load_data(config.dataset_ID)
+    dataset_train, dataset_test = Utils.load_data(config.dataset_ID, config)
     testSize = len(dataset_test)
     # print(f"Number of test set images is: {testSize}")
 
@@ -125,6 +126,10 @@ def test_accuracy(config):
         torch.cuda.empty_cache()
 
         weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
+        # Check weights file existence before loading
+        if not os.path.exists(weightsName):
+            print(f"Weights file not found: {weightsName}")
+            return -1, -1
         # print(f"weightsName: {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=False))
         model = model.to(device)
@@ -193,7 +198,7 @@ def test_accuracy_population(config):
     check accuracy of trained model on ID test data when population coding is used with my spatio-temporal propagation
     '''
     # Load database
-    dataset_train, dataset_test = Utils.load_data(config.dataset_ID)
+    dataset_train, dataset_test = Utils.load_data(config.dataset_ID, config)
     testSize = len(dataset_test)
 
     # Get image size
@@ -259,6 +264,10 @@ def test_accuracy_population(config):
         torch.cuda.empty_cache()
 
         weightsName ='weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
+        # Check weights file existence before loading
+        if not os.path.exists(weightsName):
+            print(f"Weights file not found: {weightsName}")
+            return -1, -1
         # print(f"Loading weights from {weightsName}")
         model.load_state_dict(torch.load(weightsName, weights_only=False))
         model = model.to(device)
@@ -292,13 +301,12 @@ def test_accuracy_population(config):
                 batch_size = data.size(0)
                 
                 acc_rate_spk = SF.accuracy_rate(
-                    spikes, 
-                    targets, 
-                    population_code=True, 
+                    spikes,
+                    targets,
+                    population_code=True,
                     num_classes=model.numberOfClasses
                 )
                 batch_correct_spk = (acc_rate_spk * batch_size).item()
-                
                 acc_spikes += batch_correct_spk
                 
                 # Original membrane accuracy calculation

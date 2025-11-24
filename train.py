@@ -69,7 +69,7 @@ def training(config):
     set_seed(config.seed)
 
     # Load dataset
-    dataset_train, dataset_test = Utils.load_data(config.dataset_ID, auto_aug=config.auto_aug)
+    dataset_train, dataset_test = Utils.load_data(config.dataset_ID, config, auto_aug=config.auto_aug)
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_ID)
@@ -341,7 +341,7 @@ def training_population(config):
     set_seed(config.seed)
 
     # Load dataset
-    dataset_train, dataset_test = Utils.load_data(config.dataset_ID, auto_aug=config.auto_aug)
+    dataset_train, dataset_test = Utils.load_data(config.dataset_ID, config, auto_aug=config.auto_aug)
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_ID)

@@ -19,6 +19,9 @@ from train import training_population
 import gc
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model
 from models.plain import spikeLinearNet1
+import os
+import matplotlib.pyplot as plt
+import json
 
 class Metrics():
 
@@ -1468,50 +1471,141 @@ def statistics_test_1(config, acc_spk, acc_mem):
     print(f"\nDetailed statistics saved to: {results_filename}")
 
 
-def statistics_exp_1(config, seeds):
-    feature_types = ['features', 'spikes', 'probs', 'voltages']
+def statistics_exp_1(config, seeds, expansions, resnet_models):
+    """Compute experiment-1 statistics with separate near/far OOD tables and plots.
+
+    signature changed to accept expansions and resnet_models so main can pass them in.
+    Outputs: writes a TXT file with per-resnet Near / Far tables and saves plots (one per feature type)
+    where each ResNet provides two curves (near and far).
+    """
+    feature_types = ['features', 'voltages']
     methods = config.methods
-    ood_datasets = [dataset for dataset in config.dataset_feat if dataset != config.dataset_ID]
-    results_filename = (
-        f'results/EX1_{config.dataset_ID}_ResNet{config.resnet_model}_'
-        f'T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_'
-        f'E_{config.expansion}_A_{config.auto_aug}_seeds.txt'
-    )
 
-    # stats_all[feature_type][ood_dataset][method][metric][seed]
-    stats_all = {ftype: {ood: {m: [[] for _ in range(3)] for m in methods} for ood in ood_datasets} for ftype in feature_types}
+    out_dir = os.path.join('results', 'ex_1')
+    os.makedirs(out_dir, exist_ok=True)
 
-    for seed in seeds:
-        config.seed = seed
-        # If you need to load weights/features per seed, do it here
-        # e.g., config.weights_path = f'weights/seed_{seed}_...pth'
-        # or set config.feature_file = ...
-        feature_extraction_spike(config)
-        for feature_type in feature_types:
-            # test_metrics should load the correct features for the current seed
-            stats = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=feature_type)
-            print(f"Stats for seed {seed}, feature type {feature_type}: {stats}")
-           
-            for ood_idx, ood_dataset in enumerate(ood_datasets):
-                for m_idx, method in enumerate(methods):
-                    for metric_idx in range(3):  # AUROC, AUPR, FPR95
-                        stats_all[feature_type][ood_dataset][method][metric_idx].append(stats[ood_idx, m_idx + metric_idx*len(methods)])
+    # Prepare lists of near and far OOD from config (do not filter by dataset_ID)
+    # We will compute averages over whichever of these appear in the computed stats.
+    near_list = list(getattr(config, 'near_ood', []) or [])
+    far_list = list(getattr(config, 'far_ood', []) or [])
+    # Map resnet model numbers to human-friendly tags for legend/table output
+    model_tags = {4: 'spike-Conv', 10: 'spike-ResNet10', 18: 'spike-ResNet18'}
 
-    # Write results
+    # Results container: results[resnet_model][feature_type] = list over expansions (dict with 'near'/'far' values or 'not trained')
+    results = {rm: {ft: [] for ft in feature_types} for rm in resnet_models}
+
+    # Loop over resnet models and expansions
+    for resnet_model in resnet_models:
+        config.resnet_model = resnet_model
+        for expansion in expansions:
+            config.expansion = expansion
+            config.override_feature_extraction = True
+
+            # For each feature type compute per-seed AUROC and then average across seeds separately for near and far
+            expansion_values = {ft: {'near': [], 'far': []} for ft in feature_types}
+            missing_any = False
+
+            for seed in seeds:
+                config.seed = seed
+                try:
+                    # For efficiency, extract features once for the union of near and far OOD sets
+                    orig_dataset_feat = getattr(config, 'dataset_feat', None)
+                    union_list = []
+                    try:
+                        union_list = sorted(set(list(near_list) + list(far_list)))
+                    except Exception:
+                        union_list = list(near_list) + list(far_list)
+
+                    # If union_list is non-empty, temporarily set it and extract once
+                    extracted_ok = True
+                    if union_list:
+                        try:
+                            config.dataset_feat = list(union_list)
+                            print(f"Extracting features for union list: {config.dataset_feat}")
+                            feature_extraction_spike(config)
+                        except Exception:
+                            # mark extraction failure; we'll treat tests as missing (NaN)
+                            extracted_ok = False
+
+                    # For each feature type, run test_metrics for near and far respectively
+                    num_methods = len(methods)
+                    for ft in feature_types:
+                        try:
+                            if not extracted_ok:
+                                # if extraction failed, append NaNs for this seed
+                                expansion_values[ft]['near'].append(np.nan)
+                                expansion_values[ft]['far'].append(np.nan)
+                                continue
+
+                            # Run test on near list (if present)
+                            if not near_list:
+                                near_mean = np.nan
+                            else:
+                                config.dataset_feat = list(near_list)
+                                print(f"Datasets for testing (near): {config.dataset_feat}")
+                                stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
+                                if stats_local is None or stats_local.size == 0:
+                                    near_mean = np.nan
+                                else:
+                                    near_mean = float(np.nanmean(stats_local[:, :num_methods])) * 100.0
+
+                            # Run test on far list (if present)
+                            if not far_list:
+                                far_mean = np.nan
+                            else:
+                                config.dataset_feat = list(far_list)
+                                print(f"Datasets for testing (far): {config.dataset_feat}")
+                                stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
+                                if stats_local is None or stats_local.size == 0:
+                                    far_mean = np.nan
+                                else:
+                                    far_mean = float(np.nanmean(stats_local[:, :num_methods])) * 100.0
+
+                            # restore original dataset_feat for safety
+                            config.dataset_feat = orig_dataset_feat
+
+                            expansion_values[ft]['near'].append(near_mean)
+                            expansion_values[ft]['far'].append(far_mean)
+                        except Exception:
+                            missing_any = True
+                            break
+
+                except Exception:
+                    missing_any = True
+                    break
+
+            # finalize expansion entry
+            for ft in feature_types:
+                arr_near = np.array(expansion_values[ft]['near'], dtype=float)
+                arr_far = np.array(expansion_values[ft]['far'], dtype=float)
+
+                # If feature extraction/test failed (missing_any) or we have no valid values, mark as not trained
+                if missing_any or arr_near.size == 0 or arr_far.size == 0 or (np.all(np.isnan(arr_near)) and np.all(np.isnan(arr_far))):
+                    results[resnet_model][ft].append({'near': 'not trained', 'far': 'not trained'})
+                else:
+                    # compute nan-aware means; if one side is all-NaN, keep that side as 'not trained'
+                    if np.all(np.isnan(arr_near)):
+                        avg_near = 'not trained'
+                    else:
+                        avg_near = float(np.nanmean(arr_near))
+
+                    if np.all(np.isnan(arr_far)):
+                        avg_far = 'not trained'
+                    else:
+                        avg_far = float(np.nanmean(arr_far))
+
+                    results[resnet_model][ft].append({'near': avg_near, 'far': avg_far})
+
+    # Write combined results file with tables per resnet model (separate near / far tables)
+    results_filename = os.path.join(out_dir, f'EX1_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds.txt')
     with open(results_filename, 'w') as f:
         f.write(f"{'='*60}\n")
-        f.write(f"Spiking ResNet Out-of-Distribution Detection Results\n")
+        f.write(f"Spiking ResNet Multi-Test Results\n")
         f.write(f"{'='*60}\n")
         f.write(f"Experiment Configuration:\n")
         f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
-        f.write(f"  Out-of-Distribution Datasets: {', '.join(ood_datasets)}\n")
-        f.write(f"  Model: ResNet{config.resnet_model}\n")
         f.write(f"  Case: {config.case}\n")
         f.write(f"  Batch Size: {config.batch_size}\n")
-        if config.expansion == 1:
-            f.write(f"  No population coding.\n")
-        elif config.expansion > 1:
-            f.write(f"  Population coding with {config.expansion} expansions.\n")
         f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
         f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
         f.write(f"  Number of epochs: {config.epochs}\n")
@@ -1519,38 +1613,207 @@ def statistics_exp_1(config, seeds):
         f.write(f"  Loss function: {config.loss}\n")
         f.write(f"  Augmentation: {config.auto_aug}\n")
         f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"\n{'='*60}\n\n")
+        f.write(f"\n")
 
-        for feature_type in feature_types:
-            f.write(f"Feature Type: {feature_type.upper()}\n")
-            f.write(f"{'-'*40}\n")
-            # Table header formatting
-            col_width = 13  # width for each metric cell
-            sep = ' | '
-            # Top header with metric spans
-            metric_titles = ['AUROC', 'AUPR', 'FPR95']
-            header = '  {:10s}:'.format('Dataset')
-            for title in metric_titles:
-                header += sep + title.center(col_width * len(methods) + len(sep)*(len(methods)-1))
-            f.write('-' * len(header) + '\n')
-            f.write(header + '\n')
-            # Method header
-            method_row = '  {:10s}:'.format('')
-            for _ in metric_titles:
-                method_row += sep + sep.join([f'{m:^{col_width}s}' for m in methods])
-            f.write(method_row + '\n')
-            f.write('-' * len(header) + '\n')
-            # Data rows
-            for ood_dataset in ood_datasets:
-                row = f"  {ood_dataset:<10s}:"
-                for metric_idx in range(3):  # AUROC, AUPR, FPR95
-                    vals = []
-                    for method in methods:
-                        arr = np.array(stats_all[feature_type][ood_dataset][method][metric_idx])
-                        mean = np.mean(arr)
-                        std = np.std(arr)
-                        vals.append(f"{mean*100:6.2f}({std*100:4.2f})")
-                    row += sep + sep.join([f'{v:^{col_width}s}' for v in vals])
-                f.write(row + '\n')
-            f.write('-' * len(header) + '\n\n')
-    print(f"\nDetailed statistics saved to: {results_filename}")
+        for resnet_model in resnet_models:
+            f.write(f"ResNet Model: {resnet_model}\n")
+            f.write(f"Near OOD sets: {near_list}\n")
+            f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
+            f.write(f"{'-'*60}\n")
+            for idx, expansion in enumerate(expansions):
+                entry = results[resnet_model]['features'][idx]
+                sp_val = entry['near']
+                volt_val = results[resnet_model]['voltages'][idx]['near']
+                def fmt(v):
+                    return f"{v:>6.2f}" if isinstance(v, float) else f"{v:<20}"
+                f.write(f"{expansion:<12}{(fmt(sp_val)):<20}{(fmt(volt_val)):<20}\n")
+            f.write(f"\n")
+
+            f.write(f"Far OOD sets: {far_list}\n")
+            f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
+            f.write(f"{'-'*60}\n")
+            for idx, expansion in enumerate(expansions):
+                entry = results[resnet_model]['features'][idx]
+                sp_val = entry['far']
+                volt_val = results[resnet_model]['voltages'][idx]['far']
+                f.write(f"{expansion:<12}{(fmt(sp_val)):<20}{(fmt(volt_val)):<20}\n")
+
+            f.write(f"{'='*60}\n\n")
+
+    # Save plotting data (results) so plots can be regenerated without re-extraction
+    data_out = {
+        'dataset_ID': config.dataset_ID,
+        'case': config.case,
+        'expansions': list(expansions),
+        'feature_types': feature_types,
+        'model_tags': {str(k): v for k, v in model_tags.items()},
+        'results': {}
+    }
+    for rm in resnet_models:
+        data_out['results'][str(rm)] = {}
+        for ft in feature_types:
+            serial_list = []
+            for entry in results[rm][ft]:
+                def conv(v):
+                    return v if isinstance(v, str) else float(v)
+                serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
+            data_out['results'][str(rm)][ft] = serial_list
+
+    datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_L_{config.loss}_data.json')
+    try:
+        with open(datafile, 'w') as jf:
+            json.dump(data_out, jf, indent=2)
+    except Exception as e:
+        print(f"Warning: failed to write plotting data JSON: {e}")
+
+    # Generate plots for features and voltages: each plot contains near and far curves per ResNet
+    plt.rcParams.update({
+        'text.usetex': True,
+        'font.family': 'serif',
+        'font.serif': ['Times New Roman'],
+        'mathtext.fontset': 'stix',
+        'axes.titlesize': 20,
+        'axes.labelsize': 20,
+        'xtick.labelsize': 18,
+        'ytick.labelsize': 18,
+        'figure.titlesize': 20,
+    })
+
+    # Plot expansions on evenly spaced positions (labels are the expansion values)
+    x = list(expansions)
+    positions = np.arange(len(x))
+    for ft in feature_types:
+        if ft == 'features':
+            ft_label = 'Spike pattern'
+        elif ft == 'voltages':
+            ft_label = 'Membrane voltage'
+        plt.figure(figsize=(10,7))
+        for resnet_model in resnet_models:
+            vals = results[resnet_model][ft]
+            y_near = [np.nan if vals[i]=='not trained' or vals[i]['near']=='not trained' else vals[i]['near'] for i in range(len(expansions))]
+            y_far = [np.nan if vals[i]=='not trained' or vals[i]['far']=='not trained' else vals[i]['far'] for i in range(len(expansions))]
+            # Plot on evenly spaced x positions so spacing is uniform regardless of numeric expansion values
+            tag = model_tags.get(resnet_model, f'ResNet{resnet_model}')
+            plt.plot(positions, y_near, marker='o', linestyle='-', label=f'{tag} - near')
+            plt.plot(positions, y_far, marker='x', linestyle='--', label=f'{tag} - far')
+
+        plt.xlabel('Expansion')
+        plt.ylabel('Average AUROC')
+        plt.title(f'Average AUROC vs Expansion ({ft_label})')
+
+        # Force consistent y-axis across all plots for visual comparison
+        y_min, y_max = 50.0, 100.0
+        plt.ylim(y_min, y_max)
+
+        # Y ticks every 5 units
+        yticks = np.arange(y_min, y_max + 1, 5)
+        plt.yticks(yticks)
+
+        # Dashed grid on both axes (horizontal and vertical) but not dense
+        plt.grid(axis='both', linestyle='--', linewidth=0.8)
+
+        # Set x ticks evenly and label them with the expansion values
+        plt.xticks(positions, x)
+
+        # Legend with requested font size
+        plt.legend(ncol=2, fontsize=18)
+
+        plotfile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_{ft}_L_{config.loss}.png')
+        plt.savefig(plotfile, dpi=300, bbox_inches='tight')
+        plt.close()
+
+    print(f"\nDetailed statistics and plots saved to: {results_filename} and {out_dir}")
+
+
+def plot_ex1_from_data(data_or_path, out_dir=None, y_min=50.0, y_max=100.0, y_step=5, legend_fontsize=18):
+    """Generate EX1 plots from JSON-like data or from a JSON file path.
+
+    Arguments:
+        data_or_path: dict (parsed JSON) or str (path to JSON file)
+        out_dir: optional output directory (if None, uses 'results/ex_1')
+        y_min, y_max, y_step: y-axis range and tick spacing
+        legend_fontsize: font size for legend
+    """
+    import json
+    import numpy as _np
+    import matplotlib.pyplot as _plt
+    import os as _os
+
+    # Load data if a path was given
+    if isinstance(data_or_path, str):
+        with open(data_or_path, 'r') as _f:
+            data = json.load(_f)
+    else:
+        data = data_or_path
+
+    if out_dir is None:
+        out_dir = _os.path.join('results', 'ex_1')
+    _os.makedirs(out_dir, exist_ok=True)
+
+    dataset_ID = data.get('dataset_ID', 'dataset')
+    loss = data.get('case', '')
+    expansions = list(data.get('expansions', []))
+    feature_types = data.get('feature_types', [])
+    model_tags = {int(k): v for k, v in data.get('model_tags', {}).items()} if data.get('model_tags') else {}
+    results = data.get('results', {})
+
+    # x positions
+    x = list(expansions)
+    positions = _np.arange(len(x))
+
+    # For each feature type, create the same style plot used in statistics_exp_1
+    for ft in feature_types:
+        if ft == 'features':
+            ft_label = 'Spike pattern'
+        elif ft == 'voltages':
+            ft_label = 'Membrane voltage'
+        else:
+            ft_label = ft
+
+        _plt.figure(figsize=(10, 7))
+
+        # results keys are strings of resnet numbers
+        for rm_key, rm_vals in results.items():
+            try:
+                rm = int(rm_key)
+            except Exception:
+                # if non-int key, skip
+                continue
+            vals = rm_vals.get(ft, [])
+            # convert entries to floats or nan
+            y_near = []
+            y_far = []
+            for entry in vals:
+                n = entry.get('near')
+                f = entry.get('far')
+                y_near.append(_np.nan if (isinstance(n, str) and n == 'not trained') or n is None else float(n))
+                y_far.append(_np.nan if (isinstance(f, str) and f == 'not trained') or f is None else float(f))
+
+            tag = model_tags.get(rm, f'ResNet{rm}')
+            _plt.plot(positions, y_near, marker='o', linestyle='-', label=f'{tag} - near')
+            _plt.plot(positions, y_far, marker='x', linestyle='--', label=f'{tag} - far')
+
+        _plt.xlabel('Expansion')
+        _plt.ylabel('Average AUROC')
+        _plt.title(f'Average AUROC vs Expansion ({ft_label})')
+
+        # Force consistent y-axis
+        _plt.ylim(y_min, y_max)
+        _plt.yticks(_np.arange(y_min, y_max + 1, y_step))
+
+        # dashed grid on both axes
+        _plt.grid(axis='both', linestyle='--', linewidth=0.8)
+
+        # Set x ticks and labels
+        _plt.xticks(positions, x)
+
+        _plt.legend(ncol=2, fontsize=legend_fontsize)
+
+        plotfile = _os.path.join(out_dir, f'EX1_{dataset_ID}_{ft}_L_{data.get("loss", "")}.png')
+        try:
+            _plt.savefig(plotfile, dpi=300, bbox_inches='tight')
+        except Exception as e:
+            print(f"Warning: failed to save plot {plotfile}: {e}")
+        _plt.close()
+
+    print(f"Plots generated in: {out_dir}")
