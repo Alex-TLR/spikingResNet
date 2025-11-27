@@ -381,7 +381,7 @@ def training_population(config):
     elif config.model_type == 'spike':
 
         # Check if the network is already trained:
-        weightPath = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
+        weightPath = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
         if (Utils.does_file_exists(weightPath)):
 
             # Keeps accuracy and loss for both training and validation in each epoch
@@ -427,21 +427,29 @@ def training_population(config):
             
             model = model.to(device)
 
+            pop_code=False
+            if config.expansion>1:
+                pop_code=True
             if config.loss == 'rate_loss':
                 # print(f"For population coding we do not use rate loss.")
                 # return -1
-                loss_fn = SF.ce_rate_loss()
+                loss_fn = SF.ce_rate_loss(population_code=pop_code, num_classes=config.num_classes)
+                loss_name = "ce_rate_loss"
             elif config.loss == 'count_loss':
                 # print(f"For population coding we do not use count loss.")
                 # return -1
-                loss_fn = SF.ce_count_loss()
+                loss_fn = SF.ce_count_loss(population_code=pop_code, num_classes=config.num_classes)
+                loss_name = "ce_count_loss"
             elif config.loss == 'cross_entropy':
                 # print(f"For population coding we do not use cross entropy loss.")
                 # return -1
                 loss_fn = nn.CrossEntropyLoss()
+                loss_name = "cross_entropy"
             elif config.loss == 'mse_count_loss':
-                loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=True, num_classes=config.num_classes)
-
+                loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=pop_code, num_classes=config.num_classes)
+                #loss_fn = SF.mse_count_loss()
+                loss_name = "mse_count_loss"
+            
             optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
             sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, epochs=config.epochs, steps_per_epoch=len(train_loader))
 
@@ -487,7 +495,7 @@ def training_population(config):
             if (config.full_train == True):
                 print(f"Pretrained: {config.pretrained}")
                 if(config.pretrained == True):
-                    weightsName = 'weights/spike/' + 'resnet_' + str(config.resnet_model) + '_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) + '_checkpoint_' + '.pth'
+                    weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed) + '_checkpoint_' + '.pth'
                     print("Try to load checkpoint: " + weightsName)
                     try:
                         file = torch.load(weightsName)
@@ -509,9 +517,9 @@ def training_population(config):
                 if config.fit == 'membrane':
                     # print(f"For population coding we can not fit on membrane voltage.")
                     # return -1 
-                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name,train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 elif config.fit == 'spike':
-                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"Training time: {execution_time:.4f} seconds")

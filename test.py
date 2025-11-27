@@ -1,3 +1,4 @@
+from logging import config
 from xml.parsers.expat import model
 import numpy as np
 import time 
@@ -125,8 +126,7 @@ def test_accuracy(config):
         # Load weights
         torch.cuda.empty_cache()
 
-        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
-        # Check weights file existence before loading
+        weightsName ='weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'        # Check weights file existence before loading
         if not os.path.exists(weightsName):
             print(f"Weights file not found: {weightsName}")
             return -1, -1
@@ -263,8 +263,7 @@ def test_accuracy_population(config):
         # Load weights
         torch.cuda.empty_cache()
 
-        weightsName ='weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
-        # Check weights file existence before loading
+        weightsName ='weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'        # Check weights file existence before loading
         if not os.path.exists(weightsName):
             print(f"Weights file not found: {weightsName}")
             return -1, -1

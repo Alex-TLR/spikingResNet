@@ -174,7 +174,7 @@ class BasicModel(nn.Module):
         print('\n')
         return history
     
-    def fit_spike_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, train_load, nSteps, gd, device, checkpointPeriod=1):
+    def fit_spike_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, loss_name, train_load, nSteps, gd, device, checkpointPeriod=1):
         '''
         Fitting function for the case when no validation set is used.
 
@@ -216,7 +216,15 @@ class BasicModel(nn.Module):
                 # Generate predictions/ forward pass
                 spikes, _, _, _ = model(batch, nSteps)
                 # Calculate loss
-                loss = lossF(spikes, labels) 
+                if loss_name == "ce_rate_loss":
+                    loss = lossF(spikes, labels)
+                elif loss_name == "ce_count_loss":
+                    loss = lossF(spikes, labels)
+                elif loss_name == "cross_entropy":
+                    spike_rates = spikes.sum(dim=0) / nSteps
+                    loss = lossF(spike_rates, labels)
+                else:
+                    loss = lossF(spikes, labels) 
                 
                 tLoss.append(loss.detach().item())
                 opt.zero_grad()

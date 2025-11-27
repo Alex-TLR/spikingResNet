@@ -25,15 +25,16 @@ def get_parser():
     parser.add_argument('--case', type=str, default='06', help="Case identifier for the experiment")
     parser.add_argument('--num_workers', type=int, default=4, help="Number of workers for data loading")
 
-    # Model parameters
+        # Model parameters
     parser.add_argument('--model', type=int, default=18, help="Model architecture")
     parser.add_argument('--num_classes', type=int, default=10, help="Number of output classes")
     parser.add_argument('--time_steps_train', type=int, default=50, help="Number of time steps for spiking models")
     parser.add_argument('--time_steps_extract', type=int, default=50, help="Number of time steps for feature extraction")
     parser.add_argument('--expansion', type=int, default=1, help="Expansion factor for the model")
+    parser.add_argument('--loss', type=str, default="mse_count_loss", help="Loss function")
     parser.add_argument('--auto_aug', type=bool, default=False, help="Use auto augmentation")
     parser.add_argument('--population_coding', type=bool, default=False, help="Use population coding")
-
+    
     # Training parameters
     parser.add_argument('--epochs', type=int, default=200, help="Number of training epochs")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training and validation")
@@ -97,6 +98,7 @@ if __name__ == "__main__":
     print(f"  Case: {config.case}")
     print(f"  Batch size: {config.batch_size}")
     print(f"  Expansion: {config.expansion}")
+    print(f"  Loss: {config.loss}")
     print(f"  Time steps Train: {config.num_time_steps_train}")
     print(f"  Epochs: {config.epochs}")
 
@@ -173,11 +175,11 @@ if __name__ == "__main__":
         print("Done testing for 1-step training.")
 
     elif config.mode == 'multi_train':
-        resnet_models = [4, 10, 18]
+        #resnet_models = [4, 10, 18]
         expansions = [1, 5, 10, 25, 50]
         seeds = [42, 1987, 1991, 2020, 2024]
 
-        for resnet_model in resnet_models:
+        for resnet_model in [config.resnet_model]:
             config.resnet_model = resnet_model
             print(f"Starting multi-train for ResNet{resnet_model}")
 

@@ -19,3 +19,4 @@ tsne
 *.pth
 *.zip
 *.xlsx
+*.err

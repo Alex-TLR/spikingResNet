@@ -321,4 +321,6 @@ class ExperimentConfig:
             self.auto_aug = args.auto_aug
         if 'population_coding' in provided_args:
             self.population_coding = args.population_coding
+        if 'loss' in provided_args:
+            self.loss = args.loss
 
