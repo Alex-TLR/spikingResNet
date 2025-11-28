@@ -125,11 +125,13 @@ def feature_extraction_spike(config):
         loss_fn = nn.CrossEntropyLoss()
     elif config.loss == 'mse_count_loss':
         loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=True, num_classes=config.num_classes)
-
+    else:
+        print("Loss function not defined")
+        return -1
 
     # print(f"Feature length is: {len(config.dataset_feat)}")
     for i in range(len(config.dataset_feat)):
-        print(f"Extracting features for {config.dataset_feat[i]}")
+        # print(f"Extracting features for {config.dataset_feat[i]}")
         if needs_grayscale_to_rgb(config.dataset_ID, config.dataset_feat[i]):
             # print(1)
             dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], config, gray2rgb=True)
@@ -239,7 +241,7 @@ def feature_extraction_spike(config):
             Prob_train = []
             Volt_train = []
             Tags_train = []
-            print(f"Extracting features for {config.dataset_feat[i]} on {config.dataset_ID}")
+            # print(f"Extracting features for {config.dataset_feat[i]} on {config.dataset_ID}")
             if config.dataset_feat[i] == config.dataset_ID:
                 Spik_train = np.zeros((trainDataSize, config.num_classes))
                 Feat_train = np.zeros((trainDataSize, featSize))
@@ -292,12 +294,6 @@ def feature_extraction_spike(config):
                 # print()
                 # print("Tags_train shape is ", Tags_train.shape)
 
-            # print("CUDA Memory Summary before training feature extraction:")
-            # print(f"Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
-            # print(f"Reserved:  {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
-            # print(f"Max Allocated: {torch.cuda.max_memory_allocated() / 1024**2:.2f} MB")
-            # print(f"Max Reserved:  {torch.cuda.max_memory_reserved() / 1024**2:.2f} MB")
-
             Spik_test = np.zeros((testDataSize, config.num_classes))
             Feat_test = np.zeros((testDataSize, featSize))
             Prob_test = np.zeros((testDataSize, config.num_classes))
@@ -311,10 +307,7 @@ def feature_extraction_spike(config):
                     startIndex = ii*config.batch_size
                     endIndex = startIndex + config.batch_size
 
-                    s, f, p, v = model(batch, config.num_time_steps_extract)
-                    # loss = loss_fn(s, labels) 
-                    # print(f"Loss: {loss.item()}, loss.shape is {loss.shape}")
-                        
+                    s, f, p, v = model(batch, config.num_time_steps_extract)                        
                     s = s.cpu().detach().numpy()
                     f = f.cpu().detach().numpy()
                     p = p.cpu().detach().numpy()
@@ -327,7 +320,6 @@ def feature_extraction_spike(config):
                     if hasattr(model, 'expansion') and model.expansion > 1:
                         spikes = spikes.reshape(spikes.shape[0], config.num_classes, model.expansion).sum(axis=2)  
                         probs = probs.reshape(probs.shape[0], config.num_classes, model.expansion).max(axis=2) 
-                    # probs = Metrics.softmax(probs)
  
                     labels = labels.cpu().detach().numpy()
                     Spik_test[startIndex:endIndex, :] = spikes
@@ -353,12 +345,6 @@ def feature_extraction_spike(config):
                             arr6=Tags_test,
                             arr8=Volt_train,
                             arr9=Volt_test)
-
-            # print("CUDA Memory Summary before test extraction:")
-            # print(f"Allocated: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
-            # print(f"Reserved:  {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
-            # print(f"Max Allocated: {torch.cuda.max_memory_allocated() / 1024**2:.2f} MB")
-            # print(f"Max Reserved:  {torch.cuda.max_memory_reserved() / 1024**2:.2f} MB")
 
             del Spik_train, Feat_train, Prob_train, Tags_train, Spik_test, Feat_test, Prob_test, Tags_test, Volt_train, Volt_test
             del model 
