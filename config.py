@@ -228,7 +228,7 @@ class ExperimentConfig:
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
         self.case = '42'
         # self.methods = ['ENGY', 'MSP', 'MLS', 'NCM', 'ODIN', 'KNN']
-        self.methods = ['KNN']
+        self.methods = None
         # self.methods = ['VIM', 'NCM', 'ENGY', 'MSP']
         
         # Model parameters
@@ -236,8 +236,8 @@ class ExperimentConfig:
         self.resnet_model = 18
         self.num_classes = 10
         self.expansion = 1
-        self.num_time_steps_train = 4
-        self.num_time_steps_extract = 4
+        self.num_time_steps_train = 1
+        self.num_time_steps_extract = 1
         self.override_feature_extraction = False
         self.seed = 42
 
@@ -245,7 +245,7 @@ class ExperimentConfig:
         # Training parameters
         self.batch_size = 64
         self.full_train = True
-        self.auto_aug = False
+        self.auto_aug = True
         self.pretrained = False
         if self.auto_aug == True:
             self.epochs = 400
@@ -260,7 +260,7 @@ class ExperimentConfig:
         # self.mode = 'multi_train' to train with different seeds
         # self.mode = 'multi_test' to test accuracy with different seeds
         # self.mode = 'ex_1' the first part of the experiment 1
-        self.mode = 'multi_train'
+        self.mode = 'multi_test'
 
         # Parser defaults (only used if explicitly provided)
         # self.seed = 42

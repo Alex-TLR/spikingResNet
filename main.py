@@ -10,7 +10,7 @@ import argparse
 import sys
 from config import ExperimentConfig
 from datetime import datetime
-from metrics.Metrics import statistics, statistics_test_population, statistics_test_1, statistics_exp_1
+from metrics.Metrics import statistics, statistics_test_population, statistics_test_1, statistics_exp_1, statistics_exp_2
 
 def get_parser():
     parser = argparse.ArgumentParser(description="SpikingResNet Training Configuration")
@@ -287,16 +287,31 @@ if __name__ == "__main__":
         print("Done multi-test for different expansions and ResNet models.")
 
     elif config.mode == 'ex_1':
-        # python3 tools/plot_ex1_from_json.py results/ex_1/EX1_CIFAR10_L_mse_count_loss_data.json
-        seeds = [42, 1987]
-        expansions = [10, 25, 50]
-        resnet_models = [4, 10] 
+        # python3 tools/plot_ex1_from_json.py results/ex_1/EX1_CIFAR10_A_False_L_mse_count_loss_data.json
+        seeds = [42, 1987, 1991, 2020, 2024]
+        expansions = [1, 5, 10, 25, 50]
+        resnet_models = [4, 10, 18] 
+        config.methods = ['KNN']
         config.near_ood = ['CIFAR10', 'CIFAR100', 'tImage200']
         config.far_ood = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
 
         config.override_feature_extraction = True
         statistics_exp_1(config, seeds, expansions, resnet_models)
         print("Done experiment 1.")
+
+    elif config.mode == 'ex_2':
+        # To be implemented
+        print("Experiment 2 on post-hoc ood detectors.")
+        seeds = [42, 1987, 1991, 2020, 2024]
+        expansions = [1, 5, 10, 25, 50]
+        resnet_models = [4, 10, 18] 
+        config.methods = ['ASH', 'MSP', 'ODIN', 'ENGY', 'MLS', 'VIM']
+        config.near_ood = ['CIFAR10', 'CIFAR100', 'tImage200']
+        config.far_ood = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
+
+        config.override_feature_extraction = True
+        statistics_exp_2(config, seeds, expansions, resnet_models)
+        print("Done experiment 2.")
 
     else:
         print("Mode not recognized. Use 'test' or 'test_population'.")

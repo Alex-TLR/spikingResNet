@@ -173,7 +173,7 @@ def training(config):
     elif config.model_type == 'spike':
 
         weightPath = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
-        print(f"Weight path: {weightPath}")
+        # print(f"Weight path: {weightPath}")
         if (Utils.does_file_exists(weightPath)):
 
             # Keeps accuracy and loss for both training and validation in each epoch
@@ -426,22 +426,20 @@ def training_population(config):
                 return -1
             
             model = model.to(device)
+            summary(model, input_size=(channels, rows, cols))
 
             if config.loss == 'rate_loss':
-                # print(f"For population coding we do not use rate loss.")
-                # return -1
                 loss_fn = SF.ce_rate_loss()
             elif config.loss == 'count_loss':
-                # print(f"For population coding we do not use count loss.")
-                # return -1
                 loss_fn = SF.ce_count_loss()
             elif config.loss == 'cross_entropy':
-                # print(f"For population coding we do not use cross entropy loss.")
-                # return -1
                 loss_fn = nn.CrossEntropyLoss()
             elif config.loss == 'mse_count_loss':
                 loss_fn = SF.mse_count_loss(correct_rate=1.0, incorrect_rate=0.0, population_code=True, num_classes=config.num_classes)
-
+            else:
+                print("Loss function not defined")
+                return -1
+    
             optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
             sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, epochs=config.epochs, steps_per_epoch=len(train_loader))
 
@@ -507,8 +505,6 @@ def training_population(config):
                 
                 start_time = time.time()
                 if config.fit == 'membrane':
-                    # print(f"For population coding we can not fit on membrane voltage.")
-                    # return -1 
                     H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 elif config.fit == 'spike':
                     H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)

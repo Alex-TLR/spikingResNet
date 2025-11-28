@@ -9,6 +9,8 @@ If you don't provide an output directory, plots are written to results/ex_1.
 import argparse
 import os
 import json
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from metrics import Metrics
 
