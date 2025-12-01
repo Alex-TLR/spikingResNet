@@ -1551,12 +1551,15 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
             config.override_feature_extraction = True
 
             # For each feature type compute per-seed AUROC and then average across seeds separately for near and far
+            # We will attempt all seeds and only mark the expansion as 'done' in JSON when every seed produced valid results.
             expansion_values = {ft: {'near': [], 'far': []} for ft in feature_types}
-            missing_any = False
+            # Track per-seed success (True if this seed produced numeric near/far for all feature types)
+            seed_success = {seed: True for seed in seeds}
 
             for seed in seeds:
                 config.seed = seed
                 print(f"Processing seed: {config.seed}")
+                # We deliberately do NOT break on per-seed errors; instead record NaNs and continue so all seeds are attempted
                 try:
                     # For efficiency, extract features once for the union of near and far OOD sets
                     orig_dataset_feat = getattr(config, 'dataset_feat', None)
@@ -1575,7 +1578,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             # print(f"Extracting features for union list: {config.dataset_feat}")
                             feature_extraction_spike(config)
                         except Exception as e:
-                            # mark extraction failure; we'll treat tests as missing (NaN)
+                            # mark extraction failure for this seed; record NaNs below and continue
                             print(f"[exp1] Feature extraction failed for ResNet{resnet_model} E={expansion} S={seed}: {e}")
                             try:
                                 import traceback
@@ -1630,9 +1633,10 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                     for ft in feature_types:
                         try:
                             if not extracted_ok:
-                                # if extraction failed, append NaNs for this seed
+                                # if extraction failed, append NaNs for this seed and mark seed as unsuccessful
                                 expansion_values[ft]['near'].append(np.nan)
                                 expansion_values[ft]['far'].append(np.nan)
+                                seed_success[seed] = False
                                 continue
 
                             # Run test on near list (if present)
@@ -1700,6 +1704,10 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             # restore original dataset_feat for safety
                             config.dataset_feat = orig_dataset_feat
 
+                            # If either side is NaN treat this seed as unsuccessful for this feature type
+                            if np.isnan(near_mean) or np.isnan(far_mean):
+                                seed_success[seed] = False
+
                             expansion_values[ft]['near'].append(near_mean)
                             expansion_values[ft]['far'].append(far_mean)
                             print(f"expansion_values: {expansion_values}")
@@ -1710,10 +1718,15 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                                 traceback.print_exc()
                             except Exception:
                                 pass
-                            missing_any = True
-                            break
+                            # record failure for this seed
+                            expansion_values[ft]['near'].append(np.nan)
+                            expansion_values[ft]['far'].append(np.nan)
+                            seed_success[seed] = False
+                            # continue to next feature type / seed without breaking
+                            continue
 
                 except Exception as e:
+                    # Unexpected error during the per-seed processing: log and mark seed as unsuccessful, but continue with other seeds
                     print(f"[exp1] Unexpected error for resnet={resnet_model} exp={expansion} seed={seed}: {e}")
                     try:
                         import traceback
@@ -1726,8 +1739,9 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             print(f"[exp1] CUDA memory allocated: {torch.cuda.memory_allocated()}, reserved: {torch.cuda.memory_reserved()}")
                     except Exception:
                         pass
-                    missing_any = True
-                    break
+                    seed_success[seed] = False
+                    # continue with next seed
+                    continue
 
             # after processing all seeds for this expansion, release any remaining caches
             try:
@@ -1746,6 +1760,13 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                 pass
 
             # finalize expansion entry (set by index into the pre-populated lists)
+            # Derive a missing-any flag from per-seed success tracking. If any seed failed
+            # then we consider the expansion incomplete and keep it as 'not trained'.
+            try:
+                missing_any = not all(seed_success.get(s, False) for s in seeds) if seeds else False
+            except Exception:
+                missing_any = True
+
             for ft in feature_types:
                 arr_near = np.array(expansion_values[ft]['near'], dtype=float)
                 arr_far = np.array(expansion_values[ft]['far'], dtype=float)
@@ -1945,7 +1966,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
 
     # Results container: results[resnet_model][feature_type] = list over expansions (dict with 'near'/'far' values or 'not trained')
     # Load existing EX2 JSON if present so we can resume partially-completed runs. If not present, create skeleton.
-    datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_data.json')
+    datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
     data_out = None
     if os.path.exists(datafile):
         try:
@@ -1959,6 +1980,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
             'dataset_ID': config.dataset_ID,
             'case': config.case,
             'expansions': list(expansions),
+            'methods': methods,
             'feature_types': feature_types,
             'model_tags': {str(k): v for k, v in model_tags.items()},
             'results': {}
@@ -2113,18 +2135,21 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
 
             # finalize expansion entry
             for ft in feature_types:
-                # filter out None seeds
-                seed_near = [v for v in expansion_values[ft]['near'] if v is not None]
-                seed_far = [v for v in expansion_values[ft]['far'] if v is not None]
+                # expansion_values[ft]['near'] and ['far'] contain one entry per seed (or None)
+                seed_near = expansion_values[ft]['near']
+                seed_far = expansion_values[ft]['far']
 
-                if missing_any or (len(seed_near) == 0 and len(seed_far) == 0):
+                # Require that ALL seeds produced valid (non-None) results for both near and far
+                all_near_ok = (len(seed_near) == len(seeds)) and all(v is not None for v in seed_near)
+                all_far_ok = (len(seed_far) == len(seeds)) and all(v is not None for v in seed_far)
+
+                if not (all_near_ok and all_far_ok):
+                    # at least one seed missing or incomplete -> keep as not trained
                     results[resnet_model][ft][idx] = {'near': 'not trained', 'far': 'not trained'}
                     continue
 
-                # If we have per-seed arrays, stack and average across seeds (nan-aware) per method
+                # All seeds present: stack and average across seeds (nan-aware) per method
                 def avg_over_seeds(seed_list):
-                    if len(seed_list) == 0:
-                        return 'not trained'
                     try:
                         stacked = np.stack([np.array(x, dtype=float) for x in seed_list], axis=0)
                         mean_methods = np.nanmean(stacked, axis=0)
@@ -2140,6 +2165,8 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
             # Persist progress back to EX2 JSON after each expansion so runs are resumable
             try:
                 data_out['results'][str(resnet_model)] = data_out['results'].get(str(resnet_model), {})
+                # persist which methods were used for this EX2 run
+                data_out['methods'] = methods
                 for ft in feature_types:
                     serial_list = []
                     for entry in results[resnet_model][ft]:
@@ -2241,6 +2268,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
         'dataset_ID': config.dataset_ID,
         'case': config.case,
         'expansions': list(expansions),
+        'methods': methods,
         'feature_types': feature_types,
         'model_tags': {str(k): v for k, v in model_tags.items()},
         'results': {}
@@ -2263,7 +2291,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                 serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
             data_out['results'][str(rm)][ft] = serial_list
 
-    datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_data.json')
+    datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
     try:
         with open(datafile, 'w') as jf:
             json.dump(data_out, jf, indent=2)
