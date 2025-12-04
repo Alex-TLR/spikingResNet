@@ -228,7 +228,7 @@ class ExperimentConfig:
         # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
         self.case = '42'
         # self.methods = ['ENGY', 'MSP', 'MLS', 'NCM', 'ODIN', 'KNN']
-        self.methods = ['KNN']
+        self.methods = None
         # self.methods = ['VIM', 'NCM', 'ENGY', 'MSP']
         
         # Model parameters

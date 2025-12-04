@@ -173,7 +173,7 @@ def training(config):
     elif config.model_type == 'spike':
 
         weightPath = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
-        print(f"Weight path: {weightPath}")
+        # print(f"Weight path: {weightPath}")
         if (Utils.does_file_exists(weightPath)):
 
             # Keeps accuracy and loss for both training and validation in each epoch
@@ -426,6 +426,7 @@ def training_population(config):
                 return -1
             
             model = model.to(device)
+            summary(model, input_size=(channels, rows, cols))
 
             pop_code=False
             if config.expansion>1:
@@ -441,8 +442,6 @@ def training_population(config):
                 loss_fn = SF.ce_count_loss(population_code=pop_code, num_classes=config.num_classes)
                 loss_name = "ce_count_loss"
             elif config.loss == 'cross_entropy':
-                # print(f"For population coding we do not use cross entropy loss.")
-                # return -1
                 loss_fn = nn.CrossEntropyLoss()
                 loss_name = "cross_entropy"
             elif config.loss == 'mse_count_loss':

@@ -310,24 +310,46 @@ class Metrics():
         start_time = time.time()
 
         # Process ID features
-        k = int(ID_feat_test.shape[1] * keep_ratio)
+        k = max(1, int(ID_feat_test.shape[1] * keep_ratio))
         ID_top_k_threshold = np.partition(ID_feat_test, -k, axis=1)[:, -k]
-        ID_suppressed_features = np.where(ID_feat_test >= ID_top_k_threshold[:, None], ID_feat_test, 0)
-        ID_suppressed_features[ID_suppressed_features.sum(axis=1) == 0] = 1e-12
-        ID_norm_factor = ID_feat_test.sum(axis=1, keepdims=True) / (ID_suppressed_features.sum(axis=1, keepdims=True) + 1e-12)
-        ID_norm_factor[np.isnan(ID_norm_factor)] = 1.0
-        ID_normalized_features = ID_suppressed_features * ID_norm_factor
+        # Keep only top-k activations per-row, set others to 0
+        ID_suppressed_features = np.where(ID_feat_test >= ID_top_k_threshold[:, None], ID_feat_test, 0.0)
+        # Force non-negative activations: negative values don't make sense for ASH-sums
+        ID_suppressed_features = np.where(ID_suppressed_features < 0.0, 0.0, ID_suppressed_features)
+
+        # Compute row sums and ensure no-all-zero rows (replace such rows with tiny epsilon vector)
+        ID_row_sums = ID_suppressed_features.sum(axis=1, keepdims=True)
+        zero_rows = (ID_row_sums == 0).flatten()
+        if np.any(zero_rows):
+            ID_suppressed_features[zero_rows, :] = 1e-12
+            ID_row_sums = ID_suppressed_features.sum(axis=1, keepdims=True)
+
+        # Prefer to scale suppressed activations to match the positive mass of the original features
+        ID_orig_pos_sum = np.where(ID_feat_test > 0.0, ID_feat_test, 0.0).sum(axis=1, keepdims=True)
+        # If original positive mass is zero or invalid, fall back to scaling factor 1.0
+        ID_scale = np.where(ID_orig_pos_sum <= 0.0, 1.0, (ID_orig_pos_sum + 1e-12) / (ID_row_sums + 1e-12))
+        # Apply scale and sanitize
+        ID_normalized_features = ID_suppressed_features * ID_scale
         ID_normalized_features = np.nan_to_num(ID_normalized_features, nan=1e-12, posinf=1e12, neginf=1e-12)
+        # Now safe to sum and take log (all entries non-negative, sums > 0)
         ID_ash_scores = -np.log(np.sum(ID_normalized_features, axis=1) + 1e-12)
 
         # Process OOD features
-        k = int(OOD_feat_test.shape[1] * keep_ratio)
+        k = max(1, int(OOD_feat_test.shape[1] * keep_ratio))
         OOD_top_k_threshold = np.partition(OOD_feat_test, -k, axis=1)[:, -k]
-        OOD_suppressed_features = np.where(OOD_feat_test >= OOD_top_k_threshold[:, None], OOD_feat_test, 0)
-        OOD_suppressed_features[OOD_suppressed_features.sum(axis=1) == 0] = 1e-12
-        OOD_norm_factor = OOD_feat_test.sum(axis=1, keepdims=True) / (OOD_suppressed_features.sum(axis=1, keepdims=True) + 1e-12)
-        OOD_norm_factor[np.isnan(OOD_norm_factor)] = 1.0
-        OOD_normalized_features = OOD_suppressed_features * OOD_norm_factor
+        OOD_suppressed_features = np.where(OOD_feat_test >= OOD_top_k_threshold[:, None], OOD_feat_test, 0.0)
+        OOD_suppressed_features = np.where(OOD_suppressed_features < 0.0, 0.0, OOD_suppressed_features)
+
+        OOD_row_sums = OOD_suppressed_features.sum(axis=1, keepdims=True)
+        zero_rows_o = (OOD_row_sums == 0).flatten()
+        if np.any(zero_rows_o):
+            OOD_suppressed_features[zero_rows_o, :] = 1e-12
+            OOD_row_sums = OOD_suppressed_features.sum(axis=1, keepdims=True)
+
+        OOD_orig_pos_sum = np.where(OOD_feat_test > 0.0, OOD_feat_test, 0.0).sum(axis=1, keepdims=True)
+        OOD_scale = np.where(OOD_orig_pos_sum <= 0.0, 1.0, (OOD_orig_pos_sum + 1e-12) / (OOD_row_sums + 1e-12))
+        OOD_normalized_features = OOD_suppressed_features * OOD_scale
+        OOD_normalized_features = np.nan_to_num(OOD_normalized_features, nan=1e-12, posinf=1e12, neginf=1e-12)
         OOD_ash_scores = -np.log(np.sum(OOD_normalized_features, axis=1) + 1e-12)
 
         # Combine scores and labels
@@ -754,84 +776,6 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
 
-    # # For ODIN and ASH, we need to load the model
-    # channels = 3
-    # beta = 0.95
-    # threshold = 0.25
-
-    # # Get image size based on dataset
-    # if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
-    #     feature_size = 32
-    # elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
-    #     feature_size = 28
-    # else:
-    #     feature_size = 28
-
-    # if config.resnet_model == 1:
-    #     model = spikeConvNN1(numberOfChannels=channels, 
-    #                             numberOfClasses=config.num_classes, 
-    #                             beta=beta, 
-    #                             threshold=threshold)
-    #     featSize = 256
-    # elif config.resnet_model == 2:
-    #     model = spikeConvNN2(numberOfChannels=channels, 
-    #                             numberOfClasses=config.num_classes,
-    #                             beta=beta, threshold=threshold, 
-    #                             feature_size=feature_size, 
-    #                             expansion=config.expansion)    
-    #     featSize = 300
-    # elif config.resnet_model == 4:
-    #     model = spikeConvNN4(numberOfChannels=channels, 
-    #                             numberOfClasses=config.num_classes, 
-    #                             beta=beta, threshold=threshold, 
-    #                             feature_size=feature_size, 
-    #                             numberOfSteps=config.num_time_steps_extract, 
-    #                             expansion=config.expansion)
-    #     featSize = 256
-    # elif config.resnet_model == 9:
-    #     model = SpikeResNet9Model(numberOfChannels=channels, 
-    #                                 numberOfClasses=config.num_classes, 
-    #                                 beta=beta, 
-    #                                 threshold=threshold)
-    #     featSize = 512
-    # elif config.resnet_model == 10:
-    #     model = SpikeResNet10Model(numberOfChannels=channels, 
-    #                                 numberOfClasses=config.num_classes, 
-    #                                 beta=beta, 
-    #                                 threshold=threshold, 
-    #                                 numberOfSteps=config.num_time_steps_extract, 
-    #                                 expansion=config.expansion)
-    #     featSize = 512
-    # elif config.resnet_model == 18:
-    #     model = SpikeResNet18Model(numberOfChannels=channels, 
-    #                                 numberOfClasses=config.num_classes, 
-    #                                 beta=beta, 
-    #                                 threshold=threshold, 
-    #                                 numberOfSteps=config.num_time_steps_extract, 
-    #                                 expansion=config.expansion)
-    #     featSize = 512
-    # elif config.resnet_model == 20:
-    #     model = SpikeResNet20Model(numberOfChannels=channels, 
-    #                                 numberOfClasses=config.num_classes, 
-    #                                 beta=beta, 
-    #                                 threshold=threshold, 
-    #                                 numberOfSteps=config.num_time_steps_extract, 
-    #                                 expansion=config.expansion)
-    #     featSize = 512
-    # elif config.resnet_model == 21:
-    #     model = spikeLinearNet1(numberOfChannels=channels, 
-    #                                 numberOfClasses=config.num_classes, 
-    #                                 beta=beta, 
-    #                                 threshold=threshold)
-    #     featSize = 300
-    # else:
-    #     print("Feature: Not defined")
-    #     return -1
-    
-    # weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
-    # device = Utils.get_device()
-    # model.load_state_dict(torch.load(weightsName, weights_only=True))
-    # model = model.to(device)
 
     # Load In-Distribution data
     ID = np.load(IDpath)
@@ -1164,8 +1108,48 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
             else:
                 pass
 
-        del OOD, OOD_feat_train, OOD_prob_train, OOD_prob_test
+        # remove references to large arrays and close file handles if present
+        try:
+            del OOD_feat_train, OOD_prob_train, OOD_prob_test
+        except Exception:
+            pass
+        try:
+            if 'OOD' in locals() and hasattr(OOD, 'close'):
+                OOD.close()
+        except Exception:
+            pass
+        try:
+            del OOD
+        except Exception:
+            pass
+        # hint to the GC and free GPU cached memory if any
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
+        try:
+            import torch
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
         print()
+
+    # ensure ID file handle is closed and large arrays removed
+    try:
+        if 'ID' in locals() and hasattr(ID, 'close'):
+            ID.close()
+    except Exception:
+        pass
+    try:
+        del ID, ID_spik_train, ID_feat_train, ID_prob_train, ID_tags_train, ID_volt_train, ID_spik_test, ID_feat_test, ID_prob_test, ID_volt_test
+    except Exception:
+        pass
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
 
     return stats
 
@@ -1492,21 +1476,90 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
     model_tags = {4: 'spike-Conv', 10: 'spike-ResNet10', 18: 'spike-ResNet18'}
 
     # Results container: results[resnet_model][feature_type] = list over expansions (dict with 'near'/'far' values or 'not trained')
-    results = {rm: {ft: [] for ft in feature_types} for rm in resnet_models}
+    # Load existing JSON if present so we can resume partially-completed runs. If not present, create skeleton and save it.
+    datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_data.json')
+    data_out = None
+    if os.path.exists(datafile):
+        try:
+            with open(datafile, 'r') as jf:
+                data_out = json.load(jf)
+        except Exception:
+            data_out = None
+
+    if data_out is None:
+        # build empty skeleton with 'not trained' placeholders
+        data_out = {
+            'dataset_ID': config.dataset_ID,
+            'case': config.case,
+            'expansions': list(expansions),
+            'feature_types': feature_types,
+            'model_tags': {str(k): v for k, v in model_tags.items()},
+            'results': {}
+        }
+        for rm in resnet_models:
+            data_out['results'][str(rm)] = {}
+            for ft in feature_types:
+                data_out['results'][str(rm)][ft] = [{'near': 'not trained', 'far': 'not trained'} for _ in expansions]
+        try:
+            with open(datafile, 'w') as jf:
+                json.dump(data_out, jf, indent=2)
+        except Exception as e:
+            print(f"Warning: failed to write initial EX1 JSON skeleton: {e}")
+
+    # Initialize results from loaded or newly-created JSON skeleton. This allows skipping already-done entries.
+    results = {}
+    for rm in resnet_models:
+        results[rm] = {}
+        key = str(rm)
+        for ft in feature_types:
+            if key in data_out.get('results', {}) and ft in data_out['results'][key]:
+                serial = data_out['results'][key][ft]
+                # ensure the list length matches expansions
+                entries = []
+                for i in range(len(expansions)):
+                    if i < len(serial):
+                        entries.append(serial[i])
+                    else:
+                        entries.append({'near': 'not trained', 'far': 'not trained'})
+                results[rm][ft] = entries
+            else:
+                results[rm][ft] = [{'near': 'not trained', 'far': 'not trained'} for _ in expansions]
 
     # Loop over resnet models and expansions
     for resnet_model in resnet_models:
         config.resnet_model = resnet_model
-        for expansion in expansions:
+        print(f"Processing ResNet{resnet_model}")
+        for idx, expansion in enumerate(expansions):
             config.expansion = expansion
+            # If the JSON already contains valid results (not 'not trained') for this resnet+expansion for all
+            # feature types, skip running it. Otherwise we'll run and overwrite the placeholder(s).
+            all_trained = True
+            for ft in feature_types:
+                entry = results[resnet_model][ft][idx]
+                near_val = entry.get('near') if isinstance(entry, dict) else 'not trained'
+                far_val = entry.get('far') if isinstance(entry, dict) else 'not trained'
+                if isinstance(near_val, str) and near_val == 'not trained':
+                    all_trained = False
+                    break
+                if isinstance(far_val, str) and far_val == 'not trained':
+                    all_trained = False
+                    break
+            if all_trained:
+                print(f"Skipping ResNet{resnet_model} expansion {expansion} — already trained in JSON.")
+                continue
+            print(f"Processing expansion: {config.expansion}")
             config.override_feature_extraction = True
 
             # For each feature type compute per-seed AUROC and then average across seeds separately for near and far
+            # We will attempt all seeds and only mark the expansion as 'done' in JSON when every seed produced valid results.
             expansion_values = {ft: {'near': [], 'far': []} for ft in feature_types}
-            missing_any = False
+            # Track per-seed success (True if this seed produced numeric near/far for all feature types)
+            seed_success = {seed: True for seed in seeds}
 
             for seed in seeds:
                 config.seed = seed
+                print(f"Processing seed: {config.seed}")
+                # We deliberately do NOT break on per-seed errors; instead record NaNs and continue so all seeds are attempted
                 try:
                     # For efficiency, extract features once for the union of near and far OOD sets
                     orig_dataset_feat = getattr(config, 'dataset_feat', None)
@@ -1515,26 +1568,75 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                         union_list = sorted(set(list(near_list) + list(far_list)))
                     except Exception:
                         union_list = list(near_list) + list(far_list)
+                    print(f"Union list: {union_list}")
 
                     # If union_list is non-empty, temporarily set it and extract once
                     extracted_ok = True
                     if union_list:
                         try:
                             config.dataset_feat = list(union_list)
-                            print(f"Extracting features for union list: {config.dataset_feat}")
+                            # print(f"Extracting features for union list: {config.dataset_feat}")
                             feature_extraction_spike(config)
-                        except Exception:
-                            # mark extraction failure; we'll treat tests as missing (NaN)
+                        except Exception as e:
+                            # mark extraction failure for this seed; record NaNs below and continue
+                            print(f"[exp1] Feature extraction failed for ResNet{resnet_model} E={expansion} S={seed}: {e}")
+                            try:
+                                import traceback
+                                traceback.print_exc()
+                            except Exception:
+                                pass
+                            try:
+                                import torch
+                                if torch.cuda.is_available():
+                                    print(f"[exp1] CUDA memory allocated: {torch.cuda.memory_allocated()}, reserved: {torch.cuda.memory_reserved()}")
+                            except Exception:
+                                pass
                             extracted_ok = False
+
+                        # Aggressive cleanup after extraction attempt to reduce GPU fragmentation
+                        try:
+                            import gc
+                            gc.collect()
+                        except Exception:
+                            pass
+                        try:
+                            import torch
+                            # synchronize and release cached memory
+                            if torch.cuda.is_available():
+                                try:
+                                    torch.cuda.synchronize()
+                                except Exception:
+                                    pass
+                                try:
+                                    torch.cuda.empty_cache()
+                                except Exception:
+                                    pass
+                                # collect IPC tensors and reset peak stats if available
+                                if hasattr(torch.cuda, 'ipc_collect'):
+                                    try:
+                                        torch.cuda.ipc_collect()
+                                    except Exception:
+                                        pass
+                                try:
+                                    torch.cuda.reset_peak_memory_stats()
+                                except Exception:
+                                    pass
+                                try:
+                                    print(f"[exp1] post-extract CUDA allocated: {torch.cuda.memory_allocated()}, reserved: {torch.cuda.memory_reserved()}")
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
 
                     # For each feature type, run test_metrics for near and far respectively
                     num_methods = len(methods)
                     for ft in feature_types:
                         try:
                             if not extracted_ok:
-                                # if extraction failed, append NaNs for this seed
+                                # if extraction failed, append NaNs for this seed and mark seed as unsuccessful
                                 expansion_values[ft]['near'].append(np.nan)
                                 expansion_values[ft]['far'].append(np.nan)
+                                seed_success[seed] = False
                                 continue
 
                             # Run test on near list (if present)
@@ -1548,6 +1650,25 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                                     near_mean = np.nan
                                 else:
                                     near_mean = float(np.nanmean(stats_local[:, :num_methods])) * 100.0
+                                # free stats_local and do a light GPU cleanup to reduce memory pressure
+                                try:
+                                    del stats_local
+                                except Exception:
+                                    pass
+                                try:
+                                    import gc
+                                    gc.collect()
+                                except Exception:
+                                    pass
+                                try:
+                                    import torch
+                                    if torch.cuda.is_available():
+                                        try:
+                                            torch.cuda.empty_cache()
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    pass
 
                             # Run test on far list (if present)
                             if not far_list:
@@ -1560,28 +1681,99 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                                     far_mean = np.nan
                                 else:
                                     far_mean = float(np.nanmean(stats_local[:, :num_methods])) * 100.0
+                                # free stats_local and do a light GPU cleanup to reduce memory pressure
+                                try:
+                                    del stats_local
+                                except Exception:
+                                    pass
+                                try:
+                                    import gc
+                                    gc.collect()
+                                except Exception:
+                                    pass
+                                try:
+                                    import torch
+                                    if torch.cuda.is_available():
+                                        try:
+                                            torch.cuda.empty_cache()
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    pass
 
                             # restore original dataset_feat for safety
                             config.dataset_feat = orig_dataset_feat
 
+                            # If either side is NaN treat this seed as unsuccessful for this feature type
+                            if np.isnan(near_mean) or np.isnan(far_mean):
+                                seed_success[seed] = False
+
                             expansion_values[ft]['near'].append(near_mean)
                             expansion_values[ft]['far'].append(far_mean)
-                        except Exception:
-                            missing_any = True
-                            break
+                            print(f"expansion_values: {expansion_values}")
+                        except Exception as e:
+                            print(f"[exp1] Error during testing feature={ft} resnet={resnet_model} exp={expansion} seed={seed}: {e}")
+                            try:
+                                import traceback
+                                traceback.print_exc()
+                            except Exception:
+                                pass
+                            # record failure for this seed
+                            expansion_values[ft]['near'].append(np.nan)
+                            expansion_values[ft]['far'].append(np.nan)
+                            seed_success[seed] = False
+                            # continue to next feature type / seed without breaking
+                            continue
 
-                except Exception:
-                    missing_any = True
-                    break
+                except Exception as e:
+                    # Unexpected error during the per-seed processing: log and mark seed as unsuccessful, but continue with other seeds
+                    print(f"[exp1] Unexpected error for resnet={resnet_model} exp={expansion} seed={seed}: {e}")
+                    try:
+                        import traceback
+                        traceback.print_exc()
+                    except Exception:
+                        pass
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            print(f"[exp1] CUDA memory allocated: {torch.cuda.memory_allocated()}, reserved: {torch.cuda.memory_reserved()}")
+                    except Exception:
+                        pass
+                    seed_success[seed] = False
+                    # continue with next seed
+                    continue
 
-            # finalize expansion entry
+            # after processing all seeds for this expansion, release any remaining caches
+            try:
+                config.dataset_feat = orig_dataset_feat
+            except Exception:
+                pass
+            try:
+                import gc
+                gc.collect()
+            except Exception:
+                pass
+            try:
+                import torch
+                torch.cuda.empty_cache()
+            except Exception:
+                pass
+
+            # finalize expansion entry (set by index into the pre-populated lists)
+            # Derive a missing-any flag from per-seed success tracking. If any seed failed
+            # then we consider the expansion incomplete and keep it as 'not trained'.
+            try:
+                missing_any = not all(seed_success.get(s, False) for s in seeds) if seeds else False
+            except Exception:
+                missing_any = True
+
             for ft in feature_types:
                 arr_near = np.array(expansion_values[ft]['near'], dtype=float)
                 arr_far = np.array(expansion_values[ft]['far'], dtype=float)
 
                 # If feature extraction/test failed (missing_any) or we have no valid values, mark as not trained
                 if missing_any or arr_near.size == 0 or arr_far.size == 0 or (np.all(np.isnan(arr_near)) and np.all(np.isnan(arr_far))):
-                    results[resnet_model][ft].append({'near': 'not trained', 'far': 'not trained'})
+                    results[resnet_model][ft][idx] = {'near': 'not trained', 'far': 'not trained'}
                 else:
                     # compute nan-aware means; if one side is all-NaN, keep that side as 'not trained'
                     if np.all(np.isnan(arr_near)):
@@ -1594,7 +1786,24 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                     else:
                         avg_far = float(np.nanmean(arr_far))
 
-                    results[resnet_model][ft].append({'near': avg_near, 'far': avg_far})
+                    results[resnet_model][ft][idx] = {'near': avg_near, 'far': avg_far}
+                    print(f"Results updated for ResNet{resnet_model} expansion {expansion}: {results[resnet_model][ft][idx]}")
+
+            # Persist progress back to the JSON file so runs can be resumed
+            try:
+                # Build a serializable version and write
+                data_out['results'][str(resnet_model)] = data_out['results'].get(str(resnet_model), {})
+                for ft in feature_types:
+                    serial_list = []
+                    for entry in results[resnet_model][ft]:
+                        def conv(v):
+                            return v if isinstance(v, str) else float(v)
+                        serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])} if isinstance(entry, dict) else {'near': 'not trained', 'far': 'not trained'})
+                    data_out['results'][str(resnet_model)][ft] = serial_list
+                with open(datafile, 'w') as jf:
+                    json.dump(data_out, jf, indent=2)
+            except Exception as e:
+                print(f"Warning: failed to persist EX1 JSON after ResNet{resnet_model} E={expansion}: {e}")
 
     # Write combined results file with tables per resnet model (separate near / far tables)
     results_filename = os.path.join(out_dir, f'EX1_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds.txt')
@@ -1659,7 +1868,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                 serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
             data_out['results'][str(rm)][ft] = serial_list
 
-    datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_L_{config.loss}_data.json')
+    datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_data.json')
     try:
         with open(datafile, 'w') as jf:
             json.dump(data_out, jf, indent=2)
@@ -1718,11 +1927,427 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         # Legend with requested font size
         plt.legend(ncol=2, fontsize=18)
 
-        plotfile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_{ft}_L_{config.loss}.png')
+        plotfile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_{ft}_A_{config.auto_aug}_L_{config.loss}.png')
         plt.savefig(plotfile, dpi=300, bbox_inches='tight')
         plt.close()
 
     print(f"\nDetailed statistics and plots saved to: {results_filename} and {out_dir}")
+
+
+def statistics_exp_2(config, seeds, expansions, resnet_models):
+    """
+    this function should calculate the statistics similar as in statistics_exp_1,
+    this time the feature set is extended 
+    feature_types = ['features', 'voltages', 'spikes', 'probs']
+    also, the distance methods are extended 
+    config.methods = ['ASH', 'MSP', 'ODIN', 'ENGY', 'MLS', 'VIM']
+    this function needs to go over all the feature types and distance methods 
+    and to compute the averaged auroc over all seed values, for each expansion and each resnet model.
+    finally, it needs to save the results in a txt file in tales format as in statistics_exp_1, 
+    """
+
+    # Feature types to evaluate
+    feature_types = ['features', 'voltages', 'spikes', 'probs']
+    # Methods to evaluate (fall back to a sensible default if not set)
+    methods = getattr(config, 'methods', ['ASH', 'MSP', 'ODIN', 'ENGY', 'MLS', 'VIM'])
+
+    out_dir = os.path.join('results', 'ex_2')
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Prepare near and far lists (do not filter by dataset_ID)
+    near_list = list(getattr(config, 'near_ood', []) or [])
+    far_list = list(getattr(config, 'far_ood', []) or [])
+
+    # Save original dataset_feat to restore later
+    orig_dataset_feat = getattr(config, 'dataset_feat', None)
+
+    # Map resnet model numbers to human-friendly tags for potential plotting
+    model_tags = {4: 'spike-Conv', 10: 'spike-ResNet10', 18: 'spike-ResNet18'}
+
+    # Results container: results[resnet_model][feature_type] = list over expansions (dict with 'near'/'far' values or 'not trained')
+    # Load existing EX2 JSON if present so we can resume partially-completed runs. If not present, create skeleton.
+    datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
+    data_out = None
+    if os.path.exists(datafile):
+        try:
+            with open(datafile, 'r') as jf:
+                data_out = json.load(jf)
+        except Exception:
+            data_out = None
+
+    if data_out is None:
+        data_out = {
+            'dataset_ID': config.dataset_ID,
+            'case': config.case,
+            'expansions': list(expansions),
+            'methods': methods,
+            'feature_types': feature_types,
+            'model_tags': {str(k): v for k, v in model_tags.items()},
+            'results': {}
+        }
+        for rm in resnet_models:
+            data_out['results'][str(rm)] = {}
+            for ft in feature_types:
+                data_out['results'][str(rm)][ft] = [{'near': 'not trained', 'far': 'not trained'} for _ in expansions]
+        try:
+            with open(datafile, 'w') as jf:
+                json.dump(data_out, jf, indent=2)
+        except Exception as e:
+            print(f"Warning: failed to write initial EX2 JSON skeleton: {e}")
+
+    # Initialize results from the JSON skeleton so we can skip completed experiments
+    results = {}
+    for rm in resnet_models:
+        results[rm] = {}
+        key = str(rm)
+        for ft in feature_types:
+            if key in data_out.get('results', {}) and ft in data_out['results'][key]:
+                serial = data_out['results'][key][ft]
+                entries = []
+                for i in range(len(expansions)):
+                    if i < len(serial):
+                        entries.append(serial[i])
+                    else:
+                        entries.append({'near': 'not trained', 'far': 'not trained'})
+                results[rm][ft] = entries
+            else:
+                results[rm][ft] = [{'near': 'not trained', 'far': 'not trained'} for _ in expansions]
+
+    num_methods = len(methods)
+
+    # Loop over resnet models and expansions
+    for resnet_model in resnet_models:
+        config.resnet_model = resnet_model
+        for idx, expansion in enumerate(expansions):
+            config.expansion = expansion
+            config.override_feature_extraction = True
+            # If this resnet+expansion is already present in the JSON for all feature types (near and far filled), skip it
+            already_done = True
+            for ft in feature_types:
+                entry = results[resnet_model][ft][idx]
+                near_val = entry.get('near') if isinstance(entry, dict) else 'not trained'
+                far_val = entry.get('far') if isinstance(entry, dict) else 'not trained'
+                if isinstance(near_val, str) and near_val == 'not trained':
+                    already_done = False
+                    break
+                if near_val is None:
+                    already_done = False
+                    break
+                if isinstance(far_val, str) and far_val == 'not trained':
+                    already_done = False
+                    break
+                if far_val is None:
+                    already_done = False
+                    break
+            if already_done:
+                print(f"Skipping ResNet{resnet_model} expansion {expansion} — already present in EX2 JSON.")
+                continue
+
+            # For each feature type compute per-seed AUROC and then average across seeds separately for near and far
+            expansion_values = {ft: {'near': [], 'far': []} for ft in feature_types}
+            missing_any = False
+
+            for seed in seeds:
+                config.seed = seed
+                try:
+                    # For efficiency, extract features once for the union of near and far OOD sets
+                    union_list = []
+                    try:
+                        union_list = sorted(set(list(near_list) + list(far_list)))
+                    except Exception:
+                        union_list = list(near_list) + list(far_list)
+
+                    extracted_ok = True
+                    if union_list:
+                        try:
+                            config.dataset_feat = list(union_list)
+                            print(f"[exp2] Extracting features for union list: {config.dataset_feat} (ResNet{resnet_model}, E={expansion}, S={seed})")
+                            feature_extraction_spike(config)
+                        except Exception as e:
+                            print(f"[exp2] Warning: feature extraction failed for ResNet{resnet_model} E={expansion} S={seed}: {e}")
+                            extracted_ok = False
+
+                    for ft in feature_types:
+                        try:
+                            if not extracted_ok:
+                                # record missing seed as None so we can filter later
+                                expansion_values[ft]['near'].append(None)
+                                expansion_values[ft]['far'].append(None)
+                                continue
+
+                            # Run test on near list (if present)
+                            if not near_list:
+                                near_mean = None
+                            else:
+                                config.dataset_feat = list(near_list)
+                                print(f"[exp2] Datasets for testing (near): {config.dataset_feat} (feature={ft})")
+                                stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
+                                if stats_local is None or stats_local.size == 0:
+                                    near_mean = None
+                                else:
+                                    # compute per-method AUROC averaged across the listed OOD datasets
+                                    per_method = np.nanmean(stats_local[:, :num_methods], axis=0)
+                                    near_mean = (per_method * 100.0).tolist()
+
+                            # Run test on far list (if present)
+                            if not far_list:
+                                far_mean = None
+                            else:
+                                config.dataset_feat = list(far_list)
+                                print(f"[exp2] Datasets for testing (far): {config.dataset_feat} (feature={ft})")
+                                stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
+                                if stats_local is None or stats_local.size == 0:
+                                    far_mean = None
+                                else:
+                                    per_method = np.nanmean(stats_local[:, :num_methods], axis=0)
+                                    far_mean = (per_method * 100.0).tolist()
+
+                            # restore original dataset_feat for safety
+                            config.dataset_feat = orig_dataset_feat
+
+                            expansion_values[ft]['near'].append(near_mean)
+                            expansion_values[ft]['far'].append(far_mean)
+                        except Exception as e:
+                            print(f"[exp2] Error during testing feature={ft} resnet={resnet_model} exp={expansion} seed={seed}: {e}")
+                            missing_any = True
+                            break
+
+                # after finishing per-feature tests for this seed, do NOT remove on-disk .npz files here
+                # (keep saved features for later reproducibility). We only perform in-memory
+                # cleanup and GPU cache clearing in the finally block below to reduce peak memory usage.
+                except Exception as e:
+                    # Any unexpected error during the per-seed processing is handled here.
+                    print(f"[exp2] Unexpected error for resnet={resnet_model} exp={expansion} seed={seed}: {e}")
+                    missing_any = True
+                    break
+                finally:
+                    # free Python and GPU caches regardless of success/failure
+                    try:
+                        import gc
+                        gc.collect()
+                    except Exception:
+                        pass
+                    try:
+                        import torch
+                        torch.cuda.empty_cache()
+                    except Exception:
+                        pass
+
+            # finalize expansion entry
+            for ft in feature_types:
+                # expansion_values[ft]['near'] and ['far'] contain one entry per seed (or None)
+                seed_near = expansion_values[ft]['near']
+                seed_far = expansion_values[ft]['far']
+
+                # Require that ALL seeds produced valid (non-None) results for both near and far
+                all_near_ok = (len(seed_near) == len(seeds)) and all(v is not None for v in seed_near)
+                all_far_ok = (len(seed_far) == len(seeds)) and all(v is not None for v in seed_far)
+
+                if not (all_near_ok and all_far_ok):
+                    # at least one seed missing or incomplete -> keep as not trained
+                    results[resnet_model][ft][idx] = {'near': 'not trained', 'far': 'not trained'}
+                    continue
+
+                # All seeds present: stack and average across seeds (nan-aware) per method
+                def avg_over_seeds(seed_list):
+                    try:
+                        stacked = np.stack([np.array(x, dtype=float) for x in seed_list], axis=0)
+                        mean_methods = np.nanmean(stacked, axis=0)
+                        return [float(x) for x in mean_methods]
+                    except Exception as e:
+                        print(f"[exp2] Error averaging seeds for ft={ft}: {e}")
+                        return 'not trained'
+
+                avg_near = avg_over_seeds(seed_near)
+                avg_far = avg_over_seeds(seed_far)
+                results[resnet_model][ft][idx] = {'near': avg_near, 'far': avg_far}
+
+            # Persist progress back to EX2 JSON after each expansion so runs are resumable
+            try:
+                data_out['results'][str(resnet_model)] = data_out['results'].get(str(resnet_model), {})
+                # persist which methods were used for this EX2 run
+                data_out['methods'] = methods
+                for ft in feature_types:
+                    serial_list = []
+                    for entry in results[resnet_model][ft]:
+                        def conv(v):
+                            if isinstance(v, str):
+                                return v
+                            if v is None:
+                                return None
+                            try:
+                                return [float(x) for x in v]
+                            except Exception:
+                                return v
+                        serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
+                    data_out['results'][str(resnet_model)][ft] = serial_list
+                with open(datafile, 'w') as jf:
+                    json.dump(data_out, jf, indent=2)
+            except Exception as e:
+                print(f"Warning: failed to persist EX2 JSON after ResNet{resnet_model} E={expansion}: {e}")
+
+    # Write combined results file with tables per resnet model (separate near / far tables)
+    results_filename = os.path.join(out_dir, f'EX2_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds.txt')
+    with open(results_filename, 'w') as f:
+        f.write(f"{'='*60}\n")
+        f.write(f"Spiking ResNet Experiment-2 Multi-Test Results\n")
+        f.write(f"{'='*60}\n")
+        f.write(f"Experiment Configuration:\n")
+        f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
+        f.write(f"  Case: {config.case}\n")
+        f.write(f"  Batch Size: {config.batch_size}\n")
+        f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
+        f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+        f.write(f"  Number of epochs: {config.epochs}\n")
+        f.write(f"  Fitting method: {config.fit}\n")
+        f.write(f"  Loss function: {config.loss}\n")
+        f.write(f"  Augmentation: {config.auto_aug}\n")
+        f.write(f"  Methods considered: {', '.join(methods)}\n")
+        f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"\n")
+
+        for resnet_model in resnet_models:
+            f.write(f"ResNet Model: {resnet_model}\n")
+            f.write(f"Near OOD sets: {near_list}\n")
+
+            # For each feature type, print a table with expansions as rows and methods as columns (Near)
+            for ft in feature_types:
+                f.write(f"\nFeature Type (NEAR): {ft}\n")
+                # Header: Expansion then each method
+                header = 'Expansion'.ljust(12) + ''.join([f"{m:>10s}" for m in methods]) + '\n'
+                f.write(header)
+                f.write('-' * (12 + 10 * len(methods)) + '\n')
+                for idx, expansion in enumerate(expansions):
+                    entry = results[resnet_model][ft][idx]
+                    val = entry['near'] if isinstance(entry, dict) else entry
+                    if isinstance(val, str):
+                        # not trained
+                        row = f"{expansion:<12}{val}\n"
+                    elif val is None:
+                        cols = ''.join([f"{'missing':>10s}" for _ in methods])
+                        row = f"{expansion:<12}{cols}\n"
+                    else:
+                        # val should be a list of per-method floats
+                        try:
+                            cols = ''.join([f"{(v if v is not None else float('nan')):10.2f}" for v in val])
+                        except Exception:
+                            # fallback to a simple string
+                            cols = ' '.join([str(v) for v in val])
+                        row = f"{expansion:<12}{cols}\n"
+                    f.write(row)
+
+            f.write('\n')
+            f.write(f"Far OOD sets: {far_list}\n")
+
+            # For each feature type, print a table with expansions as rows and methods as columns (Far)
+            for ft in feature_types:
+                f.write(f"\nFeature Type (FAR): {ft}\n")
+                header = 'Expansion'.ljust(12) + ''.join([f"{m:>10s}" for m in methods]) + '\n'
+                f.write(header)
+                f.write('-' * (12 + 10 * len(methods)) + '\n')
+                for idx, expansion in enumerate(expansions):
+                    entry = results[resnet_model][ft][idx]
+                    val = entry['far'] if isinstance(entry, dict) else entry
+                    if isinstance(val, str):
+                        row = f"{expansion:<12}{val}\n"
+                    elif val is None:
+                        cols = ''.join([f"{'missing':>10s}" for _ in methods])
+                        row = f"{expansion:<12}{cols}\n"
+                    else:
+                        try:
+                            cols = ''.join([f"{(v if v is not None else float('nan')):10.2f}" for v in val])
+                        except Exception:
+                            cols = ' '.join([str(v) for v in val])
+                        row = f"{expansion:<12}{cols}\n"
+                    f.write(row)
+
+            f.write(f"{'='*60}\n\n")
+
+    # Save plotting data (results) so plots can be regenerated without re-extraction
+    data_out = {
+        'dataset_ID': config.dataset_ID,
+        'case': config.case,
+        'expansions': list(expansions),
+        'methods': methods,
+        'feature_types': feature_types,
+        'model_tags': {str(k): v for k, v in model_tags.items()},
+        'results': {}
+    }
+    for rm in resnet_models:
+        data_out['results'][str(rm)] = {}
+        for ft in feature_types:
+            serial_list = []
+            for entry in results[rm][ft]:
+                def conv(v):
+                    # pass strings through, convert lists to simple lists of floats
+                    if isinstance(v, str):
+                        return v
+                    if v is None:
+                        return None
+                    try:
+                        return [float(x) for x in v]
+                    except Exception:
+                        return v
+                serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
+            data_out['results'][str(rm)][ft] = serial_list
+
+    datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
+    try:
+        with open(datafile, 'w') as jf:
+            json.dump(data_out, jf, indent=2)
+    except Exception as e:
+        print(f"Warning: failed to write EX2 plotting data JSON: {e}")
+
+    # # Generate plots for each feature type: each plot contains near and far curves per ResNet
+    # plt.rcParams.update({
+    #     'text.usetex': True,
+    #     'font.family': 'serif',
+    #     'font.serif': ['Times New Roman'],
+    #     'mathtext.fontset': 'stix',
+    #     'axes.titlesize': 20,
+    #     'axes.labelsize': 20,
+    #     'xtick.labelsize': 18,
+    #     'ytick.labelsize': 18,
+    #     'figure.titlesize': 20,
+    # })
+
+    # x = list(expansions)
+    # positions = np.arange(len(x))
+    # for ft in feature_types:
+    #     if ft == 'features':
+    #         ft_label = 'Spike pattern'
+    #     elif ft == 'voltages':
+    #         ft_label = 'Membrane voltage'
+    #     elif ft == 'spikes':
+    #         ft_label = 'Spikes'
+    #     else:
+    #         ft_label = 'Probabilities'
+
+    #     plt.figure(figsize=(10,7))
+    #     for resnet_model in resnet_models:
+    #         vals = results[resnet_model][ft]
+    #         y_near = [np.nan if vals[i]=='not trained' or vals[i]['near']=='not trained' else vals[i]['near'] for i in range(len(expansions))]
+    #         y_far = [np.nan if vals[i]=='not trained' or vals[i]['far']=='not trained' else vals[i]['far'] for i in range(len(expansions))]
+    #         tag = model_tags.get(resnet_model, f'ResNet{resnet_model}')
+    #         plt.plot(positions, y_near, marker='o', linestyle='-', label=f'{tag} - near')
+    #         plt.plot(positions, y_far, marker='x', linestyle='--', label=f'{tag} - far')
+
+    #     plt.xlabel('Expansion')
+    #     plt.ylabel('Average AUROC')
+    #     plt.title(f'Average AUROC vs Expansion ({ft_label})')
+
+    #     y_min, y_max = 50.0, 100.0
+    #     plt.ylim(y_min, y_max)
+    #     plt.yticks(np.arange(y_min, y_max + 1, 5))
+    #     plt.grid(axis='both', linestyle='--', linewidth=0.8)
+    #     plt.xticks(positions, x)
+    #     plt.legend(ncol=2, fontsize=18)
+
+    #     plotfile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_{ft}_L_{config.loss}.png')
+    #     plt.savefig(plotfile, dpi=300, bbox_inches='tight')
+    #     plt.close()
+
+    print(f"\nExperiment-2 detailed statistics and plots saved to: {results_filename} and {out_dir}")
 
 
 def plot_ex1_from_data(data_or_path, out_dir=None, y_min=50.0, y_max=100.0, y_step=5, legend_fontsize=18):
