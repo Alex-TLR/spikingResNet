@@ -6,8 +6,8 @@
 #SBATCH --mem=64GB
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
-#SBATCH --constraint=h100
-#SBATCH --output=SNNResnet18-CIFAR10.log
+#SBATCH --constraint=v100s
+#SBATCH --output=SNNResnet10-CIFAR10.log
 #STEPS=${SLURM_ARRAY_TASK_ID}
 #echo "Running training with ${STEPS} time steps"
 CONTAINER_PATH=../container/snn.sif

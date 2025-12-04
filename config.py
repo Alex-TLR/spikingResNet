@@ -236,8 +236,8 @@ class ExperimentConfig:
         self.resnet_model = 18
         self.num_classes = 10
         self.expansion = 1
-        self.num_time_steps_train = 4
-        self.num_time_steps_extract = 4
+        self.num_time_steps_train = 1
+        self.num_time_steps_extract = 1
         self.override_feature_extraction = False
         self.seed = 42
 
