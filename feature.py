@@ -1,7 +1,7 @@
 import torch
 from utils.Utils import Utils
 from torch.utils.data import DataLoader
-from models.resnet import ResNet9Model 
+from models.resnet import ResNet9Model, convNN4, ResNet10, ResNet18
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model
 from models.plain import spikeLinearNet1
 import numpy as np
@@ -104,6 +104,170 @@ GRAYSCALE_DATASETS = ['MNIST', 'FMNIST', 'KMNIST', 'EMNIST', 'Letters']
 
 def needs_grayscale_to_rgb(train_dataset, feat_dataset):
     return (train_dataset in RGB_DATASETS) and (feat_dataset in GRAYSCALE_DATASETS)
+
+def feature_extraction_conv(config):
+    '''
+    Feature extraction for conv models
+    '''
+
+    loss_fn = nn.CrossEntropyLoss()
+
+    for i in range(len(config.dataset_feat)):
+        # print(f"Extracting features for {config.dataset_feat[i]}")
+        if needs_grayscale_to_rgb(config.dataset_ID, config.dataset_feat[i]):
+            dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], config, gray2rgb=True)
+        else:
+            dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], config)
+        # Get image size
+        channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_feat[i])
+
+        device = Utils.get_device()
+
+        # Get image size based on dataset
+        if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
+            feature_size = 32
+        elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
+            feature_size = 28
+        else:
+            feature_size = 28
+
+        trainDataSize = len(dataset_train)
+        testDataSize = len(dataset_test)
+
+        # Load OoD data
+        train_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_feat[i], True)
+
+        # Define model
+        if config.resnet_model == 4:
+            model = convNN4(numberOfChannels=channels, 
+                            numberOfClasses=config.num_classes, 
+                            feature_size=32, 
+                            expansion=config.expansion)
+            featSize = 256
+        elif config.resnet_model == 10:
+            model = ResNet10(numberOfChannels=channels, 
+                                    numberOfClasses=config.num_classes, 
+                                    expan=config.expansion)
+            featSize = 512
+        elif config.resnet_model == 18:
+            model = ResNet18(numberOfChannels=channels, 
+                                    numberOfClasses=config.num_classes, 
+                                    expan=config.expansion)
+            featSize = 512
+        else:
+            print("Model not defined for the given ResNet configuration.")
+            return -1
+        
+        # Load weights
+        # Loading the weights for the ID-trained network
+        weightsName = 'weights/conv/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) + '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
+        model.load_state_dict(torch.load(weightsName, weights_only=True))
+        model = model.to(device)
+
+        fileName = 'features/conv/case_' + config.case + '/' + config.dataset_feat[i] + '-on_' + config.dataset_ID.lower() + '.npz'
+
+        if (Utils.does_file_exists(fileName) or config.override_feature_extraction):
+
+            torch.cuda.empty_cache()
+            Prob_train = []
+            Volt_train = []
+            Tags_train = []
+            # print(f"Extracting features for {config.dataset_feat[i]} on {config.dataset_ID}")
+            if config.dataset_feat[i] == config.dataset_ID:
+                Prob_train = np.zeros((trainDataSize, config.num_classes))
+                Volt_train = np.zeros((trainDataSize, featSize))
+                ii = 0
+                with torch.no_grad(): 
+                    for batch, labels in train_loader:
+                        batch = batch.to(device)
+                        labels = labels.to(device)
+                        startIndex = ii*config.batch_size
+                        endIndex = startIndex + config.batch_size
+
+                        p, v = model(batch)
+                        p = p.cpu().detach().numpy()
+                        v = v.cpu().detach().numpy()
+                        # print(f"Shape of p: {p.shape}, v: {v.shape}")
+                        # probs = p.max(axis=0)
+                        # volts = v.max(axis=0)
+                        # print(f"Shape of probs: {probs.shape}, expected: {(endIndex - startIndex, Prob_train.shape[1])}")
+
+                        if hasattr(model, 'expan') and model.expan > 1: 
+                            p = p.reshape(p.shape[0], config.num_classes, model.expan).sum(axis=2)
+                            # print(f"After expansion check, shape of p: {p.shape}")
+                        # probs = Metrics.softmax(probs)
+
+                        labels = labels.cpu().detach().numpy()
+                        Prob_train[startIndex:endIndex, :] = p
+                        Volt_train[startIndex:endIndex, :] = v
+                        Tags_train.append(labels.flatten())
+                        del batch, labels, p, v
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        ii += 1
+                        print(f"\rProgress: {ii}/{len(train_loader)}", end='', flush=True)
+
+                Tags_train = np.concatenate(Tags_train)
+                # print()
+                # print("Tags_train shape is ", Tags_train.shape)
+
+            Prob_test = np.zeros((testDataSize, config.num_classes))
+            Volt_test = np.zeros((testDataSize, featSize))
+            Tags_test = []
+            ii = 0
+            with torch.no_grad():
+                for batch, labels in test_loader:
+                    batch = batch.to(device)
+                    labels = labels.to(device)
+                    startIndex = ii*config.batch_size
+                    endIndex = startIndex + config.batch_size
+
+                    p, v = model(batch)                        
+                    p = p.cpu().detach().numpy()
+                    v = v.cpu().detach().numpy()
+
+                    # probs = p.max(axis=0)
+                    # volts = v.max(axis=0)
+                    if hasattr(model, 'expan') and model.expan > 1:
+                        p = p.reshape(p.shape[0], config.num_classes, model.expan).sum(axis=2) 
+ 
+                    labels = labels.cpu().detach().numpy()
+                    Prob_test[startIndex:endIndex, :] = p
+                    Volt_test[startIndex:endIndex, :] = v
+                    Tags_test.append(labels.flatten())
+                    del batch, labels, p, v
+                    torch.cuda.empty_cache()
+                    gc.collect()
+                    ii += 1
+                    print(f"\rProgress: {ii}/{len(test_loader)}", end='', flush=True)
+
+            Tags_test = np.concatenate(Tags_test)
+            print()
+            np.savez(fileName, 
+                            arr2=Prob_train, 
+                            arr3=Tags_train, 
+                            arr5=Prob_test, 
+                            arr6=Tags_test,
+                            arr8=Volt_train,
+                            arr9=Volt_test)
+
+            del Prob_train, Tags_train, Prob_test, Tags_test, Volt_train, Volt_test
+            del model 
+            del train_loader, test_loader
+            gc.collect()
+            torch.cuda.empty_cache()
+
+        else:
+            # pass
+            print("Features " + str(fileName) + " already exists.")
+
+    gc.collect()
+    torch.cuda.empty_cache()
+    # print(f"Summary of CUDA memory: {torch.cuda.memory_summary()}")
+    return None
+
+        
+
 
 def feature_extraction_spike(config):
     '''
@@ -227,7 +391,6 @@ def feature_extraction_spike(config):
         
         # Load weights
         # Loading the weights for the ID-trained network
-        # weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
         weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         model = model.to(device)

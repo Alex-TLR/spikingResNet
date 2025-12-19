@@ -5,7 +5,7 @@ from sklearn.metrics import average_precision_score, precision_recall_curve, auc
 from sklearn.metrics import roc_auc_score
 from sklearn.neighbors import NearestCentroid
 import torch
-from feature import feature_extraction_spike
+from feature import feature_extraction_spike, feature_extraction_conv
 from utils.Utils import Utils, distances_from_average_clusters
 import math
 from scipy.spatial import distance
@@ -1462,7 +1462,12 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
     Outputs: writes a TXT file with per-resnet Near / Far tables and saves plots (one per feature type)
     where each ResNet provides two curves (near and far).
     """
-    feature_types = ['features', 'voltages']
+    if config.model_type == 'spike':
+        feature_types = ['features', 'voltages']
+        model_tags = {4: 'spike-Conv', 10: 'spike-ResNet10', 18: 'spike-ResNet18'}
+    elif config.model_type == 'conv':
+        feature_types = ['voltages']
+        model_tags = {4: 'Conv', 10: 'ResNet10', 18: 'ResNet18'}
     methods = config.methods
 
     out_dir = os.path.join('results', 'ex_1')
@@ -1473,11 +1478,14 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
     near_list = list(getattr(config, 'near_ood', []) or [])
     far_list = list(getattr(config, 'far_ood', []) or [])
     # Map resnet model numbers to human-friendly tags for legend/table output
-    model_tags = {4: 'spike-Conv', 10: 'spike-ResNet10', 18: 'spike-ResNet18'}
+    
 
     # Results container: results[resnet_model][feature_type] = list over expansions (dict with 'near'/'far' values or 'not trained')
     # Load existing JSON if present so we can resume partially-completed runs. If not present, create skeleton and save it.
-    datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_data.json')
+    if config.model_type == 'spike':
+        datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_data.json')
+    elif config.model_type == 'conv':
+        datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_conv_data.json')
     data_out = None
     if os.path.exists(datafile):
         try:
@@ -1576,7 +1584,10 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                         try:
                             config.dataset_feat = list(union_list)
                             # print(f"Extracting features for union list: {config.dataset_feat}")
-                            feature_extraction_spike(config)
+                            if config.model_type == 'spike':
+                                feature_extraction_spike(config)
+                            elif config.model_type == 'conv':
+                                feature_extraction_conv(config)
                         except Exception as e:
                             # mark extraction failure for this seed; record NaNs below and continue
                             print(f"[exp1] Feature extraction failed for ResNet{resnet_model} E={expansion} S={seed}: {e}")
@@ -1806,10 +1817,16 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                 print(f"Warning: failed to persist EX1 JSON after ResNet{resnet_model} E={expansion}: {e}")
 
     # Write combined results file with tables per resnet model (separate near / far tables)
-    results_filename = os.path.join(out_dir, f'EX1_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds.txt')
+    if config.model_type == 'spike':
+        results_filename = os.path.join(out_dir, f'EX1_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds.txt')
+    elif config.model_type == 'conv':
+        results_filename = os.path.join(out_dir, f'EX1_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_conv_seeds.txt')
     with open(results_filename, 'w') as f:
         f.write(f"{'='*60}\n")
-        f.write(f"Spiking ResNet Multi-Test Results\n")
+        if config.model_type == 'spike':
+            f.write(f"Spiking ResNet Multi-Test Results\n")
+        elif config.model_type == 'conv':
+            f.write(f"Conv/ResNet Multi-Test Results\n")
         f.write(f"{'='*60}\n")
         f.write(f"Experiment Configuration:\n")
         f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
@@ -1830,22 +1847,39 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
             f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
             f.write(f"{'-'*60}\n")
             for idx, expansion in enumerate(expansions):
-                entry = results[resnet_model]['features'][idx]
-                sp_val = entry['near']
-                volt_val = results[resnet_model]['voltages'][idx]['near']
+                sp_val = None
+                volt_val = None
+
+                # Check if 'features' exist in results
+                if 'features' in results[resnet_model]:
+                    entry = results[resnet_model]['features'][idx]
+                    sp_val = entry['near']
+                # Handle 'voltages'
+                if 'voltages' in results[resnet_model]:
+                    volt_val = results[resnet_model]['voltages'][idx]['near']
+
                 def fmt(v):
                     return f"{v:>6.2f}" if isinstance(v, float) else f"{v:<20}"
-                f.write(f"{expansion:<12}{(fmt(sp_val)):<20}{(fmt(volt_val)):<20}\n")
+
+                f.write(f"{expansion:<12}{(fmt(sp_val) if sp_val is not None else 'N/A'):<20}{(fmt(volt_val) if volt_val is not None else 'N/A'):<20}\n")
             f.write(f"\n")
 
             f.write(f"Far OOD sets: {far_list}\n")
             f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
             f.write(f"{'-'*60}\n")
             for idx, expansion in enumerate(expansions):
-                entry = results[resnet_model]['features'][idx]
-                sp_val = entry['far']
-                volt_val = results[resnet_model]['voltages'][idx]['far']
-                f.write(f"{expansion:<12}{(fmt(sp_val)):<20}{(fmt(volt_val)):<20}\n")
+                sp_val = None
+                volt_val = None
+
+                # Check if 'features' exist in results
+                if 'features' in results[resnet_model]:
+                    entry = results[resnet_model]['features'][idx]
+                    sp_val = entry['far']
+                # Handle 'voltages'
+                if 'voltages' in results[resnet_model]:
+                    volt_val = results[resnet_model]['voltages'][idx]['far']
+
+                f.write(f"{expansion:<12}{(fmt(sp_val) if sp_val is not None else 'N/A'):<20}{(fmt(volt_val) if volt_val is not None else 'N/A'):<20}\n")
 
             f.write(f"{'='*60}\n\n")
 
@@ -1868,7 +1902,10 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                 serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
             data_out['results'][str(rm)][ft] = serial_list
 
-    datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_data.json')
+    if config.model_type == 'spike':
+        datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_data.json')
+    elif config.model_type == 'conv':
+        datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_conv_data.json')
     try:
         with open(datafile, 'w') as jf:
             json.dump(data_out, jf, indent=2)
@@ -1927,7 +1964,10 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         # Legend with requested font size
         plt.legend(ncol=2, fontsize=18)
 
-        plotfile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_{ft}_A_{config.auto_aug}_L_{config.loss}.png')
+        if config.model_type == 'spike':
+            plotfile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_{ft}_A_{config.auto_aug}_L_{config.loss}.png')
+        elif config.model_type == 'conv':
+            plotfile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_{ft}_A_{config.auto_aug}_L_{config.loss}_conv.png')
         plt.savefig(plotfile, dpi=300, bbox_inches='tight')
         plt.close()
 
