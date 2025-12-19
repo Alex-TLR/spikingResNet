@@ -251,8 +251,8 @@ class ExperimentConfig:
             self.epochs = 400
         else:
             self.epochs = 200 
-        self.loss = 'mse_count_loss'
-        self.fit = 'spike'
+        self.loss = 'cross_entropy'  # 'cross_entropy' or 'mse'
+        self.fit = 'membrane'  # 'spikes' or 'membrane'
 
         # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
         # set the "test_population" mode for the pipeline: train, test, feature extraction for different extraction time steps, statistics
