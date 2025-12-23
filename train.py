@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch 
 import matplotlib.pyplot as plt
 from torchsummary import summary
-from models.resnet import ResNet9Model 
+from models.resnet import ResNet9Model , convNN4, ResNet10, ResNet18, newResNet10Model, newResNet18Model
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4,  SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model  
 from models.plain import spikeLinearNet1
 import snntorch.functional as SF
@@ -97,78 +97,102 @@ def training(config):
     # Learning rate
     lr = config.learning_rate
 
+    # Get image size based on dataset
+    if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
+        feature_size = 32
+    elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
+        feature_size = 28
+    else:
+        feature_size = 28
+
     if config.model_type == 'conv':    
 
-        # Learning rate (KEY)
-        lr = [0.0001]
+        # Define weight path similar to 'spike' case
+        weightPath = 'weights/conv/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) + '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
 
-        # Number of epochs
-        numberOfEpochs = [20]
+        if (Utils.does_file_exists(weightPath)):
 
-        # Loss function
-        lossFunction = nn.CrossEntropyLoss()
+            print(f"Are we training...")
 
-        # Model
-        if config.resnet_model == 9:
-            model = ResNet9Model(numberOfChannels=channels, numberOfClasses=config.num_classes)
+            # Keeps accuracy and loss for both training and validation in each epoch
+            H = []
+
+            # Define model
+            if config.resnet_model == 4:
+                model = convNN4(numberOfChannels=channels, 
+                                numberOfClasses=config.num_classes, 
+                                feature_size=32, 
+                                expansion=1)
+            elif config.resnet_model == 10:
+                model = ResNet10(numberOfChannels=channels, 
+                                        numberOfClasses=config.num_classes, 
+                                        expan=1)
+            elif config.resnet_model == 18:
+                model = ResNet18(numberOfChannels=channels, 
+                                        numberOfClasses=config.num_classes, 
+                                        expan=1)
+            else:
+                print("Model not defined for the given ResNet configuration.")
+                return -1
+
+            # Move model to device
+            model = model.to(device)
+            summary(model, input_size=(channels, rows, cols))
+
+            # Loss function
+            loss_fn = nn.CrossEntropyLoss()
+
+            # Optimizer
+            optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=wDecay)
+
+            # Scheduler
+            sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, epochs=config.epochs, steps_per_epoch=len(train_loader))
+
+            # Handle checkpointing
+            startEpoch = 0
+            if config.pretrained:
+                weightsName = 'weights/conv/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) + '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '_checkpoint.pth'
+                print("Try to load checkpoint: " + weightsName)
+                try:
+                    file = torch.load(weightsName)
+                    model.load_state_dict(file["model"])
+                    optimizer.load_state_dict(file["optimizer"])
+                    sched.load_state_dict(file["lr_scheduler"])
+                    startEpoch = file["epochs"] + 1
+                    print(f"numberOfEpochs: {config.epochs}, startEpoch: {startEpoch}")
+                    print("Checkpoint loaded.")
+                except Exception:
+                    traceback.print_exc()
+                    print("No valid checkpoint found. Starting from scratch.")
+
+            # Training
+            print("Training started")
+            sys.stdout.flush()
+            start_time = time.time()
+            H = model.fit_conv_full_train(
+                startEpoch=startEpoch,
+                nEpochs=config.epochs,
+                model=model,
+                lossFunction=loss_fn,
+                train_load=train_loader,
+                ResNetModel=config.resnet_model,
+                dataSet=config.dataset_ID,
+                sched=sched,
+                opt=optimizer,
+                gd=gClip,
+                device=device,
+                checkpointPeriod=1
+            )
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
+            print(f"Training time: {execution_time:.4f} seconds")
+
+            # Save final weights
+            torch.save(model.state_dict(), weightPath)
+            print("Training done.")
+
         else:
-            print("Not defined")
-            return -1
-        
-        # Move model to device
-        model.to(device)
-
-        summary(model, (3, 32, 32))
-
-        # Keeps accuracy and loss for both training and validation in each epoch
-        H = []
-
-        # Training
-        ##########
-
-        for i in range(len(lr)):
-            lrCurrent = lr[i]
-            nEpochs = numberOfEpochs[i]
-            if (config.full_train == False):
-                model, H = model.fit_conv(nEpochs, model, lossFunction, lrCurrent, train_loader, val_loader, H, device, wd=wDecay, gd=gClip)
-            elif (config.full_train == True):
-                model, H = model.fit_conv_full_train(nEpochs, model, lossFunction, lrCurrent, train_loader, H, device, wd=wDecay, gd=gClip)
-        print("\n")
-
-        weightPath = 'weights/conv/resnet9_weights_' + config.dataset_ID + '.pth'
-        torch.save(model.state_dict(), weightPath)
-
-        if (config.full_train == False):
-            # Plot loss for train/validation data
-            tLoss = [v[0] for v in H]
-            vLoss = [v[2] for v in H]
-
-            plt.figure(figsize = (5, 5))
-            plt.plot(tLoss, '-bx')
-            plt.plot(vLoss, '-rx')
-            plt.xlabel("Epoch")
-            plt.ylabel("Loss")
-            plt.legend(['Training', 'Validation'])
-            plt.title('Loss/epochs')
-            plt.show()
-
-        print("Check test images.")
-        testAcc = []
-        testLoss = []
-        for batch, labels in test_loader:
-            batch = batch.to(device)
-            labels = labels.to(device)
-            output, _ = model(batch)
-            l = lossFunction(output, labels)
-            testLoss.append(l.item())
-            a = model.accuracy(output, labels)
-            testAcc.append(a.item())
-        # Test stats
-        meanA = sum(testAcc) / len(testAcc)
-        meanL = sum(testLoss) / len(testLoss)
-        print(f'Test loss is {meanL:.2f}. Test accuracy is {meanA:.2f}.')
-
-        return None
+            print(f"Weights {weightPath} already exist.")
 
     elif config.model_type == 'spike':
 
@@ -181,14 +205,6 @@ def training(config):
 
             beta = 0.95
             threshold = 0.25
-
-            # Get image size based on dataset
-            if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
-                feature_size = 32
-            elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
-                feature_size = 28
-            else:
-                feature_size = 28
 
             # Define model
             if config.resnet_model == 1:
@@ -294,20 +310,20 @@ def training(config):
                         print("No valid checkpoint found. Starting from scratch.")
                     print("Training started")
                     sys.stdout.flush()
-
+                loss_name=""
                 start_time = time.time()
                 # Regular training fits according to the membrane voltages
                 if config.fit == 'membrane':
-                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
-                elif config.fit == 'spike': 
-                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                elif config.fit == 'spike':
+                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"Training time: {execution_time:.4f} seconds")
             else:
                 print("Train/valid split not defined")
                 return None
-            
+             
             # final_membranes = {
             #     'mem1': model.mem1.detach().cpu(),
             #     'mem2': model.mem2.detach().cpu(),
@@ -345,8 +361,10 @@ def training_population(config):
 
     # Get image size
     channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_ID)
-    # print(f"Image size: {channels, rows, cols}")
+    print(f"Image size: {channels, rows, cols}")
     sys.stdout.flush() 
+
+    print(f"Config batch size: {config.batch_size}")
     
     if (config.full_train == False):
         train_loader, val_loader, test_loader = Utils.data_loader(dataset_train, dataset_test, config.batch_size, config.dataset_ID, False, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(config.seed))
@@ -376,7 +394,95 @@ def training_population(config):
     lr = config.learning_rate
 
     if config.model_type == 'conv':
-        pass 
+        # Define weight path for population coding
+        weightPath = 'weights/conv/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) + '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
+
+        if (Utils.does_file_exists(weightPath)):
+
+            print(f"Are we training...")
+
+            # Keeps accuracy and loss for both training and validation in each epoch
+            H = []
+
+            # Define model
+            if config.resnet_model == 4:
+                model = convNN4(numberOfChannels=channels, 
+                                numberOfClasses=config.num_classes, 
+                                feature_size=32, 
+                                expansion=config.expansion)
+            elif config.resnet_model == 10:
+                model = ResNet10(numberOfChannels=channels, 
+                                        numberOfClasses=config.num_classes, 
+                                        expan=config.expansion)
+            elif config.resnet_model == 18:
+                model = ResNet18(numberOfChannels=channels, 
+                                        numberOfClasses=config.num_classes, 
+                                        expan=config.expansion)
+            else:
+                print("Model not defined for the given ResNet configuration.")
+                return -1
+            
+            print(model)
+
+            # Move model to device
+            model = model.to(device)
+            print(f"In this moment the batch size is: {config.batch_size}, channels: {channels}, rows: {rows}, cols: {cols}")
+            # summary(model, batch_size=config.batch_size, input_size=(channels, rows, cols))
+
+            # Loss function
+            loss_fn = nn.CrossEntropyLoss()
+            
+            # Optimizer
+            optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=wDecay)
+
+            # Scheduler
+            sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, epochs=config.epochs, steps_per_epoch=len(train_loader))
+
+            # Handle checkpointing
+            startEpoch = 0
+            if config.pretrained:
+                weightsName = 'weights/conv/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) + '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '_pop_checkpoint.pth'
+                print("Try to load checkpoint: " + weightsName)
+                try:
+                    file = torch.load(weightsName)
+                    model.load_state_dict(file["model"])
+                    optimizer.load_state_dict(file["optimizer"])
+                    sched.load_state_dict(file["lr_scheduler"])
+                    startEpoch = file["epochs"] + 1
+                    print(f"numberOfEpochs: {config.epochs}, startEpoch: {startEpoch}")
+                    print("Checkpoint loaded.")
+                except Exception:
+                    traceback.print_exc()
+                    print("No valid checkpoint found. Starting from scratch.")
+
+            # Training
+            print("Training started")
+            sys.stdout.flush()
+            start_time = time.time()
+            H = model.fit_conv_full_train(
+                startEpoch=startEpoch,
+                nEpochs=config.epochs,
+                model=model,
+                lossFunction=loss_fn,
+                train_load=train_loader,
+                ResNetModel=config.resnet_model,
+                dataSet=config.dataset_ID,
+                sched=sched,
+                opt=optimizer,
+                gd=gClip,
+                device=device,
+                checkpointPeriod=1
+            )
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
+            print(f"Training time: {execution_time:.4f} seconds")
+
+            # Save final weights
+            torch.save(model.state_dict(), weightPath)
+            print("Training done.")
+
+        else:
+            print(f"Weights {weightPath} already exist.")
 
     elif config.model_type == 'spike':
 
@@ -427,7 +533,7 @@ def training_population(config):
             
             model = model.to(device)
             summary(model, input_size=(channels, rows, cols))
-
+            loss_name=""
             pop_code=False
             if config.expansion>1:
                 pop_code=True
@@ -516,7 +622,7 @@ def training_population(config):
                 if config.fit == 'membrane':
                     # print(f"For population coding we can not fit on membrane voltage.")
                     # return -1 
-                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name,train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 elif config.fit == 'spike':
                     H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time
@@ -537,4 +643,3 @@ def training_population(config):
     else:
         print("Weights " + str(weightPath) + " already exists.")
         return None
-    

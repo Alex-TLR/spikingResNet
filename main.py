@@ -179,11 +179,11 @@ if __name__ == "__main__":
         print("Done testing for 1-step training.")
 
     elif config.mode == 'multi_train':
-        #resnet_models = [4, 10, 18]
-        expansions = [1, 5, 10, 25, 50]
         seeds = [42, 1987, 1991, 2020, 2024]
-
-        for resnet_model in [config.resnet_model]:
+        expansions = [1, 5, 10, 25, 50]
+        #resnet_models = [4, 10, 18] 
+        resnet_models = [config.resnet_model]
+        for resnet_model in resnet_models:
             config.resnet_model = resnet_model
             print(f"Starting multi-train for ResNet{resnet_model}")
 
@@ -193,36 +193,39 @@ if __name__ == "__main__":
                 for seed in seeds:
                     config.seed = seed
 
-                    if config.loss == 'cross_entropy':
-                        if config.expansion == 1:
-                            training(config)
-                            acc_spk, acc_mem = test_accuracy(config)
+                    if config.model_type == 'spike':
+                        if config.loss == 'cross_entropy':
+                            if config.expansion == 1:
+                                training(config)
+                                acc_spk, acc_mem = test_accuracy(config)
+                            else:
+                                training_population(config)
+                                acc_spk, acc_mem = test_accuracy_population(config)
                         else:
                             training_population(config)
                             acc_spk, acc_mem = test_accuracy_population(config)
-                    else:
-                        training_population(config)
-                        acc_spk, acc_mem = test_accuracy_population(config)
 
-                    # if config.num_time_steps_train >= 1:
-                    #     if config.expansion == 1:
-                    #         config.loss = 'count_loss'
-                    #         training(config)
-                    #         acc_spk, acc_mem = test_accuracy(config)
-                    #     else:
-                    #         training_population(config)
-                    #         acc_spk, acc_mem = test_accuracy_population(config)
-                    # else:
-                    #     print("Something's wrong with the expansion parameter. It should be 1 or greater than 1.")
+                    elif config.model_type == 'conv':
+                        if config.expansion == 1:
+                            training(config)
+                            # print(f"Find accuracy..")
+                            acc_mem = test_accuracy(config)
+                            # print(f"Accuracy found: {acc_mem}")
+                        else:
+                            training_population(config)
+                            # print(f"Find accuracy.. pop coding")
+                            acc_mem = test_accuracy_population(config)
+                    else:
+                        print("Model type not recognized. Use 'spike' or 'conv'.")
 
     elif config.mode == 'multi_test':
         
-        expansions = [1, 5, 10, 25, 50]
         seeds = [42, 1987, 1991, 2020, 2024]
-        resnet_models = [4, 10, 18]  # Add ResNet models to iterate over
+        expansions = [1, 5, 10, 25, 50]
+        resnet_models = [4, 10, 18] 
 
         # Prepare results file
-        results_filename = f"results/multi_test_{config.dataset_ID}_{config.auto_aug}_{config.loss}.txt"
+        results_filename = f"results/multi_test_{config.model_type}_{config.dataset_ID}_{config.auto_aug}_{config.loss}.txt"
         with open(results_filename, 'w') as f:
             # Write header information
             f.write(f"{'='*60}\n")
@@ -230,7 +233,7 @@ if __name__ == "__main__":
             f.write(f"{'='*60}\n")
             f.write(f"Experiment Configuration:\n")
             f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
-            f.write(f"  Case: {config.case}\n")
+            f.write(f"  Model type: {config.model_type}\n")
             f.write(f"  Batch Size: {config.batch_size}\n")
             f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
             f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
@@ -261,32 +264,60 @@ if __name__ == "__main__":
                         config.seed = seed
 
                         # Perform test accuracy for the current seed
-                        if config.expansion == 1:
-                            # training(config)
-                            acc_spk, acc_mem = test_accuracy(config)
-                        elif config.expansion != 1:
-                            # training_population(config)
-                            acc_spk, acc_mem = test_accuracy_population(config)
+                        if config.model_type == 'spike':
+                            if config.expansion == 1:
+                                # training(config)
+                                acc_spk, acc_mem = test_accuracy(config)
+                            elif config.expansion != 1:
+                                # training_population(config)
+                                acc_spk, acc_mem = test_accuracy_population(config)
 
-                        # If the test functions signal missing weights, mark as not trained
-                        if acc_spk == -1 and acc_mem == -1:
-                            missing_weights = True
-                            # No point in testing other seeds for this expansion if weights are missing
-                            break
+                            # If the test functions signal missing weights, mark as not trained
+                            if acc_spk == -1 and acc_mem == -1:
+                                missing_weights = True
+                                # No point in testing other seeds for this expansion if weights are missing
+                                break
 
-                        spike_accuracies.append(acc_spk)
-                        membrane_accuracies.append(acc_mem)
+                            spike_accuracies.append(acc_spk)
+                            membrane_accuracies.append(acc_mem)
+                        
+                        elif config.model_type == 'conv':
+                            if config.expansion == 1:
+                                # training(config)
+                                print(f"Find accuracy..")
+                                acc_mem = test_accuracy(config)
+                                print(f"Accuracy found: {acc_mem}")
+                            else:
+                                # training_population(config)
+                                print(f"Find accuracy.. pop coding")
+                                acc_mem = test_accuracy_population(config)
+
+                            if acc_mem == -1:
+                                missing_weights = True
+                                # No point in testing other seeds for this expansion if weights are missing
+                                break
+
+                            membrane_accuracies.append(acc_mem)
+                        else:
+                            print("Model type not recognized. Use 'spike' or 'conv'.")
 
                     # If any seed indicated missing weights, write "not trained"
-                    if missing_weights or len(spike_accuracies) == 0:
+                    if missing_weights or len(membrane_accuracies) == 0:
                         f.write(f"{expansion:<12}{'not trained':<20}{'not trained':<20}\n")
                     else:
-                        # Average accuracies over all seeds
-                        avg_spike_accuracy = sum(spike_accuracies) / len(spike_accuracies)
-                        avg_membrane_accuracy = sum(membrane_accuracies) / len(membrane_accuracies)
+                        if config.model_type == 'spike':
+                            # Average accuracies over all seeds
+                            avg_spike_accuracy = sum(spike_accuracies) / len(spike_accuracies)
+                            avg_membrane_accuracy = sum(membrane_accuracies) / len(membrane_accuracies)
 
-                        # Write numeric results to file
-                        f.write(f"{expansion:<12}{avg_spike_accuracy:<20.2f}{avg_membrane_accuracy:<20.2f}\n")
+                            # Write numeric results to file
+                            f.write(f"{expansion:<12}{avg_spike_accuracy:<20.2f}{avg_membrane_accuracy:<20.2f}\n")
+                        elif config.model_type == 'conv':
+                            # Average accuracies over all seeds
+                            avg_membrane_accuracy = sum(membrane_accuracies) / len(membrane_accuracies)
+
+                            # Write numeric results to file
+                            f.write(f"{expansion:<12}{'-':<20}{avg_membrane_accuracy:<20.2f}\n")
 
                 f.write(f"{'='*60}\n\n")
 
@@ -297,6 +328,10 @@ if __name__ == "__main__":
         seeds = [42, 1987, 1991, 2020, 2024]
         expansions = [1, 5, 10, 25, 50]
         resnet_models = [4, 10, 18] 
+
+        # resnet_models = [4, 10, 18]
+        # expansions = [1, 5]
+        # seeds = [42]
         config.methods = ['KNN']
         config.near_ood = ['CIFAR10', 'CIFAR100', 'tImage200']
         config.far_ood = ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']

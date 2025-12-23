@@ -307,8 +307,7 @@ class BasicModel(nn.Module):
 
         print('\n')
         return history
-    
-    def fit_membrane_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, train_load, nSteps, gd, device, checkpointPeriod=1):
+    def fit_membrane_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, loss_name, train_load, nSteps, gd, device, checkpointPeriod=1):
         '''
         Fitting function for the case when no validation set is used.
         The output variable is membrane potential, so that CNN-like CrossEntropy could be used

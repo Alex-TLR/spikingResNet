@@ -251,7 +251,7 @@ class ExperimentConfig:
             self.epochs = 400
         else:
             self.epochs = 200 
-        self.loss = 'mse_count_loss'
+        self.loss = 'count_loss'
         self.fit = 'spike'
 
         # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
