@@ -232,7 +232,7 @@ class ExperimentConfig:
         # self.methods = ['VIM', 'NCM', 'ENGY', 'MSP']
         
         # Model parameters
-        self.model_type = 'conv'
+        self.model_type = 'spike'
         self.resnet_model = 18
         self.num_classes = 10
         self.expansion = 1
@@ -245,14 +245,14 @@ class ExperimentConfig:
         # Training parameters
         self.batch_size = 64
         self.full_train = True
-        self.auto_aug = True
+        self.auto_aug = False
         self.pretrained = False
         if self.auto_aug == True:
             self.epochs = 400
         else:
             self.epochs = 200 
-        self.loss = 'cross_entropy'
-        self.fit = 'membrane'
+        self.loss = 'count_loss'
+        self.fit = 'spike'
 
         # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
         # set the "test_population" mode for the pipeline: train, test, feature extraction for different extraction time steps, statistics
@@ -260,7 +260,7 @@ class ExperimentConfig:
         # self.mode = 'multi_train' to train with different seeds
         # self.mode = 'multi_test' to test accuracy with different seeds
         # self.mode = 'ex_1' the first part of the experiment 1
-        self.mode = 'multi_test'
+        self.mode = 'multi_train'
 
         # Parser defaults (only used if explicitly provided)
         # self.seed = 42

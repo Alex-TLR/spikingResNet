@@ -310,20 +310,20 @@ def training(config):
                         print("No valid checkpoint found. Starting from scratch.")
                     print("Training started")
                     sys.stdout.flush()
-
+                loss_name=""
                 start_time = time.time()
                 # Regular training fits according to the membrane voltages
                 if config.fit == 'membrane':
-                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
-                elif config.fit == 'spike': 
-                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                elif config.fit == 'spike':
+                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"Training time: {execution_time:.4f} seconds")
             else:
                 print("Train/valid split not defined")
                 return None
-            
+             
             # final_membranes = {
             #     'mem1': model.mem1.detach().cpu(),
             #     'mem2': model.mem2.detach().cpu(),
@@ -431,7 +431,7 @@ def training_population(config):
 
             # Loss function
             loss_fn = nn.CrossEntropyLoss()
-
+            
             # Optimizer
             optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=wDecay)
 
@@ -533,7 +533,7 @@ def training_population(config):
             
             model = model.to(device)
             summary(model, input_size=(channels, rows, cols))
-
+            loss_name=""
             pop_code=False
             if config.expansion>1:
                 pop_code=True
@@ -622,7 +622,7 @@ def training_population(config):
                 if config.fit == 'membrane':
                     # print(f"For population coding we can not fit on membrane voltage.")
                     # return -1 
-                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name,train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
+                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 elif config.fit == 'spike':
                     H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointPeriod=1)
                 end_time = time.time()  # Record end time

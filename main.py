@@ -177,8 +177,8 @@ if __name__ == "__main__":
     elif config.mode == 'multi_train':
         seeds = [42, 1987, 1991, 2020, 2024]
         expansions = [1, 5, 10, 25, 50]
-        resnet_models = [4, 10, 18] 
-
+        #resnet_models = [4, 10, 18] 
+        resnet_models = [config.resnet_model]
         for resnet_model in resnet_models:
             config.resnet_model = resnet_model
             print(f"Starting multi-train for ResNet{resnet_model}")
@@ -200,7 +200,6 @@ if __name__ == "__main__":
                         else:
                             training_population(config)
                             acc_spk, acc_mem = test_accuracy_population(config)
-
 
                     elif config.model_type == 'conv':
                         if config.expansion == 1:

@@ -5,8 +5,6 @@
 #SBATCH --tasks=1
 #SBATCH --mem=64GB
 
-srun zip -r fmnist.zip data/fmnist
-srun zip -r letters.zip data/letters
-srun zip -r kmnist.zip data/kmnist
-srun zip -r svhn.zip data/svhn
+srun zip -r conv.zip weights/conv
+
 
