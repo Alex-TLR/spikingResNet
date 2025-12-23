@@ -15,7 +15,7 @@ import time
 import numpy as np
 from scipy.spatial.distance import cdist
 from datetime import datetime
-from train import training_population
+from train import training
 import gc
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model
 from models.plain import spikeLinearNet1
@@ -1426,7 +1426,7 @@ def statistics_test_1(config, acc_spk, acc_mem):
             config.resnet_model = resnet_model
     
             torch.cuda.empty_cache()
-            training_population(config)
+            training(config)
             feature_extraction_spike(config)
             gc.collect()
             torch.cuda.empty_cache()

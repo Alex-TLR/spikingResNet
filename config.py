@@ -216,20 +216,144 @@
 
 
 from email import parser
+import yaml
+from pathlib import Path
+
+
+def load_config_from_yaml(yaml_path):
+    """
+    Load configuration from a YAML file and return an ExperimentConfig object.
+    
+    Args:
+        yaml_path (str): Path to the YAML configuration file
+        
+    Returns:
+        ExperimentConfig: Configured experiment object
+    """
+    yaml_path = Path(yaml_path)
+    
+    if not yaml_path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {yaml_path}")
+    
+    with open(yaml_path, 'r') as f:
+        config_dict = yaml.safe_load(f)
+    
+    if config_dict is None:
+        raise ValueError(f"Configuration file is empty: {yaml_path}")
+    
+    config = ExperimentConfig()
+    
+    # Load dataset parameters
+    if 'dataset' in config_dict:
+        dataset_cfg = config_dict['dataset']
+        if 'id' in dataset_cfg:
+            config.dataset_ID = dataset_cfg['id']
+        if 'features' in dataset_cfg:
+            config.dataset_feat = dataset_cfg['features']
+    
+    # Load model parameters
+    if 'model' in config_dict:
+        model_cfg = config_dict['model']
+        if 'type' in model_cfg:
+            config.model_type = model_cfg['type']
+        if 'resnet_model' in model_cfg:
+            config.resnet_model = model_cfg['resnet_model']
+        if 'num_classes' in model_cfg:
+            config.num_classes = model_cfg['num_classes']
+        if 'expansion' in model_cfg:
+            config.expansion = model_cfg['expansion']
+        if 'num_time_steps_train' in model_cfg:
+            config.num_time_steps_train = model_cfg['num_time_steps_train']
+        if 'num_time_steps_extract' in model_cfg:
+            config.num_time_steps_extract = model_cfg['num_time_steps_extract']
+        if 'seed' in model_cfg:
+            config.seed = model_cfg['seed']
+    
+    # Load training parameters
+    if 'training' in config_dict:
+        training_cfg = config_dict['training']
+        if 'batch_size' in training_cfg:
+            config.batch_size = training_cfg['batch_size']
+        if 'full_train' in training_cfg:
+            config.full_train = training_cfg['full_train']
+        if 'auto_aug' in training_cfg:
+            config.auto_aug = training_cfg['auto_aug']
+        if 'pretrained' in training_cfg:
+            config.pretrained = training_cfg['pretrained']
+        if 'epochs' in training_cfg:
+            config.epochs = training_cfg['epochs']
+        elif config.auto_aug:
+            # If epochs not specified, default based on auto_aug
+            config.epochs = 400 if config.auto_aug else 200
+        if 'loss' in training_cfg:
+            config.loss = training_cfg['loss']
+        if 'fit' in training_cfg:
+            config.fit = training_cfg['fit']
+    
+    # Load mode
+    if 'mode' in config_dict:
+        config.mode = config_dict['mode']
+    if 'test_type' in config_dict:
+        config.test_type = config_dict['test_type']
+    
+    # Load device and processing
+    if 'device' in config_dict:
+        config.device = config_dict['device']
+    if 'num_workers' in config_dict:
+        config.num_workers = config_dict['num_workers']
+    
+    # Load optimizer parameters
+    if 'optimizer' in config_dict:
+        optimizer_cfg = config_dict['optimizer']
+        if 'name' in optimizer_cfg:
+            config.optimizer = optimizer_cfg['name']
+        if 'learning_rate' in optimizer_cfg:
+            config.learning_rate = optimizer_cfg['learning_rate']
+        if 'momentum' in optimizer_cfg:
+            config.momentum = optimizer_cfg['momentum']
+        if 'weight_decay' in optimizer_cfg:
+            config.weight_decay = optimizer_cfg['weight_decay']
+    
+    # Load scheduler parameters
+    if 'scheduler' in config_dict:
+        scheduler_cfg = config_dict['scheduler']
+        if 'name' in scheduler_cfg:
+            config.scheduler = scheduler_cfg['name']
+        if 'step_size' in scheduler_cfg:
+            config.step_size = scheduler_cfg['step_size']
+    
+    # Load gradient clipping
+    if 'gradient_clipping' in config_dict:
+        config.gradient_clipping = config_dict['gradient_clipping']
+    
+    # Load experiment-specific parameters
+    if 'experiment' in config_dict:
+        exp_cfg = config_dict['experiment']
+        if 'case' in exp_cfg:
+            config.case = exp_cfg['case']
+        if 'methods' in exp_cfg:
+            config.methods = exp_cfg['methods']
+        if 'seeds' in exp_cfg:
+            config.seeds = exp_cfg['seeds']
+        if 'expansions' in exp_cfg:
+            config.expansions = exp_cfg['expansions']
+        if 'resnet_models' in exp_cfg:
+            config.resnet_models = exp_cfg['resnet_models']
+        if 'override_feature_extraction' in exp_cfg:
+            config.override_feature_extraction = exp_cfg['override_feature_extraction']
+        if 'near_ood' in exp_cfg:
+            config.near_ood = exp_cfg['near_ood']
+        if 'far_ood' in exp_cfg:
+            config.far_ood = exp_cfg['far_ood']
+    
+    return config
 
 
 class ExperimentConfig:
     def __init__(self):
         # Dataset parameters
         self.dataset_ID = 'CIFAR10'
-        # self.dataset_feat = ['CIFAR10', 'SVHN', 'Food101']
         self.dataset_feat = ['CIFAR10', 'CIFAR100', 'tImage200']
-        # self.dataset_ID = 'KMNIST'
-        # self.dataset_feat = ['MNIST', 'FMNIST', 'KMNIST', 'Letters']
-        self.case = '42'
-        # self.methods = ['ENGY', 'MSP', 'MLS', 'NCM', 'ODIN', 'KNN']
-        self.methods = None
-        # self.methods = ['VIM', 'NCM', 'ENGY', 'MSP']
         
         # Model parameters
         self.model_type = 'spike'
@@ -238,89 +362,45 @@ class ExperimentConfig:
         self.expansion = 1
         self.num_time_steps_train = 1
         self.num_time_steps_extract = 1
-        self.override_feature_extraction = False
         self.seed = 42
 
-        # Training parameters
         # Training parameters
         self.batch_size = 64
         self.full_train = True
         self.auto_aug = True
         self.pretrained = False
-        if self.auto_aug == True:
-            self.epochs = 400
-        else:
-            self.epochs = 200 
+        self.epochs = 400  # Default for auto_aug=True
         self.loss = 'count_loss'
         self.fit = 'spike'
+        self.checkpointPeriod = 1
 
-        # Set the "test" mode for the pipeline: train, test, feature extraction, statistics
-        # set the "test_population" mode for the pipeline: train, test, feature extraction for different extraction time steps, statistics
-        # set the "test_1" mode for testing with different setup when T = 1 is used for training
-        # self.mode = 'multi_train' to train with different seeds
-        # self.mode = 'multi_test' to test accuracy with different seeds
-        # self.mode = 'ex_1' the first part of the experiment 1
-        self.mode = 'ex_1'
+        # Pipeline mode
+        self.mode = 'test'
+        self.test_type = 'standard'  # Options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2'
 
-        # Parser defaults (only used if explicitly provided)
-        # self.seed = 42
+        # Device and processing
         self.device = 'cuda'
-        
         self.num_workers = 4
+        
+        # Optimizer parameters
         self.learning_rate = 2e-4
         self.optimizer = 'adam'
         self.momentum = 0.9
         self.weight_decay = 1e-4
+        
+        # Scheduler parameters
         self.scheduler = 'cosine'
+        self.step_size = None
         self.gradient_clipping = 0.1
-    
-    def update_from_args(self, args, provided_args):
-        """Update config only with explicitly provided command line arguments"""
-        # Only override if argument was explicitly provided (not default)
-        if 'dataset_ID' in provided_args:
-            self.dataset_ID = args.dataset_ID
-        if 'case' in provided_args:
-            self.case = args.case
-        if 'model' in provided_args:
-            self.resnet_model = args.model
-        if 'num_classes' in provided_args:
-            self.num_classes = args.num_classes
-        if 'batch_size' in provided_args:
-            self.batch_size = args.batch_size
-        if 'epochs' in provided_args:
-            self.epochs = args.epochs
-        if 'pretrained' in provided_args:
-            self.pretrained = args.pretrained
-        if 'seed' in provided_args:
-            self.seed = args.seed
-        if 'device' in provided_args:
-            self.device = args.device
-        if 'mode' in provided_args:
-            self.mode = args.mode
-        if 'num_workers' in provided_args:
-            self.num_workers = args.num_workers
-        if 'learning_rate' in provided_args:
-            self.learning_rate = args.learning_rate
-        if 'optimizer' in provided_args:
-            self.optimizer = args.optimizer
-        if 'momentum' in provided_args:
-            self.momentum = args.momentum
-        if 'weight_decay' in provided_args:
-            self.weight_decay = args.weight_decay
-        if 'scheduler' in provided_args:
-            self.scheduler = args.scheduler
-        if 'step_size' in provided_args:
-            self.step_size = args.step_size
-        if 'time_steps_train' in provided_args:
-            self.num_time_steps_train = args.time_steps_train
-        if  'time_steps_extract' in provided_args:
-            self.num_time_steps_extract = args.time_steps_extract
-        if 'expansion' in provided_args:
-            self.expansion = args.expansion
-        if 'auto_aug' in provided_args:
-            self.auto_aug = args.auto_aug
-        if 'population_coding' in provided_args:
-            self.population_coding = args.population_coding
-        if 'loss' in provided_args:
-            self.loss = args.loss
+        
+        # Experiment sweep parameters (for multi_train, multi_test, ex_1, ex_2)
+        # These are None by default and will use hardcoded defaults in main.py if not specified
+        self.case = '42'
+        self.methods = None
+        self.seeds = None
+        self.expansions = None
+        self.resnet_models = None
+        self.override_feature_extraction = False
+        self.near_ood = None
+        self.far_ood = None
 

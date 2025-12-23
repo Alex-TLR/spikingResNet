@@ -174,7 +174,7 @@ class BasicModel(nn.Module):
         print('\n')
         return history
     
-    def fit_spike_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, loss_name, train_load, nSteps, gd, device, checkpointPeriod=1):
+    def fit_spike_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, loss_name, train_load, nSteps, gd, device, checkpointFile, checkpointPeriod=1):
         '''
         Fitting function for the case when no validation set is used.
 
@@ -244,7 +244,7 @@ class BasicModel(nn.Module):
                     # spikes = spikes.detach()
                     
                     # Check if model uses population coding
-                    if hasattr(model, 'expansion') and model.expansion > 1:
+                    if  model.expansion > 1:
                         # print(f"population coding!!!!!")
                         # Population coding accuracy
                         # spikes shape: [T, B, classes*expansion]
@@ -285,7 +285,7 @@ class BasicModel(nn.Module):
             currentHistory = [meanTL, meanTA]
             history.append(currentHistory)
             if i%checkpointPeriod == 0:
-                fileName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
+                fileName = checkpointFile
                 if sched is not None:
                     # print(sched.state_dict())
                     # print(f"sched.last_epoch: {sched.last_epoch}")
@@ -307,7 +307,7 @@ class BasicModel(nn.Module):
 
         print('\n')
         return history
-    def fit_membrane_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, loss_name, train_load, nSteps, gd, device, checkpointPeriod=1):
+    def fit_membrane_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, loss_name, train_load, nSteps, gd, device, checkpointFile, checkpointPeriod=1):
         '''
         Fitting function for the case when no validation set is used.
         The output variable is membrane potential, so that CNN-like CrossEntropy could be used
@@ -394,7 +394,7 @@ class BasicModel(nn.Module):
             currentHistory = [meanTL, meanTA]
             history.append(currentHistory)
             if i%checkpointPeriod == 0:
-                fileName = 'weights/spike/' + 'resnet' + str(ResNetModel) + dataSet + '_checkpoint_' + '.pth'
+                fileName = checkpointFile
                 if sched is not None:
                     # print(sched.state_dict())
                     # print(f"sched.last_epoch: {sched.last_epoch}")

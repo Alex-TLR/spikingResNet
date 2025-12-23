@@ -126,7 +126,7 @@ class BasicModel(nn.Module):
         print('\n')
         return model, history 
     
-    def fit_conv_full_train(self, startEpoch, nEpochs, model, lossFunction, train_load, ResNetModel, dataSet, sched, opt, gd, device, checkpointPeriod=1):
+    def fit_conv_full_train(self, startEpoch, nEpochs, model, lossFunction, train_load, ResNetModel, dataSet, sched, opt, gd, device, checkpointFile, checkpointPeriod=1):
         '''
         Updated to align with fit_membrane_full_train.
         Includes checkpointing, execution time tracking, and handling of model.expansion > 1.
@@ -188,7 +188,7 @@ class BasicModel(nn.Module):
 
             # Checkpoint saving
             if i % checkpointPeriod == 0:
-                fileName = f'weights/conv/resnet{ResNetModel}_{dataSet}_checkpoint.pth'
+                fileName = checkpointFile
                 checkpoint = {
                     "model": model.state_dict(),
                     "optimizer": opt.state_dict(),

@@ -1,0 +1,61 @@
+# Configuration for Standard Test Mode
+# Trains a single model, tests it, extracts features, and computes statistics
+
+# Dataset Parameters
+dataset:
+  id: 'CIFAR10'
+  features: ['CIFAR10', 'CIFAR100', 'tImage200']
+
+# Model Parameters
+model:
+  type: 'spike'  # Options: 'spike' or 'conv'
+  resnet_model: 18
+  num_classes: 10
+  expansion: 1
+  num_time_steps_train: 1
+  num_time_steps_extract: 1
+  seed: 42
+
+# Training Parameters
+training:
+  batch_size: 64
+  full_train: true
+  auto_aug: true
+  pretrained: false
+  epochs: 400
+  loss: 'count_loss'
+  fit: 'spike'
+
+# Test Mode and Type
+mode: 'test'
+test_type: 'standard'
+
+# Device and Parallel Processing
+device: 'cuda'
+num_workers: 4
+
+# Optimizer Parameters
+optimizer:
+  name: 'adam'
+  learning_rate: 2.0e-4
+  momentum: 0.9
+  weight_decay: 1.0e-4
+
+# Learning Rate Scheduler
+scheduler:
+  name: 'cosine'
+  step_size: null
+
+# Gradient Clipping
+gradient_clipping: 0.1
+
+# Experiment Parameters (not used for standard test)
+experiment:
+  case: '42'
+  methods: null
+  seeds: null
+  expansions: null
+  resnet_models: null
+  override_feature_extraction: false
+  near_ood: null
+  far_ood: null

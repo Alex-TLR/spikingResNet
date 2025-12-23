@@ -1,0 +1,63 @@
+# Base Configuration for SpikingResNet Experiments
+# This provides default parameters - copy and modify for specific experiments
+
+# Dataset Parameters
+dataset:
+  id: 'CIFAR10'
+  features: ['CIFAR10', 'CIFAR100', 'tImage200']
+
+# Model Parameters
+model:
+  type: 'spike'  # Options: 'spike' or 'conv'
+  resnet_model: 18  # Architecture: 4, 10, 18, 20, etc.
+  num_classes: 10
+  expansion: 1  # 1 = standard, >1 = population coding
+  num_time_steps_train: 1
+  num_time_steps_extract: 1
+  seed: 42
+
+# Training Parameters
+training:
+  batch_size: 64
+  full_train: true
+  auto_aug: true
+  pretrained: false
+  epochs: 400  # Set to 400 if auto_aug is True, otherwise 200
+  loss: 'count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
+  fit: 'spike' # Options: 'membrane', 'spike'
+  checkpointPeriod: 1  # Frequency of saving model checkpoints during training
+
+# Pipeline Mode and Test Type
+mode: 'test'  # Options: 'test' or 'train'
+test_type: 'standard'  # Options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2'
+
+# Device and Parallel Processing
+device: 'cuda'
+num_workers: 4
+
+# Optimizer Parameters
+optimizer:
+  name: 'adam'  # Options: 'adam', 'sgd', 'adamw'
+  learning_rate: 2.0e-4
+  momentum: 0.9  # For SGD
+  weight_decay: 1.0e-4
+
+# Learning Rate Scheduler
+scheduler:
+  name: 'cosine'  # Options: 'cosine', 'step', 'none'
+  step_size: null  # For step scheduler
+
+# Gradient Clipping
+gradient_clipping: 0.1
+
+# Experiment Sweep Parameters (for mode='train' or test_type='accuracy'/'experiment_1'/'experiment_2')
+# Leave null to use defaults or specify arrays for parameter sweeps
+experiment:
+  case: '42'
+  methods: null  # For OOD detection: ['VIM', 'NCM', 'ENGY', 'MSP', 'KNN', etc.]
+  seeds: null  # Example: [42, 1987, 1991, 2020, 2024]
+  expansions: null  # Example: [1, 5, 10, 25, 50]
+  resnet_models: null  # Example: [4, 10, 18]
+  override_feature_extraction: false
+  near_ood: null  # Example: ['CIFAR10', 'CIFAR100', 'tImage200']
+  far_ood: null  # Example: ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']

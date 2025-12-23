@@ -1,0 +1,65 @@
+# Configuration for Accuracy Test Mode
+# Tests accuracy across multiple seeds, expansions, and model architectures
+# Generates a results file with averaged accuracies
+
+# Dataset Parameters
+dataset:
+  id: 'CIFAR10'
+  features: ['CIFAR10', 'CIFAR100', 'tImage200']
+
+# Model Parameters (base - will be overridden by experiment sweeps)
+model:
+  type: 'spike'
+  num_classes: 10
+  num_time_steps_train: 1
+  num_time_steps_extract: 1
+
+# Training Parameters
+training:
+  batch_size: 64
+  full_train: true
+  auto_aug: true
+  pretrained: false
+  epochs: 400
+  loss: 'count_loss'
+  fit: 'spike'
+
+# Test Mode and Type
+mode: 'test'
+test_type: 'accuracy'
+
+# Device and Parallel Processing
+device: 'cuda'
+num_workers: 4
+
+# Optimizer Parameters
+optimizer:
+  name: 'adam'
+  learning_rate: 2.0e-4
+  momentum: 0.9
+  weight_decay: 1.0e-4
+
+# Learning Rate Scheduler
+scheduler:
+  name: 'cosine'
+  step_size: null
+
+# Gradient Clipping
+gradient_clipping: 0.1
+
+# Experiment Sweep Parameters
+experiment:
+  case: '42'
+  methods: null
+  # Test across these seeds
+  seeds: [42, 1987, 1991, 2020, 2024]
+  
+  # Test across these expansion factors
+  expansions: [1, 5, 10, 25, 50]
+  
+  # Test across these ResNet architectures
+  resnet_models: [4, 10, 18]
+  
+  override_feature_extraction: true
+  near_ood: null
+  far_ood: null
