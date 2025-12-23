@@ -245,7 +245,7 @@ class ExperimentConfig:
         # Training parameters
         self.batch_size = 64
         self.full_train = True
-        self.auto_aug = False
+        self.auto_aug = True
         self.pretrained = False
         if self.auto_aug == True:
             self.epochs = 400
@@ -260,7 +260,7 @@ class ExperimentConfig:
         # self.mode = 'multi_train' to train with different seeds
         # self.mode = 'multi_test' to test accuracy with different seeds
         # self.mode = 'ex_1' the first part of the experiment 1
-        self.mode = 'multi_train'
+        self.mode = 'ex_1'
 
         # Parser defaults (only used if explicitly provided)
         # self.seed = 42

@@ -102,6 +102,10 @@ if __name__ == "__main__":
     print(f"  Time steps Train: {config.num_time_steps_train}")
     print(f"  Epochs: {config.epochs}")
 
+    # setting device on GPU if available, else CPU
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('Using device:', device)
+    print()
 
     # # Get image size
     # channels, rows, cols = Utils.get_image_size(dataset_train, dataSet_ID)
