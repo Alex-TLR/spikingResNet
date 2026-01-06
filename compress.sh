@@ -5,6 +5,6 @@
 #SBATCH --tasks=1
 #SBATCH --mem=64GB
 
-srun zip -r conv.zip weights/conv
+srun zip -r spike.zip weights/spike
 
 
