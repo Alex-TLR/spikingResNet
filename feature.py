@@ -142,7 +142,7 @@ def feature_extraction_conv(config):
             model = convNN4(numberOfChannels=channels, 
                             numberOfClasses=config.num_classes, 
                             feature_size=32, 
-                            expansion=config.expansion)
+                            expan=config.expansion)
             featSize = 256
         elif config.resnet_model == 10:
             model = ResNet10(numberOfChannels=channels, 
@@ -187,15 +187,8 @@ def feature_extraction_conv(config):
                         p, v = model(batch)
                         p = p.cpu().detach().numpy()
                         v = v.cpu().detach().numpy()
-                        # print(f"Shape of p: {p.shape}, v: {v.shape}")
-                        # probs = p.max(axis=0)
-                        # volts = v.max(axis=0)
-                        # print(f"Shape of probs: {probs.shape}, expected: {(endIndex - startIndex, Prob_train.shape[1])}")
-
                         if hasattr(model, 'expan') and model.expan > 1: 
                             p = p.reshape(p.shape[0], config.num_classes, model.expan).sum(axis=2)
-                            # print(f"After expansion check, shape of p: {p.shape}")
-                        # probs = Metrics.softmax(probs)
 
                         labels = labels.cpu().detach().numpy()
                         Prob_train[startIndex:endIndex, :] = p
@@ -208,8 +201,6 @@ def feature_extraction_conv(config):
                         print(f"\rProgress: {ii}/{len(train_loader)}", end='', flush=True)
 
                 Tags_train = np.concatenate(Tags_train)
-                # print()
-                # print("Tags_train shape is ", Tags_train.shape)
 
             Prob_test = np.zeros((testDataSize, config.num_classes))
             Volt_test = np.zeros((testDataSize, featSize))
@@ -225,9 +216,6 @@ def feature_extraction_conv(config):
                     p, v = model(batch)                        
                     p = p.cpu().detach().numpy()
                     v = v.cpu().detach().numpy()
-
-                    # probs = p.max(axis=0)
-                    # volts = v.max(axis=0)
                     if hasattr(model, 'expan') and model.expan > 1:
                         p = p.reshape(p.shape[0], config.num_classes, model.expan).sum(axis=2) 
  
@@ -242,7 +230,7 @@ def feature_extraction_conv(config):
                     print(f"\rProgress: {ii}/{len(test_loader)}", end='', flush=True)
 
             Tags_test = np.concatenate(Tags_test)
-            print()
+
             np.savez(fileName, 
                             arr2=Prob_train, 
                             arr3=Tags_train, 

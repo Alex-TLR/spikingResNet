@@ -14,10 +14,30 @@ import time
 import traceback
 from snntorch import backprop
 import gc
+from syops import get_model_complexity_info as syops_get_model_complexity_info
+from ptflops import get_model_complexity_info
 
 # _seed_ = 1984
 import random
 import os
+
+# Function to accumulate output sizes of Leaky layers
+def accumulate_leaky_layer_outputs(model):
+    total_output_size = 0
+    for name, layer in model.named_modules():
+        print(f"Checking layer: {name}, Type: {layer}")
+        if "Leaky" in name:  # Check if the layer name contains "Leaky"
+            if hasattr(layer, 'output_size'):
+                output_size = layer.output_size  # Retrieve the output size
+                layer_total = 1
+                for dim in output_size:
+                    layer_total *= dim  # Multiply dimensions to get total size
+                total_output_size += layer_total
+                print(f"Layer: {name}, Output Size: {output_size}, Accumulated: {layer_total}")
+            else:
+                print(f"Layer: {name} does not have an output_size attribute.")
+    print(f"Total accumulated output size for Leaky layers: {total_output_size}")
+    return total_output_size
 
 def set_seed(_seed_):
     random.seed(_seed_)
@@ -130,6 +150,16 @@ def training(config):
             else:
                 print("Model not defined for the given ResNet configuration.")
                 return -1
+            
+            macs, params = get_model_complexity_info(model, (3, 32, 32), as_strings=True, backend='pytorch',
+                                           print_per_layer_stat=True, verbose=True)
+            print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+            print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+
+            # macs, params = get_model_complexity_info(model, (3, 224, 224), as_strings=True, backend='aten'
+            #                                         print_per_layer_stat=True, verbose=True)
+            # print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+            # print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
             # Move model to device
             model = model.to(device)
@@ -258,7 +288,18 @@ def training(config):
                 print("Model Not defined")
                 return -1
             
-            # Move model to device
+            # radi samo na spikingjelly modelima 
+            ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
+                                            print_per_layer_stat=True, verbose=True)
+            # print('{:<30}  {:<8}'.format('Computational complexity ACs:', acs))
+            # print('{:<30}  {:<8}'.format('Computational complexity MACs:', macs))
+            print(f"ops: {ops}")
+            print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+
+            # nummm = accumulate_leaky_layer_outputs(model)
+            # print(f"Total Leaky layer output size: {nummm}")
+            
+            # Move model to deviceS
             model = model.to(device)
             summary(model, input_size=(channels, rows, cols))
 

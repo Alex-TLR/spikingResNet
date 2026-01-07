@@ -148,9 +148,9 @@ class BasicModel(nn.Module):
                 # Forward pass
                 pred, _ = model(batch)
 
-                # Handle population coding if model.expansion > 1
-                if hasattr(model, 'expansion') and model.expansion > 1:
-                    pred = pred.reshape(pred.shape[0], model.numberOfClasses, model.expansion).sum(dim=2)
+                # Handle population coding if model.expan > 1
+                if hasattr(model, 'expan') and model.expan > 1:
+                    pred = pred.reshape(pred.shape[0], model.numberOfClasses, model.expan).sum(dim=2)
 
                 # Calculate loss
                 loss = lossFunction(pred, labels)
@@ -213,11 +213,11 @@ class convNN4(BasicModel):
     Ours can go further
     '''
 
-    def __init__(self, numberOfChannels, numberOfClasses, feature_size=28, expansion=1):
+    def __init__(self, numberOfChannels, numberOfClasses, feature_size=28, expan=1):
 
         super().__init__(numberOfClasses)
         self.numberOfClasses = numberOfClasses
-        self.expansion = expansion 
+        self.expan = expan 
 
         self.features = int(((feature_size - 2) / 2) - 2)
         self.averaging = int((feature_size - 2) / 2)
@@ -231,7 +231,7 @@ class convNN4(BasicModel):
         self.lif3 = nn.ReLU() 
         self.fc4 = nn.Linear(512, 256, bias=False)
         self.lif4 = nn.ReLU() 
-        self.fc5 = nn.Linear(256, numberOfClasses * self.expansion, bias=False)
+        self.fc5 = nn.Linear(256, numberOfClasses * self.expan, bias=False)
         self.lif5 = nn.ReLU() 
 
     def forward(self, x):
