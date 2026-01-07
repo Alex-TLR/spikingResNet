@@ -151,7 +151,7 @@ class Utils():
                         transforms.Resize((32, 32)),
                         transforms.RandomCrop(32, padding=4),
                         transforms.RandomHorizontalFlip(),
-                        # CIFAR10Policy(),
+                        CIFAR10Policy(),
                         transforms.ToTensor(),
                     ]
                     if cutout:
