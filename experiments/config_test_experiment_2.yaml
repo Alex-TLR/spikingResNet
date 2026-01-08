@@ -17,7 +17,7 @@ model:
 training:
   batch_size: 64
   full_train: true
-  auto_aug: true
+  auto_aug: false
   pretrained: false
   epochs: 400
   loss: 'count_loss'
