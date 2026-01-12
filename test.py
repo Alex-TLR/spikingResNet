@@ -68,7 +68,7 @@ def test_accuracy(config):
             model = convNN4(numberOfChannels=channels, 
                             numberOfClasses=config.num_classes, 
                             feature_size=32, 
-                            expansion=config.expansion)
+                            expan=config.expansion)
         elif config.resnet_model == 10:
             model = ResNet10(numberOfChannels=channels, 
                                         numberOfClasses=config.num_classes, 

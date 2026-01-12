@@ -774,22 +774,33 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
     method_to_idx = {m: idx for idx, m in enumerate(methods)}
 
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
-    IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
-
-
-    # Load In-Distribution data
-    ID = np.load(IDpath)
-    ID_spik_train = ID['arr0']  # In-Distribution training set spikes
-    ID_feat_train = ID['arr1']  # In-Distribution training set features
-    ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
-    ID_tags_train = ID['arr3']  # In-Distribution training set labels
-    ID_volt_train = ID['arr8']  # In-Distribution training set voltages
-    ID_spik_test  = ID['arr7']  # In-Distribution test set spikes
-    ID_feat_test  = ID['arr4']  # In-Distribution test set features
-    ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
-    ID_volt_test  = ID['arr9']  # In-Distribution test set voltages
-    # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
-    number_classes = ID_prob_train.shape[1]
+    if config.model_type == 'spike':
+        IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
+        # Load In-Distribution data
+        ID = np.load(IDpath)
+        ID_spik_train = ID['arr0']  # In-Distribution training set spikes
+        ID_feat_train = ID['arr1']  # In-Distribution training set features
+        ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
+        ID_tags_train = ID['arr3']  # In-Distribution training set labels
+        ID_volt_train = ID['arr8']  # In-Distribution training set voltages
+        ID_spik_test  = ID['arr7']  # In-Distribution test set spikes
+        ID_feat_test  = ID['arr4']  # In-Distribution test set features
+        ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
+        ID_volt_test  = ID['arr9']  # In-Distribution test set voltages
+        # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
+        number_classes = ID_prob_train.shape[1]
+    else:
+        IDpath = 'features/conv/case_' + case + '/' + nameID + suffixID + '.npz'
+        # Load In-Distribution data
+        ID = np.load(IDpath)
+        ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
+        ID_tags_train = ID['arr3']  # In-Distribution training set labels
+        ID_volt_train = ID['arr8']  # In-Distribution training set voltages
+        ID_prob_test  = ID['arr5']  # In-Distribution test set outputs (usually with no softmax applied)
+        ID_volt_test  = ID['arr9']  # In-Distribution test set voltages
+        # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
+        number_classes = ID_prob_train.shape[1]
+    
 
     if features == 'features':
         print(f"Using spiking feature vector {ID_feat_train.shape}:")
@@ -815,20 +826,34 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
         raise ValueError("Unknown ID feature type")
 
     for i in range(len(namesOOD)):
-        OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
 
-        # Load Out-of-Distribution data
-        OOD = np.load(OODpath)
-        OOD_spik_train = OOD['arr0']  # Out-of-Distribution training set spikes
-        OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
-        OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
-        OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
-        OOD_volt_train = OOD['arr8']  # Out-of-Distribution training set voltages
-        OOD_spik_test  = OOD['arr7']  # Out-of-Distribution test set spikes
-        OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
-        OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
-        OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
-        OOD_volt_test  = OOD['arr9']  # Out-of-Distribution test set voltages
+        if config.model_type == 'spike':
+            OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
+
+            # Load Out-of-Distribution data
+            OOD = np.load(OODpath)
+            OOD_spik_train = OOD['arr0']  # Out-of-Distribution training set spikes
+            OOD_feat_train = OOD['arr1']  # Out-of-Distribution training set features
+            OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
+            OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
+            OOD_volt_train = OOD['arr8']  # Out-of-Distribution training set voltages
+            OOD_spik_test  = OOD['arr7']  # Out-of-Distribution test set spikes
+            OOD_feat_test  = OOD['arr4']  # Out-of-Distribution test set features
+            OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
+            OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
+            OOD_volt_test  = OOD['arr9']  # Out-of-Distribution test set voltages
+        
+        elif config.model_type == 'conv':
+            OODpath = 'features/conv/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
+
+            # Load Out-of-Distribution data
+            OOD = np.load(OODpath)
+            OOD_prob_train = OOD['arr2']  # Out-of-Distribution training set outputs (usually with no softmax applied)
+            OOD_tags_train = OOD['arr3']  # Out-of-Distribution training set labels
+            OOD_volt_train = OOD['arr8']  # Out-of-Distribution training set voltages
+            OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
+            OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
+            OOD_volt_test  = OOD['arr9']  # Out-of-Distribution test set voltages
 
         if features == 'features':
             OOD_features_train = OOD_feat_train
@@ -856,16 +881,6 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
             idx = method_to_idx[method]
 
             print(f"{j}. {methods[j]}")
-
-            #     # plt.figure(figsize=(10, 6))
-            #     # plt.plot(test_distances[0:20000], alpha=0.5, label="Distances")
-            #     # plt.plot(test_labels[0:20000], linewidth=2, label="Labels")
-            #     # plt.title("MSP")
-            #     # plt.xlabel("Sample")
-            #     # plt.ylabel("Distance")
-            #     # plt.grid(True)
-            #     # plt.legend()
-            #     # plt.show()
 
             if method == 'MSP':
                 # print(f"MSP on {namesOOD[i]}")
@@ -1655,7 +1670,6 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                                 near_mean = np.nan
                             else:
                                 config.dataset_feat = list(near_list)
-                                print(f"Datasets for testing (near): {config.dataset_feat}")
                                 stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
                                 if stats_local is None or stats_local.size == 0:
                                     near_mean = np.nan
@@ -1987,7 +2001,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
     """
 
     # Feature types to evaluate
-    feature_types = ['features', 'voltages', 'spikes', 'probs']
+    # feature_types = ['features', 'voltages', 'spikes', 'probs']
     # Methods to evaluate (fall back to a sensible default if not set)
     methods = getattr(config, 'methods', ['ASH', 'MSP', 'ODIN', 'ENGY', 'MLS', 'VIM'])
 
@@ -2002,11 +2016,22 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
     orig_dataset_feat = getattr(config, 'dataset_feat', None)
 
     # Map resnet model numbers to human-friendly tags for potential plotting
-    model_tags = {4: 'spike-Conv', 10: 'spike-ResNet10', 18: 'spike-ResNet18'}
+    if config.model_type == 'spike':
+        feature_types = ['features', 'voltages', 'spikes', 'probs']
+        model_tags = {4: 'spike-Conv', 10: 'spike-ResNet10', 18: 'spike-ResNet18'}
+    elif config.model_type == 'conv':
+        feature_types = ['voltages', 'probs']
+        model_tags = {4: 'Conv', 10: 'ResNet10', 18: 'ResNet18'}
 
     # Results container: results[resnet_model][feature_type] = list over expansions (dict with 'near'/'far' values or 'not trained')
     # Load existing EX2 JSON if present so we can resume partially-completed runs. If not present, create skeleton.
     datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
+    data_out = None
+
+    if config.model_type == 'spike':
+        datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
+    elif config.model_type == 'conv':
+        datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}_conv.json')
     data_out = None
     if os.path.exists(datafile):
         try:
@@ -2102,7 +2127,10 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                         try:
                             config.dataset_feat = list(union_list)
                             print(f"[exp2] Extracting features for union list: {config.dataset_feat} (ResNet{resnet_model}, E={expansion}, S={seed})")
-                            feature_extraction_spike(config)
+                            if config.model_type == 'spike':
+                                feature_extraction_spike(config)
+                            elif config.model_type == 'conv':
+                                feature_extraction_conv(config)
                         except Exception as e:
                             print(f"[exp2] Warning: feature extraction failed for ResNet{resnet_model} E={expansion} S={seed}: {e}")
                             extracted_ok = False
@@ -2227,7 +2255,10 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                 print(f"Warning: failed to persist EX2 JSON after ResNet{resnet_model} E={expansion}: {e}")
 
     # Write combined results file with tables per resnet model (separate near / far tables)
-    results_filename = os.path.join(out_dir, f'EX2_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds.txt')
+    if config.model_type == 'spike':
+        results_filename = os.path.join(out_dir, f'EX2_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds.txt')
+    elif config.model_type == 'conv':
+        results_filename = os.path.join(out_dir, f'EX2_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_conv_seeds.txt')
     with open(results_filename, 'w') as f:
         f.write(f"{'='*60}\n")
         f.write(f"Spiking ResNet Experiment-2 Multi-Test Results\n")
@@ -2331,7 +2362,10 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                 serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
             data_out['results'][str(rm)][ft] = serial_list
 
-    datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
+    if config.model_type == 'spike':
+        datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
+    elif config.model_type == 'conv':
+        datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}_conv.json')
     try:
         with open(datafile, 'w') as jf:
             json.dump(data_out, jf, indent=2)

@@ -376,7 +376,7 @@ class ExperimentConfig:
 
         # Pipeline mode
         self.mode = 'test'
-        self.test_type = 'standard'  # Options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2'
+        self.test_type = 'experiment_1'  # Options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2'
 
         # Device and processing
         self.device = 'cuda'

@@ -69,48 +69,53 @@ class Utils():
             training: whether to return training (augmentations) or test transforms
             """
             if not auto_aug:
-                aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
-                return transforms.Compose(aug)
-
-            # auto_aug == True
-            if config.fit == 'spike':
-                # Spike-based fitting: geometric augmentations only; keep normalization as identity
-                if training:
-                    aug = [
-                        transforms.Resize((32, 32)),
-                        transforms.RandomCrop(32, padding=4),
-                        transforms.RandomHorizontalFlip(),
-                        # CIFAR10PolicyPreserveDR(),
-                        transforms.ToTensor(),
-                    ]
-                    if cutout:
-                        # Placeholder for Cutout implementation
-                        pass
-                    aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
-                    return transforms.Compose(aug)
-                else:
+                if config.fit == 'spike':
                     aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
                     return transforms.Compose(aug)
-
-            if config.fit == 'membrane':
-                # Membrane-based fitting: stronger augmentation + standard CIFAR normalization
-                if training:
-                    aug = [
-                        transforms.Resize((32, 32)),
-                        transforms.RandomCrop(32, padding=4),
-                        transforms.RandomHorizontalFlip(),
-                        CIFAR10Policy(),
-                        transforms.ToTensor(),
-                    ]
-                    if cutout:
-                        pass
-                    aug.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)))
-                    # aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
-                    return transforms.Compose(aug)
-                else:
+                elif config.fit == 'membrane':
                     aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
-                    # aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
                     return transforms.Compose(aug)
+
+            # auto_aug == True
+            elif auto_aug:
+                if config.fit == 'spike':
+                    # Spike-based fitting: geometric augmentations only; keep normalization as identity
+                    if training:
+                        aug = [
+                            transforms.Resize((32, 32)),
+                            transforms.RandomCrop(32, padding=4),
+                            transforms.RandomHorizontalFlip(),
+                            # CIFAR10PolicyPreserveDR(),
+                            transforms.ToTensor(),
+                        ]
+                        if cutout:
+                            # Placeholder for Cutout implementation
+                            pass
+                        aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                        return transforms.Compose(aug)
+                    else:
+                        aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                        return transforms.Compose(aug)
+
+                elif config.fit == 'membrane':
+                    # Membrane-based fitting: stronger augmentation + standard CIFAR normalization
+                    if training:
+                        aug = [
+                            transforms.Resize((32, 32)),
+                            transforms.RandomCrop(32, padding=4),
+                            transforms.RandomHorizontalFlip(),
+                            CIFAR10Policy(),
+                            transforms.ToTensor(),
+                        ]
+                        if cutout:
+                            pass
+                        aug.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)))
+                        # aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                        return transforms.Compose(aug)
+                    else:
+                        aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
+                        # aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                        return transforms.Compose(aug)
         
         def get_cifar100_transforms(auto_aug=False, cutout=False, training=True):
             """
@@ -121,46 +126,51 @@ class Utils():
             training: whether to return training (augmentations) or test transforms
             """
             if not auto_aug:
-                aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
-                return transforms.Compose(aug)
-
-            # auto_aug == True
-            if config.fit == 'spike':
-                # Spike-based fitting: geometric augmentations only; keep normalization as identity
-                if training:
-                    aug = [
-                        transforms.Resize((32, 32)),
-                        transforms.RandomCrop(32, padding=4),
-                        transforms.RandomHorizontalFlip(),
-                        # CIFAR10PolicyPreserveDR(),
-                        transforms.ToTensor(),
-                    ]
-                    if cutout:
-                        # Placeholder for Cutout implementation
-                        pass
-                    aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
-                    return transforms.Compose(aug)
-                else:
+                if config.fit == 'spike':
                     aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
                     return transforms.Compose(aug)
-
-            if config.fit == 'membrane':
-                # Membrane-based fitting: stronger augmentation + standard CIFAR normalization
-                if training:
-                    aug = [
-                        transforms.Resize((32, 32)),
-                        transforms.RandomCrop(32, padding=4),
-                        transforms.RandomHorizontalFlip(),
-                        # CIFAR10Policy(),
-                        transforms.ToTensor(),
-                    ]
-                    if cutout:
-                        pass
-                    aug.append(transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)))
-                    return transforms.Compose(aug)
-                else:
+                elif config.fit == 'membrane':
                     aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))]
                     return transforms.Compose(aug)
+
+            # auto_aug == True
+            elif auto_aug:
+                if config.fit == 'spike':
+                    # Spike-based fitting: geometric augmentations only; keep normalization as identity
+                    if training:
+                        aug = [
+                            transforms.Resize((32, 32)),
+                            transforms.RandomCrop(32, padding=4),
+                            transforms.RandomHorizontalFlip(),
+                            # CIFAR10PolicyPreserveDR(),
+                            transforms.ToTensor(),
+                        ]
+                        if cutout:
+                            # Placeholder for Cutout implementation
+                            pass
+                        aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                        return transforms.Compose(aug)
+                    else:
+                        aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                        return transforms.Compose(aug)
+
+                if config.fit == 'membrane':
+                    # Membrane-based fitting: stronger augmentation + standard CIFAR normalization
+                    if training:
+                        aug = [
+                            transforms.Resize((32, 32)),
+                            transforms.RandomCrop(32, padding=4),
+                            transforms.RandomHorizontalFlip(),
+                            CIFAR10Policy(),
+                            transforms.ToTensor(),
+                        ]
+                        if cutout:
+                            pass
+                        aug.append(transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)))
+                        return transforms.Compose(aug)
+                    else:
+                        aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))]
+                        return transforms.Compose(aug)
         
         if (gray2rgb == True) and (auto_aug == False):
             ''' 
