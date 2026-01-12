@@ -5,6 +5,6 @@
 #SBATCH --tasks=1
 #SBATCH --mem=64GB
 
-srun zip -r spike.zip weights/spike
+srun zip -r count_loss_Aug.zip weights/spike
 
 

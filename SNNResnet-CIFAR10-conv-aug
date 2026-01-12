@@ -1,0 +1,14 @@
+INFO:    Setting 'NVIDIA_VISIBLE_DEVICES=all' to emulate legacy GPU binding.
+INFO:    Setting --writable-tmpfs (required by nvidia-container-cli)
+Traceback (most recent call last):
+  File "/d/hpc/home/dsluga/SNN/spikingResNet/main.py", line 2, in <module>
+    from test import test_accuracy
+  File "/d/hpc/home/dsluga/SNN/spikingResNet/test.py", line 7, in <module>
+    from metrics.Metrics import Metrics
+  File "/d/hpc/home/dsluga/SNN/spikingResNet/metrics/Metrics.py", line 18, in <module>
+    from train import training
+  File "/d/hpc/home/dsluga/SNN/spikingResNet/train.py", line 17, in <module>
+    from syops import get_model_complexity_info as syops_get_model_complexity_info
+ModuleNotFoundError: No module named 'syops'
+INFO:    Cleanup error: while stopping driver for /var/lib/apptainer/mnt/session/final: fuse-overlayfs exited: fuse: reading device: Software caused connection abort
+srun: error: gwn02: task 0: Exited with exit code 1
