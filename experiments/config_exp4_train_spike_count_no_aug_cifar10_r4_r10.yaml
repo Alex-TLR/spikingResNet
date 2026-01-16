@@ -21,8 +21,8 @@ training:
   auto_aug: false
   pretrained: false
   epochs: 200  # Set to 400 if auto_aug is True, otherwise 200
-  loss: 'cross_entropy'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
-  fit: 'membrane'
+  loss: 'count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
+  fit: 'spike'
 
 # Optimizer Parameters
 optimizer:
@@ -50,7 +50,7 @@ mode: 'train'
 # These define arrays of values to iterate over during train experiments
 # Each combination of (seed × expansion × resnet_model) will be trained
 experiment:
-  case: '42'
+  case: '4'
   methods: null
   # Random seeds for multiple training runs (for statistical significance)
   seeds: [42, 1987, 1991, 2020, 2024]

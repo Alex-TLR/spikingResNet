@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-#SBATCH --job-name=SNNResNet-conv-aug
+#SBATCH --job-name=SNNResNet-exp4
 #SBATCH --time=96:00:00
 #SBATCH --cpus-per-task=8
 #SBATCH --tasks=1
@@ -7,7 +7,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
 #SBATCH --constraint=h100
-#SBATCH --output=SNNResnet-CIFAR10-conv-aug
+#SBATCH --output=SNNResnet-exp4-r18.log
 #STEPS=${SLURM_ARRAY_TASK_ID}
 #echo "Running training with ${STEPS} time steps"
 CONTAINER_PATH=../container/snn.sif
@@ -15,4 +15,4 @@ CONTAINER_PATH=../container/snn.sif
 #srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --model 4 --case 42 --loss cross_entropy
 #srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --model 10 --case 42 --loss count_loss
 #srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --model 18 --case 42 --loss count_loss
-srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --config experiments/config_train_conv_aug_cifar10.yaml
+srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --config experiments/config_exp4_train_spike_count_no_aug_cifar10_r18.yaml

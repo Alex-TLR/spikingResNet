@@ -138,15 +138,15 @@ def training(config):
                 model = convNN4(numberOfChannels=channels, 
                                 numberOfClasses=config.num_classes, 
                                 feature_size=32, 
-                                expan=config.expansion)
+                                expansion=config.expansion)
             elif config.resnet_model == 10:
                 model = ResNet10(numberOfChannels=channels, 
                                         numberOfClasses=config.num_classes, 
-                                        expan=config.expansion)
+                                        expansion=config.expansion)
             elif config.resnet_model == 18:
                 model = ResNet18(numberOfChannels=channels, 
                                         numberOfClasses=config.num_classes, 
-                                        expan=config.expansion  )
+                                        expansion=config.expansion  )
             else:
                 print("Model not defined for the given ResNet configuration.")
                 return -1

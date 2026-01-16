@@ -50,7 +50,7 @@ mode: 'train'
 # These define arrays of values to iterate over during train experiments
 # Each combination of (seed × expansion × resnet_model) will be trained
 experiment:
-  case: '42'
+  case: '4'
   methods: null
   # Random seeds for multiple training runs (for statistical significance)
   seeds: [42, 1987, 1991, 2020, 2024]
