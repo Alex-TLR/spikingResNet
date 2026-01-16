@@ -14,8 +14,8 @@ import time
 import traceback
 from snntorch import backprop
 import gc
-from syops import get_model_complexity_info as syops_get_model_complexity_info
-from ptflops import get_model_complexity_info
+#from syops import get_model_complexity_info as syops_get_model_complexity_info
+#from ptflops import get_model_complexity_info
 
 # _seed_ = 1984
 import random
@@ -138,23 +138,23 @@ def training(config):
                 model = convNN4(numberOfChannels=channels, 
                                 numberOfClasses=config.num_classes, 
                                 feature_size=32, 
-                                expan=config.expansion)
+                                expansion=config.expansion)
             elif config.resnet_model == 10:
                 model = ResNet10(numberOfChannels=channels, 
                                         numberOfClasses=config.num_classes, 
-                                        expan=config.expansion)
+                                        expansion=config.expansion)
             elif config.resnet_model == 18:
                 model = ResNet18(numberOfChannels=channels, 
                                         numberOfClasses=config.num_classes, 
-                                        expan=config.expansion  )
+                                        expansion=config.expansion  )
             else:
                 print("Model not defined for the given ResNet configuration.")
                 return -1
             
-            macs, params = get_model_complexity_info(model, (3, 32, 32), as_strings=True, backend='pytorch',
-                                           print_per_layer_stat=True, verbose=True)
-            print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
-            print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+            #macs, params = get_model_complexity_info(model, (3, 32, 32), as_strings=True, backend='pytorch',
+            #                               print_per_layer_stat=True, verbose=True)
+            #print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+            #print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
             # macs, params = get_model_complexity_info(model, (3, 224, 224), as_strings=True, backend='aten'
             #                                         print_per_layer_stat=True, verbose=True)
@@ -289,12 +289,12 @@ def training(config):
                 return -1
             
             # radi samo na spikingjelly modelima 
-            ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
-                                            print_per_layer_stat=True, verbose=True)
+            #ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
+            #                                print_per_layer_stat=True, verbose=True)
             # print('{:<30}  {:<8}'.format('Computational complexity ACs:', acs))
             # print('{:<30}  {:<8}'.format('Computational complexity MACs:', macs))
-            print(f"ops: {ops}")
-            print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+            #print(f"ops: {ops}")
+            #print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
             # nummm = accumulate_leaky_layer_outputs(model)
             # print(f"Total Leaky layer output size: {nummm}")

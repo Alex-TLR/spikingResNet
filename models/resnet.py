@@ -213,11 +213,11 @@ class convNN4(BasicModel):
     Ours can go further
     '''
 
-    def __init__(self, numberOfChannels, numberOfClasses, feature_size=28, expan=1):
+    def __init__(self, numberOfChannels, numberOfClasses, feature_size=28, expansion=1):
 
         super().__init__(numberOfClasses)
         self.numberOfClasses = numberOfClasses
-        self.expan = expan 
+        self.expansion = expansion 
 
         self.features = int(((feature_size - 2) / 2) - 2)
         self.averaging = int((feature_size - 2) / 2)
@@ -231,7 +231,7 @@ class convNN4(BasicModel):
         self.lif3 = nn.ReLU() 
         self.fc4 = nn.Linear(512, 256, bias=False)
         self.lif4 = nn.ReLU() 
-        self.fc5 = nn.Linear(256, numberOfClasses * self.expan, bias=False)
+        self.fc5 = nn.Linear(256, numberOfClasses * self.expansion, bias=False)
         self.lif5 = nn.ReLU() 
 
     def forward(self, x):
@@ -317,10 +317,10 @@ class ResNet9Model(BasicModel):
 
 class ResNet10(BasicModel):
 
-    def __init__(self, numberOfChannels, numberOfClasses=10, expan = 1):
+    def __init__(self, numberOfChannels, numberOfClasses=10, expansion = 1):
         super().__init__(numberOfClasses)
         self.in_channels = numberOfChannels
-        self.expan = expan
+        self.expansion = expansion
         self.num_classes = numberOfClasses
 
         # Initial conv
@@ -335,7 +335,7 @@ class ResNet10(BasicModel):
 
         # Final classifier
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512, self.num_classes * self.expan)
+        self.fc = nn.Linear(512, self.num_classes * self.expansion)
 
     class BasicBlock(nn.Module):
         expansion = 1
@@ -384,10 +384,10 @@ class ResNet10(BasicModel):
 
 class ResNet18(BasicModel):
 
-    def __init__(self, numberOfChannels, numberOfClasses=10, expan = 1):
+    def __init__(self, numberOfChannels, numberOfClasses=10, expansion = 1):
         super().__init__(numberOfClasses)
         self.in_channels = numberOfChannels
-        self.expan = expan
+        self.expansion = expansion
         self.num_classes = numberOfClasses
 
         # Initial conv
@@ -402,7 +402,7 @@ class ResNet18(BasicModel):
 
         # Final classifier
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512, self.num_classes * self.expan)
+        self.fc = nn.Linear(512, self.num_classes * self.expansion)
 
     class BasicBlock(nn.Module):
         expansion = 1

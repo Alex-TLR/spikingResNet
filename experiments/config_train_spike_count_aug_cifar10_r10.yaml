@@ -9,7 +9,7 @@ dataset:
 # Model Parameters (Base Configuration)
 # These are used for single runs or as defaults before experiment sweeps
 model:
-  type: 'conv'  # Options: 'spike' or 'conv'
+  type: 'spike'  # Options: 'spike' or 'conv'
   num_classes: 10
   num_time_steps_train: 1
   num_time_steps_extract: 1
@@ -21,8 +21,8 @@ training:
   auto_aug: true
   pretrained: false
   epochs: 400  # Set to 400 if auto_aug is True, otherwise 200
-  loss: 'cross_entropy'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
-  fit: 'membrane'  # Options: 'membrane', 'spike'
+  loss: 'count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
+  fit: 'spike'
 
 # Optimizer Parameters
 optimizer:
@@ -50,7 +50,7 @@ mode: 'train'
 # These define arrays of values to iterate over during train experiments
 # Each combination of (seed × expansion × resnet_model) will be trained
 experiment:
-  case: '7'
+  case: '3'
   methods: null
   # Random seeds for multiple training runs (for statistical significance)
   seeds: [42, 1987, 1991, 2020, 2024]
@@ -59,7 +59,7 @@ experiment:
   expansions: [1, 5, 10, 25, 50]
   
   # ResNet architectures to train (ResNet-4, ResNet-10, ResNet-18)
-  resnet_models: [4, 10, 18]
+  resnet_models: [10]
   
   # Override feature extraction behavior (used in test_population, test_1, ex_1, ex_2 modes)
   override_feature_extraction: false
