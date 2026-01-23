@@ -3,5 +3,5 @@
 #srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --model 4 --case 42 --loss mse_count_loss
 #srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --model 10 --case 42 --loss mse_count_loss
 tmux new -s work
-enroot start --rw --env NVIDIA_DRIVER_CAPABILITIES=compute,utility --env NVIDIA_VISIBLE_DEVICES=all --mount .:/workspace snn python main.py --config experiments/config_train_conv_noaug_cifar10.yaml > run_log.txt 2>&1
+enroot start --rw --env NVIDIA_DRIVER_CAPABILITIES=compute,utility --env NVIDIA_VISIBLE_DEVICES=all --mount .:/workspace snn python main.py --config experiments/config_exp8_train_conv_noaug_cifar10.yaml > run_log.txt 2>&1
 tmux detach
