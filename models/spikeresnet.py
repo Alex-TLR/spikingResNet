@@ -307,6 +307,7 @@ class BasicModel(nn.Module):
 
         print('\n')
         return history
+    
     def fit_membrane_full_train(self, model, startEpoch, nEpochs, ResNetModel, dataSet, sched, opt, lossF, loss_name, train_load, nSteps, gd, device, checkpointFile, checkpointPeriod=1):
         '''
         Fitting function for the case when no validation set is used.
@@ -341,8 +342,9 @@ class BasicModel(nn.Module):
                 labels = labels.to(device)
                 # Generate predictions/ forward pass
                 _, _, membrane, _ = model(batch, nSteps)
+                # print(f"Membrane shape before reshape: {membrane.shape}")
                 mem = membrane.mean(0)
-                # print(f"Membrane shape before reshape: {mem.shape}")
+                # print(f"Membrane shape after reshape: {mem.shape}")
                 # print(f"Membrane sample before reshape: {mem[0:5,:]}")
                 if hasattr(model, 'expansion') and model.expansion > 1:
                     # print(f"membrane shape before reshape: {membrane.shape}")
@@ -350,7 +352,7 @@ class BasicModel(nn.Module):
                     # in feature extraction, we have 
                     # spikes = s.sum(axis=0)
                     # probs = p.max(axis=0)
-                    mem = membrane.reshape(membrane.shape[1], model.numberOfClasses , model.expansion).sum(axis=2)                    
+                    mem = mem.reshape(mem.shape[0], model.numberOfClasses , model.expansion).sum(axis=2)                    
 
                 # mem = mem.mean(0)
                 # print(f"Membrane shape after reshape: {mem.shape}")
@@ -371,8 +373,8 @@ class BasicModel(nn.Module):
                     sched.step()
                 # Check train accuracy
                 # a, _ = self.accuracy_membrane(model, nSteps, batch, labels, device)
-                if hasattr(model, 'expansion') and model.expansion > 1:
-                    mem = membrane.reshape(membrane.shape[1], model.numberOfClasses , model.expansion).sum(axis=2)
+                # if hasattr(model, 'expansion') and model.expansion > 1:
+                #     mem = membrane.reshape(membrane.shape[1], model.numberOfClasses , model.expansion).sum(axis=2)
                 predicted = torch.argmax(mem, dim=1)
                 correct = (predicted == labels).float()
                 a = correct.sum()

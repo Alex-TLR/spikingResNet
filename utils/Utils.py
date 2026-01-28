@@ -68,7 +68,7 @@ class Utils():
             cutout: whether to apply Cutout (not implemented here)
             training: whether to return training (augmentations) or test transforms
             """
-            if not auto_aug:
+            if auto_aug==False:
                 if config.fit == 'spike':
                     aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
                     return transforms.Compose(aug)
@@ -77,7 +77,7 @@ class Utils():
                     return transforms.Compose(aug)
 
             # auto_aug == True
-            elif auto_aug:
+            elif auto_aug==True:
                 if config.fit == 'spike':
                     # Spike-based fitting: geometric augmentations only; keep normalization as identity
                     if training:
@@ -86,15 +86,19 @@ class Utils():
                             transforms.RandomCrop(32, padding=4),
                             transforms.RandomHorizontalFlip(),
                             # CIFAR10PolicyPreserveDR(),
+                            CIFAR10Policy(),
                             transforms.ToTensor(),
                         ]
                         if cutout:
                             # Placeholder for Cutout implementation
                             pass
-                        aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                        # aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                        aug.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)))
+                        print(f"Returning spike-based CIFAR10 training transforms: {aug}")
                         return transforms.Compose(aug)
                     else:
-                        aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                        # aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                        aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
                         return transforms.Compose(aug)
 
                 elif config.fit == 'membrane':
@@ -143,6 +147,7 @@ class Utils():
                             transforms.RandomCrop(32, padding=4),
                             transforms.RandomHorizontalFlip(),
                             # CIFAR10PolicyPreserveDR(),
+                            CIFAR10Policy(),
                             transforms.ToTensor(),
                         ]
                         if cutout:
@@ -1027,6 +1032,18 @@ class CIFAR10PolicyPreserveDR(object):
     def __init__(self, fillcolor=(128, 128, 128)):
         # Construct a smaller set of SubPolicies restricted to DR-preserving ops
         self.policies = [
+            # SubPolicy(0.1, "invert", 7, 0.2, "contrast", 6, fillcolor),
+            # SubPolicy(0.5, "autocontrast", 8, 0.9, "equalize", 2, fillcolor),
+            # SubPolicy(0.2, "shearY", 7, 0.3, "posterize", 7, fillcolor),
+            # SubPolicy(0.6, "equalize", 5, 0.5, "equalize", 1, fillcolor),
+            # SubPolicy(0.5, "solarize", 2, 0.0, "invert", 3, fillcolor),
+            # SubPolicy(0.2, "equalize", 0, 0.6, "autocontrast", 0, fillcolor),
+            # SubPolicy(0.2, "equalize", 8, 0.8, "equalize", 4, fillcolor),
+            # SubPolicy(0.8, "autocontrast", 4, 0.2, "solarize", 8, fillcolor),
+            # SubPolicy(0.4, "solarize", 5, 0.9, "autocontrast", 3, fillcolor),
+            # SubPolicy(0.9, "autocontrast", 2, 0.8, "solarize", 3, fillcolor),
+            # SubPolicy(0.8, "equalize", 8, 0.1, "invert", 3, fillcolor)
+
             # geometric + geometric
             SubPolicy(0.7, "rotate", 2, 0.3, "translateX", 9, fillcolor),
             SubPolicy(0.6, "shearX", 3, 0.4, "shearY", 3, fillcolor),
