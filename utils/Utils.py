@@ -86,19 +86,19 @@ class Utils():
                             transforms.RandomCrop(32, padding=4),
                             transforms.RandomHorizontalFlip(),
                             # CIFAR10PolicyPreserveDR(),
-                            CIFAR10Policy(),
+                            # CIFAR10Policy(),
                             transforms.ToTensor(),
                         ]
                         if cutout:
                             # Placeholder for Cutout implementation
                             pass
-                        # aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
-                        aug.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)))
+                        aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                        # aug.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)))
                         print(f"Returning spike-based CIFAR10 training transforms: {aug}")
                         return transforms.Compose(aug)
                     else:
-                        # aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
-                        aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
+                        aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                        # aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
                         return transforms.Compose(aug)
 
                 elif config.fit == 'membrane':
