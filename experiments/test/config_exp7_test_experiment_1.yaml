@@ -1,0 +1,62 @@
+# Configuration for Experiment 7 Test Mode
+# KNN-based OOD detection evaluation
+
+# Dataset Parameters
+dataset:
+  id: 'CIFAR10'
+  features: ['CIFAR10', 'CIFAR100', 'tImage200']
+
+# Model Parameters (base - will be overridden by experiment sweeps)
+model:
+  type: 'conv'
+  num_classes: 10
+  num_time_steps_train: 1
+  num_time_steps_extract: 1
+
+# Training Parameters
+training:
+  batch_size: 64
+  full_train: true
+  auto_aug: true
+  pretrained: false
+  epochs: 200
+  loss: 'cross_entropy'
+  fit: 'membrane'
+
+# Test Mode and Type
+mode: 'test'
+test_type: 'experiment_1'
+
+# Device and Parallel Processing
+device: 'cuda'
+num_workers: 4
+
+# Optimizer Parameters
+optimizer:
+  name: 'adam'
+  learning_rate: 2.0e-4
+  momentum: 0.9
+  weight_decay: 1.0e-4
+
+# Learning Rate Scheduler
+scheduler:
+  name: 'cosine'
+  step_size: null
+
+# Gradient Clipping
+gradient_clipping: 0.1
+
+# Experiment Sweep Parameters
+experiment:
+  case: '7'
+  methods: ['KNN']  # OOD detection method for experiment 1
+  seeds: [42, 1987, 1991, 2020, 2024]
+  expansions: [1, 5, 10, 25, 50]
+  resnet_models: [4, 10, 18]
+  override_feature_extraction: true
+  
+  # Near-OOD datasets (similar to in-distribution)
+  near_ood: ['CIFAR10', 'CIFAR100', 'tImage200']
+  
+  # Far-OOD datasets (very different from in-distribution)
+  far_ood: ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']

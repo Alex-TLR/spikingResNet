@@ -65,11 +65,12 @@ if __name__ == "__main__":
     print('Using device:', device)
     print()
 
-    # Create features case
-    Utils.make_features_dir(config.model_type, config.case)
+    
 
     if config.mode == 'test':
         # Ensure results directory exists for outputs
+        # Create features case
+        Utils.make_features_dir(config.model_type, config.case)
         os.makedirs('results', exist_ok=True)
         # Handle different test types
         if config.test_type == 'standard':
@@ -204,8 +205,8 @@ if __name__ == "__main__":
         resnet_models = config.resnet_models
         
         # Ensure weights directories exist for saving checkpoints
-        os.makedirs('weights/spike', exist_ok=True)
-        os.makedirs('weights/conv', exist_ok=True)
+        os.makedirs('weights/spike/exp'+str(config.case), exist_ok=True)
+        os.makedirs('weights/conv/exp'+str(config.case), exist_ok=True)
         
         total_runs = len(seeds) * len(expansions) * len(resnet_models)
         current_run = 0

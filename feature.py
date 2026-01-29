@@ -160,12 +160,11 @@ def feature_extraction_conv(config):
         
         # Load weights
         # Loading the weights for the ID-trained network
-        weightsName = 'weights/conv/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) + '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
+        weightsName = 'weights/conv/exp' + str(config.case) + '/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) +'_L_'+str(config.loss) +'_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         model = model.to(device)
 
-        fileName = 'features/conv/case_' + config.case + '/' + config.dataset_feat[i] + '-on_' + config.dataset_ID.lower() + '.npz'
-
+        fileName = 'features/conv/exp' + str(config.case) + '/' + config.dataset_feat[i] + '-on_' + config.dataset_ID.lower() + '.npz'
         if (Utils.does_file_exists(fileName) or config.override_feature_extraction):
 
             torch.cuda.empty_cache()
@@ -379,12 +378,11 @@ def feature_extraction_spike(config):
         
         # Load weights
         # Loading the weights for the ID-trained network
-        weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
+        weightsName = 'weights/spike/exp' + str(config.case) + '/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) +'_L_'+str(config.loss) +'_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
         model.load_state_dict(torch.load(weightsName, weights_only=True))
         model = model.to(device)
 
-        fileName = 'features/spike/case_' + config.case + '/' + config.dataset_feat[i] + '-on_' + config.dataset_ID.lower() + '.npz'
-
+        fileName = 'features/spike/exp' + str(config.case) + '/' + config.dataset_feat[i] + '-on_' + config.dataset_ID.lower() + '.npz'
         if (Utils.does_file_exists(fileName) or config.override_feature_extraction):
 
             torch.cuda.empty_cache()

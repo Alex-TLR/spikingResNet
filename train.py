@@ -127,7 +127,7 @@ def training(config):
     if config.model_type == 'conv':    
 
         # Define weight path similar to 'spike' case
-        weightPath = 'weights/conv/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion)+ '_L_'+str(config.loss)+ '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
+        weightPath = 'weights/conv/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion)+ '_L_'+str(config.loss)+ '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
 
         if (Utils.does_file_exists(weightPath)):
             # Keeps accuracy and loss for both training and validation in each epoch
@@ -173,7 +173,7 @@ def training(config):
             loss_fn = nn.CrossEntropyLoss()
             # Handle checkpointing
             startEpoch = 0
-            weightsName = 'weights/conv/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion)+ '_L_'+str(config.loss)+ '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '_checkpoint.pth'
+            weightsName = 'weights/conv/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion)+ '_L_'+str(config.loss)+ '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '_checkpoint.pth'
             if config.pretrained:
                 print("Try to load checkpoint: " + weightsName)
                 try:
@@ -220,7 +220,7 @@ def training(config):
 
     elif config.model_type == 'spike':
 
-        weightPath = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+ '_L_'+str(config.loss)+ '_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
+        weightPath = 'weights/spike/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+ '_L_'+str(config.loss)+ '_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
         # print(f"Weight path: {weightPath}")
         if (Utils.does_file_exists(weightPath)):
 
@@ -329,18 +329,25 @@ def training(config):
                 return -1
             # Optimizer for gray 5e-4
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999), weight_decay=wDecay)
-            optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=wDecay)
+            if config.optimizer == 'sgd':
+                optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=config.momentum, weight_decay=wDecay)
+            elif config.optimizer == 'adam':
+                optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=wDecay)
+            else:
+                print("Optimizer not defined")
+                return -1
             # optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, betas=(0.9, 0.999))
-            sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, epochs=config.epochs, steps_per_epoch=len(train_loader))
-            # sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=epochs)
-            # sched = None
+            if config.scheduler == 'onecycle':
+                sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, epochs=config.epochs, steps_per_epoch=len(train_loader))
+            elif config.scheduler == 'cosine':
+                sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=config.epochs)
+            else:
+                sched = None
 
-            # optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
-            # sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=epochs)
             # Training
             startEpoch = 0
             if (config.full_train == True):
-                weightsName = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed) + '_checkpoint_' + '.pth'
+                weightsName = 'weights/spike/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed) + '_checkpoint_' + '.pth'
                 if(config.pretrained == True):
                     print("Try to load checkpoint: "+weightsName)
                     try:

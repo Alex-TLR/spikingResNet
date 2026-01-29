@@ -775,7 +775,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
 
     stats = np.zeros((len(namesOOD), len(methods)*3), dtype=np.float64)
     if config.model_type == 'spike':
-        IDpath = 'features/spike/case_' + case + '/' + nameID + suffixID + '.npz'
+        IDpath = 'features/spike/exp' + case + '/' + nameID + suffixID + '.npz'
         # Load In-Distribution data
         ID = np.load(IDpath)
         ID_spik_train = ID['arr0']  # In-Distribution training set spikes
@@ -790,7 +790,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
         # ID_tags_test  = ID['arr6']  # In-Distribution test set labels
         number_classes = ID_prob_train.shape[1]
     else:
-        IDpath = 'features/conv/case_' + case + '/' + nameID + suffixID + '.npz'
+        IDpath = 'features/conv/exp' + case + '/' + nameID + suffixID + '.npz'
         # Load In-Distribution data
         ID = np.load(IDpath)
         ID_prob_train = ID['arr2']  # In-Distribution training set outputs (usually with no softmax applied)
@@ -828,7 +828,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
     for i in range(len(namesOOD)):
 
         if config.model_type == 'spike':
-            OODpath = 'features/spike/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
+            OODpath = 'features/spike/exp' + case + '/' + namesOOD[i] + suffixID + '.npz'
 
             # Load Out-of-Distribution data
             OOD = np.load(OODpath)
@@ -844,7 +844,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
             OOD_volt_test  = OOD['arr9']  # Out-of-Distribution test set voltages
         
         elif config.model_type == 'conv':
-            OODpath = 'features/conv/case_' + case + '/' + namesOOD[i] + suffixID + '.npz'
+            OODpath = 'features/conv/exp' + case + '/' + namesOOD[i] + suffixID + '.npz'
 
             # Load Out-of-Distribution data
             OOD = np.load(OODpath)
@@ -1485,7 +1485,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         model_tags = {4: 'Conv', 10: 'ResNet10', 18: 'ResNet18'}
     methods = config.methods
 
-    out_dir = os.path.join('results', 'ex_1')
+    out_dir = os.path.join('results', 'ex_1', 'exp'+str(config.case))
     os.makedirs(out_dir, exist_ok=True)
 
     # Prepare lists of near and far OOD from config (do not filter by dataset_ID)
@@ -1928,7 +1928,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
 
     # Generate plots for features and voltages: each plot contains near and far curves per ResNet
     plt.rcParams.update({
-        'text.usetex': True,
+        'text.usetex': False,
         'font.family': 'serif',
         'font.serif': ['Times New Roman'],
         'mathtext.fontset': 'stix',

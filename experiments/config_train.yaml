@@ -11,7 +11,7 @@ dataset:
 model:
   type: 'spike'  # Options: 'spike' or 'conv'
   num_classes: 10
-  num_time_steps_train: 1
+  num_time_steps_train: 4
   num_time_steps_extract: 1
 
 # Training Parameters (Base Configuration)
@@ -21,19 +21,19 @@ training:
   auto_aug: true
   pretrained: false
   epochs: 400  # Set to 400 if auto_aug is True, otherwise 200
-  loss: 'count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
-  fit: 'spike'
+  loss: 'mse_count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
+  fit: 'spike'  # Options: 'membrane', 'spike'
 
 # Optimizer Parameters
 optimizer:
-  name: 'adam'
+  name: 'adam' # Options: 'sgd', 'adam'
   learning_rate: 2.0e-4
   momentum: 0.9
   weight_decay: 1.0e-4
 
 # Learning Rate Scheduler
 scheduler:
-  name: 'cosine'
+  name: 'onecycle' # Options: 'onecycle', 'cosine'
   step_size: null
 
 # Gradient Clipping
@@ -59,7 +59,7 @@ experiment:
   expansions: [1, 5, 10, 25, 50]
   
   # ResNet architectures to train (ResNet-4, ResNet-10, ResNet-18)
-  resnet_models: [4, 10, 18]
+  resnet_models: [4]
   
   # Override feature extraction behavior (used in test_population, test_1, ex_1, ex_2 modes)
   override_feature_extraction: false
