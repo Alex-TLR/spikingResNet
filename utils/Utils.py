@@ -359,7 +359,7 @@ class Utils():
     @staticmethod
     def make_features_dir(modelType, case = '00'):
 
-        folderPath = 'features/' + modelType + '/case_' + case
+        folderPath = 'features/' + modelType + '/exp' + case
         if not os.path.exists(folderPath):
             os.makedirs(folderPath)
             print(f"Directory {folderPath} created.")
