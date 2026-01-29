@@ -142,17 +142,17 @@ def feature_extraction_conv(config):
             model = convNN4(numberOfChannels=channels, 
                             numberOfClasses=config.num_classes, 
                             feature_size=32, 
-                            expan=config.expansion)
+                            expansion=config.expansion)
             featSize = 256
         elif config.resnet_model == 10:
             model = ResNet10(numberOfChannels=channels, 
                                     numberOfClasses=config.num_classes, 
-                                    expan=config.expansion)
+                                    expansion=config.expansion)
             featSize = 512
         elif config.resnet_model == 18:
             model = ResNet18(numberOfChannels=channels, 
                                     numberOfClasses=config.num_classes, 
-                                    expan=config.expansion)
+                                    expansion=config.expansion)
             featSize = 512
         else:
             print("Model not defined for the given ResNet configuration.")
@@ -186,8 +186,8 @@ def feature_extraction_conv(config):
                         p, v = model(batch)
                         p = p.cpu().detach().numpy()
                         v = v.cpu().detach().numpy()
-                        if hasattr(model, 'expan') and model.expan > 1: 
-                            p = p.reshape(p.shape[0], config.num_classes, model.expan).sum(axis=2)
+                        if hasattr(model, 'expansion') and model.expansion > 1: 
+                            p = p.reshape(p.shape[0], config.num_classes, model.expansion).sum(axis=2)
 
                         labels = labels.cpu().detach().numpy()
                         Prob_train[startIndex:endIndex, :] = p
@@ -215,8 +215,8 @@ def feature_extraction_conv(config):
                     p, v = model(batch)                        
                     p = p.cpu().detach().numpy()
                     v = v.cpu().detach().numpy()
-                    if hasattr(model, 'expan') and model.expan > 1:
-                        p = p.reshape(p.shape[0], config.num_classes, model.expan).sum(axis=2) 
+                    if hasattr(model, 'expansion') and model.expansion > 1:
+                        p = p.reshape(p.shape[0], config.num_classes, model.expansion).sum(axis=2) 
  
                     labels = labels.cpu().detach().numpy()
                     Prob_test[startIndex:endIndex, :] = p
