@@ -2005,7 +2005,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
     # Methods to evaluate (fall back to a sensible default if not set)
     methods = getattr(config, 'methods', ['ASH', 'MSP', 'ODIN', 'ENGY', 'MLS', 'VIM'])
 
-    out_dir = os.path.join('results', 'ex_2')
+    out_dir = os.path.join('results', 'ex_2', 'exp'+str(config.case))
     os.makedirs(out_dir, exist_ok=True)
 
     # Prepare near and far lists (do not filter by dataset_ID)
