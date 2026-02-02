@@ -19,8 +19,8 @@ training:
   full_train: true
   auto_aug: false
   pretrained: false
-  epochs: 400
-  loss: 'count_loss'
+  epochs: 200
+  loss: 'mse_count_loss'
   fit: 'spike'
 
 # Test Mode and Type
