@@ -1,0 +1,35 @@
++-----+----------------+-----+---------------+----------+
+| Exp | Net            | Aug | Loss          | Fit      |
++-----+----------------+-----+---------------+----------+
+|  1  | resnet4_spike  |  1  | mse_loss      | spikes   |
+|  1  | resnet10_spike |  1  | mse_loss      | spikes   |
+|  1  | resnet18_spike |  1  | mse_loss      | spikes   |
++-----+----------------+-----+---------------+----------+
+|  2  | resnet4_spike  |  0  | mse_loss      | spikes   |
+|  2  | resnet10_spike |  0  | mse_loss      | spikes   |
+|  2  | resnet18_spike |  0  | mse_loss      | spikes   |
++-----+----------------+-----+---------------+----------+
+|  3  | resnet4_spike  |  1  | count_loss    | spikes   |
+|  3  | resnet10_spike |  1  | count_loss    | spikes   |
+|  3  | resnet18_spike |  1  | count_loss    | spikes   |
++-----+----------------+-----+---------------+----------+
+|  4  | resnet4_spike  |  0  | count_loss    | spikes   |
+|  4  | resnet10_spike |  0  | count_loss    | spikes   |
+|  4  | resnet18_spike |  0  | count_loss    | spikes   |
++-----+----------------+-----+---------------+----------+
+|  5  | resnet4_spike  |  1  | cross_entropy | membrane |
+|  5  | resnet10_spike |  1  | cross_entropy | membrane |
+|  5  | resnet18_spike |  1  | cross_entropy | membrane |
++-----+----------------+-----+---------------+----------+
+|  6  | resnet4_spike  |  0  | cross_entropy | membrane |
+|  6  | resnet10_spike |  0  | cross_entropy | membrane |
+|  6  | resnet18_spike |  0  | cross_entropy | membrane |
++-----+----------------+-----+---------------+----------+
+|  7  | resnet4_conv   |  1  | cross_entropy | membrane |
+|  7  | resnet10_conv  |  1  | cross_entropy | membrane |
+|  7  | resnet18_conv  |  1  | cross_entropy | membrane |
++-----+----------------+-----+---------------+----------+
+|  8  | resnet4_conv   |  0  | cross_entropy | membrane |
+|  8  | resnet10_conv  |  0  | cross_entropy | membrane |
+|  8  | resnet18_conv  |  0  | cross_entropy | membrane |
++-----+----------------+-----+---------------+----------+
