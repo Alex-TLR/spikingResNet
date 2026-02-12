@@ -6,6 +6,6 @@
 #SBATCH --mem=64GB
 
 #srun zip -r weights_conv.zip weights/conv
-srun zip -r results.zip results/
+srun zip -r results2.zip results/
 
 

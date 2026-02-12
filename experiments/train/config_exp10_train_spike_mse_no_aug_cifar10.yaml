@@ -11,17 +11,17 @@ dataset:
 model:
   type: 'spike'  # Options: 'spike' or 'conv'
   num_classes: 10
-  num_time_steps_train: 1
+  num_time_steps_train: 2
   num_time_steps_extract: 1
 
 # Training Parameters (Base Configuration)
 training:
   batch_size: 64
   full_train: true
-  auto_aug: true
+  auto_aug: false
   pretrained: false
-  epochs: 400  # Set to 400 if auto_aug is True, otherwise 200
-  loss: 'count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
+  epochs: 200  # Set to 400 if auto_aug is True, otherwise 200
+  loss: 'mse_count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
   fit: 'spike'
 
 # Optimizer Parameters
@@ -50,7 +50,7 @@ mode: 'train'
 # These define arrays of values to iterate over during train experiments
 # Each combination of (seed × expansion × resnet_model) will be trained
 experiment:
-  case: '3'
+  case: '10'
   methods: null
   # Random seeds for multiple training runs (for statistical significance)
   seeds: [42, 1987, 1991, 2020, 2024]
@@ -59,7 +59,7 @@ experiment:
   expansions: [1, 5, 10, 25, 50]
   
   # ResNet architectures to train (ResNet-4, ResNet-10, ResNet-18)
-  resnet_models: [10]
+  resnet_models: [4, 10, 18]
   
   # Override feature extraction behavior (used in test_population, test_1, ex_1, ex_2 modes)
   override_feature_extraction: false
