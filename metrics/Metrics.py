@@ -17,11 +17,14 @@ from scipy.spatial.distance import cdist
 from datetime import datetime
 from train import training
 import gc
+import os
+from torchvision import datasets, transforms
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model
 from models.plain import spikeLinearNet1
 import os
 import matplotlib.pyplot as plt
 import json
+from scipy.special import logsumexp
 
 class Metrics():
 
@@ -130,21 +133,8 @@ class Metrics():
     @staticmethod
     def ENGY(ID_feat_test, OOD_feat_test, T=1.0):
         '''
-        Energy-based OOD detection method.
-        Low energy of input logit means ID sample, while high energy indicates OOD sample.
-        Energy is calculated as: E(x) = -T * log(sum(exp(f_i(x)/T))), where f_i(x) is the i-th logit of input x,
-        and T is the temperature scaling parameter.
-
-        Additional minus sign is added, so that higher energy means more likely ID sample.
-
-        Inputs:
-            test_data:      Matrix of input row-wise features
-            threshold:      Threshold value
-            T:              Temperature scaling parameter
-
-        Outputs:
-            predictions:    Array of predicted labels
-            energies:       Array of energy values
+        Energy-based OOD detection method, matching OpenOOD.
+        Score is T * logsumexp(logits / T), higher for ID.
         '''
 
         start_time = time.time()
@@ -152,14 +142,13 @@ class Metrics():
         OOD_labels = np.zeros((len(OOD_feat_test)))
         test_labels = np.concatenate((ID_labels, OOD_labels))
 
-        ID_distances = (-T * torch.logsumexp(torch.Tensor(ID_feat_test) / T, dim=1)).numpy()
-        OOD_distances = (-T * torch.logsumexp(torch.Tensor(OOD_feat_test) / T, dim=1)).numpy()
+        ID_distances = T * logsumexp(ID_feat_test / T, axis=1)
+        OOD_distances = T * logsumexp(OOD_feat_test / T, axis=1)
         test_distances = np.concatenate((ID_distances, OOD_distances))
 
         _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
         threshold = threshold_tpr95
 
-        # Make predictions based on the distances
         ID_predictions = (ID_distances > threshold).astype(np.int32)
         OOD_predictions = (OOD_distances > threshold).astype(np.int32)
 
@@ -167,13 +156,9 @@ class Metrics():
         test_predictions = np.concatenate((ID_predictions, OOD_predictions))
         end_time = time.time()  # Record end time
         execution_time = end_time - start_time  # Calculate execution time
-        print(f"ENERGY Execution time: {execution_time:.4f} seconds.")
+        print(f"ENGY Execution time: {execution_time:.4f} seconds.")
 
         return test_labels, test_predictions, test_distances
-
-        # e = -(-T * torch.logsumexp(torch.Tensor(ID_feat_test) / T, dim=1)).numpy()
-        # predictions = (e > threshold).astype(np.int32)
-        # return predictions, e
     
     @staticmethod
     def ODIN(ID_feat_test, OOD_feat_test, eps=0.0014, T=1000.0):
@@ -217,153 +202,229 @@ class Metrics():
 
 
     @staticmethod
-    def VIM(ID_penultimate_test, ID_features_test, OOD_penultimate_test, OOD_features_test, mu, null_space_eigvecs, alpha=0.1):
-        '''
-        VIM method for OOD detection.
-        
-        Needs revision
+    def ODIN_pert(ID_inputs_test, OOD_inputs_test, model, ID_feat_test, OOD_feat_test, eps=0.0014, T=1000.0):
+        """
+        Implements the full ODIN algorithm for OoD detection with input perturbation.
         Inputs:
-            test_data:      Matrix of input row-wise features (num_classes)
-            test_features:  Matrix of input row-wise features (penultimate layer)
-            mu:             Mean of the training features
-            null_space_eigvecs: Null space eigenvectors
-            threshold:      Threshold value
-            alpha:         Regularization parameter
-
-        Outputs:
-            predictions:    Array of predicted labels
-            max_probs:      Array of output features, 1-D
-        '''
+            ID_inputs_test:   Matrix of in-distribution test inputs (e.g., images or spike inputs)
+            OOD_inputs_test:  Matrix of out-of-distribution test inputs
+            model:            Trained model for forward passes
+            ID_feat_test:     Matrix of in-distribution test logits (for fallback or comparison)
+            OOD_feat_test:    Matrix of out-of-distribution test logits
+            eps:              Small perturbation value
+            T:                Temperature scaling parameter
+        """
 
         start_time = time.time()
-        ID_labels = np.ones((len(ID_features_test)))
-        OOD_labels = np.zeros((len(OOD_features_test)))
+        ID_labels = np.ones((len(ID_feat_test)))
+        OOD_labels = np.zeros((len(OOD_feat_test)))
         test_labels = np.concatenate((ID_labels, OOD_labels))
 
-        ID_residual = (ID_penultimate_test - mu) @ null_space_eigvecs
-        r_norm = np.linalg.norm(ID_residual, axis=1)
-        logit_norm = np.linalg.norm(ID_features_test, axis=1)
-        ID_distances = -(logit_norm - alpha * r_norm)
-        OOD_residual = (OOD_penultimate_test - mu) @ null_space_eigvecs
-        r_norm = np.linalg.norm(OOD_residual, axis=1)
-        logit_norm = np.linalg.norm(OOD_features_test, axis=1)
-        OOD_distances = -(logit_norm - alpha * r_norm)
+        # Function to compute ODIN score with perturbation
+        def compute_odin_score(inputs, model, eps, T):
+            scores = []
+            input_std = [0.5, 0.5, 0.5]  # Approximate for CIFAR10/SVHN
+            for x in inputs:
+                x_tensor = torch.tensor(x, dtype=torch.float32, requires_grad=True)
+                logits = model(x_tensor.unsqueeze(0))
+                softmax_T = torch.softmax(logits / T, dim=1)
+                pred_class = torch.argmax(softmax_T, dim=1)
+                loss = -torch.log(softmax_T[0, pred_class])
+                loss.backward()
+                grad = x_tensor.grad.detach()
+                # Match OpenOOD: sign of grad, scaled by input_std
+                gradient = torch.ge(grad, 0).float() * 2 - 1  # sign
+                gradient[:, 0] /= input_std[0]
+                gradient[:, 1] /= input_std[1]
+                gradient[:, 2] /= input_std[2]
+                x_pert = x_tensor - eps * gradient
+                logits_pert = model(x_pert.unsqueeze(0))
+                softmax_T_pert = torch.softmax(logits_pert / T, dim=1)
+                score = torch.max(softmax_T_pert, dim=1)[0].item()
+                scores.append(score)
+            return np.array(scores)
+
+        ID_distances = compute_odin_score(ID_inputs_test, model, eps, T)
+        OOD_distances = compute_odin_score(OOD_inputs_test, model, eps, T)
         test_distances = np.concatenate((ID_distances, OOD_distances))
 
-        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop=False)
         threshold = threshold_tpr95
 
-        ID_predictions = (ID_distances < threshold).astype(np.int32)
-        OOD_predictions = (OOD_distances < threshold).astype(np.int32)
+        # Make predictions based on the distances
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
 
         # Concatenate predictions
         test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-        end_time = time.time()  
-        execution_time = end_time - start_time 
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"ODIN_pert Execution time: {execution_time:.4f} seconds.")
+
+        # Return labels, predictions, and ODIN scores
+        return test_labels, test_predictions, test_distances
+
+
+    @staticmethod
+    def VIM(ID_penultimate_test, OOD_penultimate_test, ID_logits_test, OOD_logits_test, mu, null_space_eigvecs, alpha=0.1):
+        '''
+        VIM method for OOD detection.
+        
+        Matches OpenOOD: Use energy (logsumexp of logits) - alpha * residual_norm.
+        Inputs:
+            ID_penultimate_test:   Penultimate layer features for ID test set
+            OOD_penultimate_test:  Penultimate layer features for OOD test set
+            ID_logits_test:        Logits for ID test set
+            OOD_logits_test:       Logits for OOD test set
+            mu:                    Mean of training penultimate features
+            null_space_eigvecs:    Null space eigenvectors
+            alpha:                 Regularization parameter
+        Outputs:
+            test_labels:           Ground truth labels (1 for ID, 0 for OOD)
+            test_predictions:      Predictions based on threshold
+            test_distances:        Detection scores (higher for ID)
+        '''
+        from scipy.special import logsumexp
+        
+        start_time = time.time()
+        ID_labels = np.ones((len(ID_penultimate_test)))
+        OOD_labels = np.zeros((len(OOD_penultimate_test)))
+        test_labels = np.concatenate((ID_labels, OOD_labels))
+
+        # Compute residuals
+        ID_residual = (ID_penultimate_test - mu) @ null_space_eigvecs
+        r_norm_ID = np.linalg.norm(ID_residual, axis=1)
+        energy_ID = logsumexp(ID_logits_test, axis=1)
+        ID_scores = energy_ID - alpha * r_norm_ID
+
+        OOD_residual = (OOD_penultimate_test - mu) @ null_space_eigvecs
+        r_norm_OOD = np.linalg.norm(OOD_residual, axis=1)
+        energy_OOD = logsumexp(OOD_logits_test, axis=1)
+        OOD_scores = energy_OOD - alpha * r_norm_OOD
+
+        # For consistency with other methods, use S(x) directly, higher values indicate ID
+        test_distances = np.concatenate((ID_scores, OOD_scores))
+
+        # Set threshold at 5th percentile of ID scores (literature standard for higher=ID)
+        if len(ID_scores) > 0:
+            threshold = np.percentile(ID_scores, 5)
+        else:
+            threshold = 0.0  # Fallback
+
+        ID_predictions = (ID_scores > threshold).astype(np.int32)  # Higher S(x) for ID
+        OOD_predictions = (OOD_scores <= threshold).astype(np.int32)
+        test_predictions = np.concatenate((ID_predictions, OOD_predictions))
+
+        end_time = time.time()
+        execution_time = end_time - start_time
         print(f"VIM Execution time: {execution_time:.4f} seconds.")
 
         return test_labels, test_predictions, test_distances
     
     @staticmethod
-    def ASH(ID_feat_test, OOD_feat_test, keep_ratio=0.25):
+    def ASH_Old(ID_feat_test, OOD_feat_test, keep_ratio=0.25):
         """
-        This simplified ASH implementation can work with features from either the penultimate layer or the final layer, depending on the design of your model and the nature of the features.
-
-        Key Considerations:
-        Penultimate Layer Features:
-
-        These features are typically high-dimensional and contain rich information about the input data.
-        They are often used for OoD detection because they capture more general patterns and are less specialized for classification compared to the final layer.
-        Final Layer Features:
-
-        These features (e.g., logits or softmax probabilities) are lower-dimensional and more directly tied to the classification task.
-        Using the final layer features may simplify the computation but could reduce the effectiveness of OoD detection, as they are more specialized for the in-distribution classes.
-        Applicability:
-        Penultimate Layer: The current implementation is designed to operate on high-dimensional features, making it well-suited for penultimate layer features.
-        Final Layer: If you want to use the final layer features, you can directly pass them to the function. However, you may need to adjust the keep_ratio parameter, as the dimensionality of the final layer is typically much lower than the penultimate layer.
-        Recommendation:
-        If your goal is to maximize OoD detection performance, use penultimate layer features.
-        If computational efficiency or simplicity is more important, you can use final layer features.
-
+        ASH (Activation Sparsity Hypothesis) for OoD detection, based on Chun et al. (ICLR 2022).
+        Uses penultimate layer features, sparsifies top-k activations, normalizes to preserve mass,
+        and scores as -log(sum). Threshold at 95th percentile of ID scores; predict ID if score < threshold.
         """
-
-
-        """
-        Simplified ASH algorithm for OoD detection.
-
-        Parameters:
-        - ID_penultimate_test: Penultimate layer features of in-distribution test set.
-        - OOD_penultimate_test: Penultimate layer features of out-of-distribution test set.
-        - keep_ratio: Ratio of top activations to retain (default: 0.25).
-
-        Returns:
-        - test_labels: Ground truth labels for in-distribution (1) and out-of-distribution (0).
-        - test_predictions: Predictions based on ASH scores.
-        - test_distances: ASH scores for each sample.
-        """
-
+        
         start_time = time.time()
-        # ID_labels = np.ones((len(ID_feat_test)))
-        # OOD_labels = np.zeros((len(OOD_feat_test)))
-        # test_labels = np.concatenate((ID_labels, OOD_labels))
-
-        start_time = time.time()
-
+        
         # Process ID features
         k = max(1, int(ID_feat_test.shape[1] * keep_ratio))
         ID_top_k_threshold = np.partition(ID_feat_test, -k, axis=1)[:, -k]
-        # Keep only top-k activations per-row, set others to 0
         ID_suppressed_features = np.where(ID_feat_test >= ID_top_k_threshold[:, None], ID_feat_test, 0.0)
-        # Force non-negative activations: negative values don't make sense for ASH-sums
         ID_suppressed_features = np.where(ID_suppressed_features < 0.0, 0.0, ID_suppressed_features)
-
-        # Compute row sums and ensure no-all-zero rows (replace such rows with tiny epsilon vector)
+        
         ID_row_sums = ID_suppressed_features.sum(axis=1, keepdims=True)
         zero_rows = (ID_row_sums == 0).flatten()
         if np.any(zero_rows):
             ID_suppressed_features[zero_rows, :] = 1e-12
             ID_row_sums = ID_suppressed_features.sum(axis=1, keepdims=True)
-
-        # Prefer to scale suppressed activations to match the positive mass of the original features
+        
         ID_orig_pos_sum = np.where(ID_feat_test > 0.0, ID_feat_test, 0.0).sum(axis=1, keepdims=True)
-        # If original positive mass is zero or invalid, fall back to scaling factor 1.0
-        ID_scale = np.where(ID_orig_pos_sum <= 0.0, 1.0, (ID_orig_pos_sum + 1e-12) / (ID_row_sums + 1e-12))
-        # Apply scale and sanitize
+        ID_scale = np.where(ID_orig_pos_sum > 0.0, (ID_orig_pos_sum + 1e-12) / (ID_row_sums + 1e-12), 1.0)
         ID_normalized_features = ID_suppressed_features * ID_scale
         ID_normalized_features = np.nan_to_num(ID_normalized_features, nan=1e-12, posinf=1e12, neginf=1e-12)
-        # Now safe to sum and take log (all entries non-negative, sums > 0)
         ID_ash_scores = -np.log(np.sum(ID_normalized_features, axis=1) + 1e-12)
-
-        # Process OOD features
+        
+        # Process OOD features (identical to ID)
         k = max(1, int(OOD_feat_test.shape[1] * keep_ratio))
         OOD_top_k_threshold = np.partition(OOD_feat_test, -k, axis=1)[:, -k]
         OOD_suppressed_features = np.where(OOD_feat_test >= OOD_top_k_threshold[:, None], OOD_feat_test, 0.0)
         OOD_suppressed_features = np.where(OOD_suppressed_features < 0.0, 0.0, OOD_suppressed_features)
-
+        
         OOD_row_sums = OOD_suppressed_features.sum(axis=1, keepdims=True)
         zero_rows_o = (OOD_row_sums == 0).flatten()
         if np.any(zero_rows_o):
             OOD_suppressed_features[zero_rows_o, :] = 1e-12
             OOD_row_sums = OOD_suppressed_features.sum(axis=1, keepdims=True)
-
+        
         OOD_orig_pos_sum = np.where(OOD_feat_test > 0.0, OOD_feat_test, 0.0).sum(axis=1, keepdims=True)
-        OOD_scale = np.where(OOD_orig_pos_sum <= 0.0, 1.0, (OOD_orig_pos_sum + 1e-12) / (OOD_row_sums + 1e-12))
+        OOD_scale = np.where(OOD_orig_pos_sum > 0.0, (OOD_orig_pos_sum + 1e-12) / (OOD_row_sums + 1e-12), 1.0)
         OOD_normalized_features = OOD_suppressed_features * OOD_scale
         OOD_normalized_features = np.nan_to_num(OOD_normalized_features, nan=1e-12, posinf=1e12, neginf=1e-12)
         OOD_ash_scores = -np.log(np.sum(OOD_normalized_features, axis=1) + 1e-12)
-
-        # Combine scores and labels
+        
+        # Combine and negate scores for consistency (higher = ID)
         test_labels = np.concatenate((np.ones(len(ID_feat_test)), np.zeros(len(OOD_feat_test))))
-        test_scores = np.concatenate((ID_ash_scores, OOD_ash_scores))
-
-        # Generate predictions based on ASH scores
-        threshold = np.percentile(ID_ash_scores, 95)  # 95th percentile of ID scores
-        test_predictions = (test_scores >= threshold).astype(int)
-
+        test_scores = np.concatenate((-ID_ash_scores, -OOD_ash_scores))
+        
+        # Threshold: 5th percentile of negated ID scores (higher = ID)
+        if len(ID_ash_scores) > 0:
+            threshold = np.percentile(-ID_ash_scores, 5)
+        else:
+            threshold = 0.0  # Fallback
+        
+        # Predictions: ID (1) if score > threshold, OOD (0) if <=
+        test_predictions = (test_scores > threshold).astype(int)
+        
         end_time = time.time()
         execution_time = end_time - start_time
         print(f"ASH Execution time: {execution_time:.4f} seconds.")
+        
+        return test_labels, test_predictions, test_scores
 
+    @staticmethod
+    def ASH(ID_logits_test, OOD_logits_test, keep_ratio=0.25):
+        """
+        ASH (Activation Sparsity Hypothesis) for OoD detection, matching OpenOOD.
+        Sparsifies top-k logits, computes logsumexp as score (higher for ID).
+        """
+        from scipy.special import logsumexp
+        
+        start_time = time.time()
+        
+        # Process ID logits
+        k = max(1, int(ID_logits_test.shape[1] * keep_ratio))
+        ID_top_k_threshold = np.partition(ID_logits_test, -k, axis=1)[:, -k]
+        ID_suppressed = np.where(ID_logits_test >= ID_top_k_threshold[:, None], ID_logits_test, -1000.0)
+        ID_energy = logsumexp(ID_suppressed, axis=1)
+        
+        # Process OOD logits
+        k = max(1, int(OOD_logits_test.shape[1] * keep_ratio))
+        OOD_top_k_threshold = np.partition(OOD_logits_test, -k, axis=1)[:, -k]
+        OOD_suppressed = np.where(OOD_logits_test >= OOD_top_k_threshold[:, None], OOD_logits_test, -1000.0)
+        OOD_energy = logsumexp(OOD_suppressed, axis=1)
+        
+        # Combine scores
+        test_labels = np.concatenate((np.ones(len(ID_logits_test)), np.zeros(len(OOD_logits_test))))
+        test_scores = np.concatenate((ID_energy, OOD_energy))
+        
+        # Threshold: 95th percentile of ID scores (higher = ID)
+        if len(ID_energy) > 0:
+            threshold = np.percentile(ID_energy, 95)
+        else:
+            threshold = 0.0
+        
+        # Predictions: ID (1) if score > threshold
+        test_predictions = (test_scores > threshold).astype(int)
+        
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"ASH_OpenOOD Execution time: {execution_time:.4f} seconds.")
+        
         return test_labels, test_predictions, test_scores
 
     @staticmethod
@@ -825,6 +886,50 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
     else:
         raise ValueError("Unknown ID feature type")
 
+    if 'ODIN_pert' in methods:
+        # Load model
+        model_path = os.path.join('weights', f'{config.dataset_ID}_ResNet{config.resnet_model}_E{config.expansion}_S{config.seed}.pth')
+        model = torch.load(model_path, map_location='cpu')
+        model.eval()
+
+        # Load ID inputs
+        if nameID == 'CIFAR10':
+            transform = Utils.get_cifar10_transforms(auto_aug=False, training=False)  # Use Utils for consistency
+            id_dataset = datasets.CIFAR10(root='data/cifar10', train=False, transform=transform)
+        elif nameID == 'SVHN':
+            # Assuming similar transform logic; if Utils has get_svhn_transforms, use it
+            transform = Utils.get_cifar10_transforms(auto_aug=False, training=False)  # Placeholder; adapt as needed
+            id_dataset = datasets.SVHN(root='data/svhn', split='test', transform=transform)
+        else:
+            raise ValueError(f"Unsupported ID dataset {nameID} for ODIN_pert")
+
+        id_loader = torch.utils.data.DataLoader(id_dataset, batch_size=config.batch_size, shuffle=False)
+        id_inputs = []
+        for batch in id_loader:
+            id_inputs.append(batch[0])
+        id_inputs = torch.cat(id_inputs, dim=0)
+
+        # Load OOD inputs
+        ood_inputs = {}
+        for ood_name in namesOOD:
+            if ood_name == 'SVHN':
+                transform = Utils.get_cifar10_transforms(auto_aug=False, training=False)  # Adapt for SVHN
+                ood_dataset = datasets.SVHN(root='data/svhn', split='test', transform=transform)
+            elif ood_name == 'CIFAR10':
+                transform = Utils.get_cifar10_transforms(auto_aug=False, training=False)
+                ood_dataset = datasets.CIFAR10(root='data/cifar10', train=False, transform=transform)
+            elif ood_name == 'CIFAR100':
+                transform = Utils.get_cifar100_transforms(auto_aug=False, training=False)  # Use Utils for CIFAR-100
+                ood_dataset = datasets.CIFAR100(root='data/cifar100', train=False, transform=transform)
+            else:
+                raise ValueError(f"Unsupported OOD dataset {ood_name} for ODIN_pert")
+
+            ood_loader = torch.utils.data.DataLoader(ood_dataset, batch_size=config.batch_size, shuffle=False)
+            ood_data = []
+            for batch in ood_loader:
+                ood_data.append(batch[0])
+            ood_inputs[ood_name] = torch.cat(ood_data, dim=0)
+
     for i in range(len(namesOOD)):
 
         if config.model_type == 'spike':
@@ -931,6 +1036,24 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 # print(f"ENGY Done.\n")
                 # print(f"after energy stats {stats[i, :]}")
 
+            elif method == 'ODIN':
+                print(f"ODIN on {namesOOD[i]}")
+                test_labels, test_predictions, test_distances = Metrics.ODIN(ID_features_test, OOD_features_test, T=1000)
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+
+                stats[i, idx] = auroc 
+                stats[i, len(methods) + idx] = aupr
+                stats[i, len(methods)*2 + idx] = fpr95 
+
+            elif method == 'ODIN_pert':
+                print(f"ODIN_pert on {namesOOD[i]}")
+                test_labels, test_predictions, test_distances = Metrics.ODIN_pert(id_inputs, ood_inputs[namesOOD[i]], model, ID_features_test, OOD_features_test, eps=getattr(config, 'odin_eps', 0.0014), T=getattr(config, 'odin_T', 1000))
+                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
+
+                stats[i, idx] = auroc 
+                stats[i, len(methods) + idx] = aupr
+                stats[i, len(methods)*2 + idx] = fpr95 
+
             elif method == 'SD':
                 # this method needs revision
                 print("Spike distance")
@@ -1004,24 +1127,31 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
 
             elif method == 'VIM':
                 number_classes = ID_prob_train.shape[1]
-                number_features = ID_features_train.shape[1]
-                number_residuals = number_features - number_classes
-                # print(f"before vim stats {stats[i, :]}")
 
                 if features == 'probs' or features == 'spikes':
                     print(f"VIM on {namesOOD[i]}")
+                    number_features = ID_penultimate_train.shape[1]  # Use penultimate features for residuals
+                    number_residuals = number_features - number_classes
                     mu = ID_penultimate_train.mean(axis=0)
                     X = ID_penultimate_train - mu
                     _, _, Vt = np.linalg.svd(X, full_matrices=False)
                     V = Vt.T[:, number_classes:number_classes + number_residuals]
-                    test_labels, test_predictions, test_distances = Metrics.VIM(ID_penultimate_test, ID_features_test, OOD_penultimate_test, OOD_features_test, mu, V)
+                    # Compute adaptive alpha as in OpenOOD
+                    r_norm_train = np.linalg.norm((ID_penultimate_train - mu) @ V, axis=1)
+                    mean_r_norm = r_norm_train.mean()
+                    if mean_r_norm == 0:
+                        alpha = 1.0  # Default alpha if residual norms are zero
+                    else:
+                        alpha = logsumexp(ID_prob_train, axis=1).mean() / mean_r_norm
+                    print(f"Adaptive alpha: {alpha:.4f}")
+                    test_labels, test_predictions, test_distances = Metrics.VIM(ID_penultimate_test, OOD_penultimate_test, ID_prob_test, OOD_prob_test, mu, V, alpha=alpha)
                     # print(f"VIM test_labels: {test_labels}, test_predictions: {test_predictions}, test_distances: {test_distances}")
                     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                     # print(f"VIM True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 else:
                     # print(f"VIM method is not applicable for {features}.")
                     auroc, aupr, fpr95 = -0.01, -0.01, -0.01
-                print(f"Vim auroc: {auroc:.2f}, aupr: {aupr:.2f}")
+                print(f"VIM auroc: {auroc:.2f}, aupr: {aupr:.2f}")
                 stats[i, idx] = auroc
                 stats[i, len(methods) + idx] = aupr
                 stats[i, len(methods)*2 + idx] = fpr95
@@ -1032,14 +1162,15 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 # number_features = ID_features_train.shape[1]
                 # number_residuals = number_features - number_classes
 
-                if features == 'features' or features == 'voltages':
+                if features == 'probs' or features == 'spikes':
                     print(f"ASH on {namesOOD[i]}")
-                    test_labels, test_predictions, test_distances = Metrics.ASH(ID_features_test, OOD_features_test, keep_ratio=0.5)
+                    test_labels, test_predictions, test_distances = Metrics.ASH(ID_prob_test, OOD_prob_test, keep_ratio=0.25)
 
                     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 else:
                     # print(f"VIM method is not applicable for {features}.")
                     auroc, aupr, fpr95 = -0.01, -0.01, -0.01
+                print(f"ASH auroc: {auroc:.2f}, aupr: {aupr:.2f}")
                 # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 # print(f"auroc: {auroc:.2f}, aupr {aupr:.2f}, tpr95 {tpr95:.2f}, fpr95 {fpr95:.2f}")
                 stats[i, idx] = auroc

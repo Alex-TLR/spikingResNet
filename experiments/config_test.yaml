@@ -28,7 +28,7 @@ training:
 
 # Pipeline Mode: standard test (train, test, extract features, compute statistics)
 mode: 'test'
-test_type: 'standard'
+test_type: 'accuracy'
 
 # Device and Parallel Processing
 device: 'cuda'
@@ -55,7 +55,12 @@ experiment:
   methods: null
   seeds: null
   expansions: null
-  resnet_models: null
+  resnet_models: [4, 10, 18]
   override_feature_extraction: false
   near_ood: null
   far_ood: null
+  # Random seeds for multiple training runs (for statistical significance)
+  seeds: [42, 1987, 1991, 2020, 2024]
+  
+  # Expansion factors to evaluate (1 = standard, >1 = population coding)
+  expansions: [1, 5, 10, 25, 50]
