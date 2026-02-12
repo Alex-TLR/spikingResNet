@@ -101,7 +101,6 @@ def test_accuracy(config):
 
                 # Forward pass
                 mem, _ = model(batch)
-                # print(f"Membrane shape: {membrane.shape}")
                 if model.expansion > 1:
                     mem = mem.reshape(mem.shape[0], model.numberOfClasses, model.expansion).sum(dim=2)
                 predicted = torch.argmax(mem, dim=1)
@@ -110,8 +109,7 @@ def test_accuracy(config):
                 total_samples += batch.size(0)
 
         acc_membrane = total_correct_membrane / total_samples * 100
-        # print(f"Inside test.py: {acc_membrane}")
-        return None, acc_membrane
+        return acc_membrane
 
     elif config.model_type == 'spike':
 

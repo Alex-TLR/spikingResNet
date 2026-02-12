@@ -17,10 +17,10 @@ model:
 training:
   batch_size: 64
   full_train: true
-  auto_aug: false
+  auto_aug: true
   pretrained: false
   epochs: 400
-  loss: 'count_loss'
+  loss: 'cross_entropy'
   fit: 'spike'
 
 # Test Mode and Type
@@ -48,7 +48,7 @@ gradient_clipping: 0.1
 
 # Experiment Sweep Parameters
 experiment:
-  case: '42'
+  case: '5'
   methods: ['ASH', 'MSP', 'ODIN', 'ENGY', 'MLS', 'VIM']  # Post-hoc OOD detectors
   seeds: [42, 1987, 1991, 2020, 2024]
   expansions: [1, 5, 10, 25, 50]
