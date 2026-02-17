@@ -17,15 +17,15 @@ model:
 training:
   batch_size: 64
   full_train: true
-  auto_aug: false
+  auto_aug: true
   pretrained: false
-  epochs: 200
+  epochs: 400
   loss: 'mse_count_loss'
   fit: 'spike'
 
 # Test Mode and Type
 mode: 'test'
-test_type: 'experiment_1'
+test_type: 'experiment_2'
 
 # Device and Parallel Processing
 device: 'cuda'
@@ -48,7 +48,7 @@ gradient_clipping: 0.1
 
 # Experiment Sweep Parameters
 experiment:
-  case: '10'
+  case: '9'
   methods: ['KNN']  # OOD detection method for experiment 1
   seeds: [42, 1987, 1991, 2020, 2024]
   expansions: [1, 5, 10, 25, 50]

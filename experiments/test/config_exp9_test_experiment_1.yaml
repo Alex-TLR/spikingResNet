@@ -52,7 +52,7 @@ experiment:
   methods: ['KNN']  # OOD detection method for experiment 1
   seeds: [42, 1987, 1991, 2020, 2024]
   expansions: [1, 5, 10, 25, 50]
-  resnet_models: [10]
+  resnet_models: [4,10,18]
   override_feature_extraction: true
   
   # Near-OOD datasets (similar to in-distribution)

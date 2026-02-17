@@ -25,7 +25,7 @@ training:
 
 # Test Mode and Type
 mode: 'test'
-test_type: 'experiment_1'
+test_type: 'experiment_2'
 
 # Device and Parallel Processing
 device: 'cuda'
