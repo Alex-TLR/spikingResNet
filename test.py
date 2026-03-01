@@ -224,6 +224,7 @@ def test_accuracy(config):
                 # testAcc[0, i] = a2.item()
                 # testAccList.append(a1.item())
                 # On spikes
+                # print(f"spikes.shape: {spikes.shape}, labels.shape: {labels.shape}")
                 batch_size = batch.size(0)
                 acc = SF.accuracy_rate(spikes, labels, population_code=population_code, num_classes=model.numberOfClasses) 
                 acc *= batch_size

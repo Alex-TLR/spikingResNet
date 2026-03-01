@@ -4,13 +4,13 @@
 
 # Dataset Parameters
 dataset:
-  id: 'CIFAR10'
+  id: 'CIFAR100'
   features: ['CIFAR10', 'CIFAR100', 'tImage200']
 
 # Model Parameters (base - will be overridden by experiment sweeps)
 model:
   type: 'spike'
-  num_classes: 10
+  num_classes: 100
   num_time_steps_train: 1
   num_time_steps_extract: 1
 
@@ -53,10 +53,12 @@ experiment:
   # '3' - count_loss_aug 
   # '5' - cross_entropy_aug
   # '7' - conv 
-  case: '3'
+  # '9' - mse_count_loss_aug with 2 time steps
+  # '11' - ce_count_loss_aug
+  case: '11'
   methods: null
   # Test across these seeds
-  seeds: [42, 1987, 1991, 2020, 2024]
+  seeds: [42]
   
   # Test across these expansion factors
   expansions: [1, 5, 10, 25, 50]

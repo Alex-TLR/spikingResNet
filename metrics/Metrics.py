@@ -1164,7 +1164,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
 
                 if features == 'probs' or features == 'spikes':
                     print(f"ASH on {namesOOD[i]}")
-                    test_labels, test_predictions, test_distances = Metrics.ASH(ID_prob_test, OOD_prob_test, keep_ratio=0.25)
+                    test_labels, test_predictions, test_distances = Metrics.ASH(ID_features_test, OOD_features_test, keep_ratio=0.25)
 
                     auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
                 else:

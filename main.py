@@ -229,7 +229,13 @@ if __name__ == "__main__":
                         f"Training Run {current_run}/{total_runs}: ResNet{resnet_model} | Expansion={expansion} | Seed={seed}"
                     )
                     training(config)
-                    acc_spk, acc_mem = test_accuracy(config)
+                    if config.model_type == 'spike':
+                        acc_spk, acc_mem = test_accuracy(config)
+                        print(f"[SNN] Spike Accuracy: {acc_spk}, Membrane Accuracy: {acc_mem}")
+                                
+                    elif config.model_type == 'conv':
+                        acc_mem = test_accuracy(config)
+                        print(f"[CNN] Membrane Accuracy: {acc_mem}")
 
         print(f"\n{'='*70}")
         print(f"Training sweep completed: {total_runs} runs finished")
