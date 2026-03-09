@@ -372,7 +372,7 @@ class ExperimentConfig:
         self.epochs = 400  # Default for auto_aug=True
         self.loss = 'count_loss'
         self.fit = 'spike'
-        self.checkpointPeriod = 1
+        self.checkpointPeriod = 10
 
         # Pipeline mode
         self.mode = 'test'
