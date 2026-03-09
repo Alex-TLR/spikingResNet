@@ -4,7 +4,7 @@
 # Dataset Parameters
 dataset:
   id: 'CIFAR100'
-  features: ['CIFAR10', 'CIFAR100', 'tImage200']
+  features: ['CIFAR100', 'CIFAR10', 'tImage200']
 
 # Model Parameters (Base Configuration)
 # These are used for single runs or as defaults before experiment sweeps
@@ -26,18 +26,18 @@ training:
 
 # Optimizer Parameters
 optimizer:
-  name: 'adam' # Options: 'sgd', 'adam'
-  learning_rate: 5.0e-4 #0.05 #2.0e-4
+  name: 'adam'
+  learning_rate: 5.0e-4
   momentum: 0.9
   weight_decay: 1.0e-4
 
 # Learning Rate Scheduler
 scheduler:
-  name: 'onecycle' # Options: 'onecycle', 'cosine'
+  name: 'cosine'
   step_size: null
 
 # Gradient Clipping
-gradient_clipping: 1.0 #0.1 #usual 1.0 for snn
+gradient_clipping: 1.0
 
 # Device and Parallel Processing
 device: 'cuda'
@@ -50,20 +50,20 @@ mode: 'train'
 # These define arrays of values to iterate over during train experiments
 # Each combination of (seed × expansion × resnet_model) will be trained
 experiment:
-  case: '12'
+  case: '1'
   methods: null
   # Random seeds for multiple training runs (for statistical significance)
-  seeds: [42]
+  seeds: [42, 1987, 1991, 2020, 2024]
   
   # Expansion factors to evaluate (1 = standard, >1 = population coding)
-  expansions: [10, 25, 50, 100]
+  expansions: [5, 10, 25, 50, 100, 250, 500, 1000]
   
   # ResNet architectures to train (ResNet-4, ResNet-10, ResNet-18)
-  resnet_models: [4,10,18]
+  resnet_models: [4, 10, 18]
   
   # Override feature extraction behavior (used in test_population, test_1, ex_1, ex_2 modes)
   override_feature_extraction: false
   
   # OOD detection methods (used in ex_1, ex_2 modes only)
-  # near_ood: ['CIFAR10', 'CIFAR100', 'tImage200']
-  # far_ood: ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
+  # near_ood: ['CIFAR100', 'CIFAR10', 'tImage200']
+  # far_ood: ['CIFAR100', 'MNIST', 'SVHN', 'Textures', 'Places365']

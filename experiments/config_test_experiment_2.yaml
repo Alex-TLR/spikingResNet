@@ -10,7 +10,7 @@ dataset:
 model:
   type: 'spike'
   num_classes: 10
-  num_time_steps_train: 1
+  num_time_steps_train: 2
   num_time_steps_extract: 1
 
 # Training Parameters
@@ -20,7 +20,7 @@ training:
   auto_aug: true
   pretrained: false
   epochs: 400
-  loss: 'cross_entropy'
+  loss: 'mse_count_loss'
   fit: 'spike'
 
 # Test Mode and Type
@@ -48,9 +48,9 @@ gradient_clipping: 0.1
 
 # Experiment Sweep Parameters
 experiment:
-  case: '5'
+  case: '9'
   methods: ['ASH', 'MSP', 'ODIN', 'ENGY', 'MLS', 'VIM']  # Post-hoc OOD detectors
-  seeds: [42, 1987, 1991, 2020, 2024]
+  seeds: [42]
   expansions: [1, 5, 10, 25, 50]
   resnet_models: [4, 10, 18]
   override_feature_extraction: true

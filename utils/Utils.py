@@ -146,17 +146,23 @@ class Utils():
                             transforms.Resize((32, 32)),
                             transforms.RandomCrop(32, padding=4),
                             transforms.RandomHorizontalFlip(),
+                            transforms.RandomAffine(degrees=10, translate=(0.08,0.08), scale=(0.95,1.05), shear=5),
                             # CIFAR10PolicyPreserveDR(),
-                            CIFAR10Policy(),
+                            # CIFAR10Policy(),
                             transforms.ToTensor(),
                         ]
                         if cutout:
                             # Placeholder for Cutout implementation
                             pass
                         aug.append(transforms.Normalize((0,0,0,), (1,1,1,)))
+                        # aug.append(transforms.Lambda(lambda x: x if x.max().item() <= 1.0 else x.float().div(255.0)))
+                        # aug.append(transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)))
                         return transforms.Compose(aug)
                     else:
                         aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0,0,0,), (1,1,1,))]
+                        # aug = [transforms.Resize((32, 32)), transforms.ToTensor()]
+                        # aug.append(transforms.Lambda(lambda x: x if x.max().item() <= 1.0 else x.float().div(255.0)))
+                        # aug = [transforms.Resize((32, 32)), transforms.ToTensor(), transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))]
                         return transforms.Compose(aug)
 
                 if config.fit == 'membrane':
@@ -218,6 +224,24 @@ class Utils():
                     transforms.Resize((224, 224)),
                     transforms.ToTensor(),
                     transforms.Normalize((0,0,0,), (1,1,1,))
+            ])
+        # Strong (state-of-art): AutoAugment / RandAugment (use CIFAR/SVHN policies) + MixUp (α≈0.2) or CutMix (α≈1.0).
+        # Simple, robust baseline:
+        # RandomCrop(32, padding=4)
+        # RandomHorizontalFlip(p=0.5) (optional; safe for SVHN but test)
+        # ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)
+        # Normalize(mean,std) using SVHN stats
+        # Cutout 8x8 or RandomErasing (prob≈0.5)
+        # Lightweight alternative: RandAugment(n=2, m=9) + RandomCrop(32, padding=4) + Normalize.
+        # For spiking nets: apply the same geometric/color transform consistently across time steps; normalize after augmentation.
+        # Tuning tips: try Δ = use/ablate MixUp vs CutMix; validate whether horizontal flip helps on your split; tune RandAugment magnitude m and MixUp alpha on a small grid.
+        elif (gray2rgb == False) and (auto_aug == True):
+            transformData_rgb_32 = transforms.Compose([
+                transforms.Resize((32, 32)),
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0,0,0,), (1,1,1,))
             ])
 
             # get_cifar10_transforms is defined above (unified) and reused here
