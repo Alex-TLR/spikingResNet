@@ -1,5 +1,5 @@
 from cProfile import label
-from torchvision.datasets import MNIST, KMNIST, FashionMNIST, DTD, Places365, CIFAR10, CIFAR100, SVHN, Places365, EMNIST, Food101, ImageNet, ImageFolder
+from torchvision.datasets import MNIST, KMNIST, FashionMNIST, DTD, Places365, CIFAR10, CIFAR100, SVHN, Places365, EMNIST, Food101, ImageNet, USPS, ImageFolder
 from torch.utils.data import DataLoader, Dataset, random_split
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
@@ -194,6 +194,12 @@ class Utils():
                 transforms.ToTensor(),
                 transforms.Normalize((0,), (1,))
             ])
+            transformData_gray_32 = transforms.Compose([
+                transforms.Lambda(lambda img: img.convert("RGB")),
+                transforms.Resize((32, 32)),
+                transforms.ToTensor(),
+                transforms.Normalize((0,), (1,))
+            ])
             transformData_rgb_32 = transforms.Compose([
                 transforms.Lambda(lambda img: img.repeat(3, 1, 1) if img.shape[0] == 1 else img),
                 transforms.Resize((32, 32)),
@@ -207,6 +213,11 @@ class Utils():
             '''
             transformData_gray_28 = transforms.Compose([
                 transforms.Resize((28, 28)),
+                transforms.ToTensor(),
+                transforms.Normalize((0,), (1,))
+            ])
+            transformData_gray_32 = transforms.Compose([
+                transforms.Resize((32, 32)),
                 transforms.ToTensor(),
                 transforms.Normalize((0,), (1,))
             ])
@@ -259,14 +270,6 @@ class Utils():
 
         #     '''
 
-        #     # (replaced by unified get_cifar10_transforms defined earlier)
-                
-        # elif (gray2rgb == False) and (auto_aug == True) and config.fit == 'membrane':
-        #     '''
-        #     Augmentation when membrane-based fitting is used. Normalization is applied.
-        #     Much more aggressive augmentation is used here.
-        #     '''
-        #     # (replaced by unified get_cifar10_transforms defined earlier)
         
         if database_name == 'MNIST':
             name = 'mnist' 
@@ -280,6 +283,18 @@ class Utils():
             transformData = transformData_gray_28
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData)'
+        elif database_name == 'USPS':
+            name = 'usps'
+            Name = 'USPS'
+            # USPS images are 16x16 grayscale; convert to RGB and resize to 32x32 for SVHN compatibility
+            transformData_usps = transforms.Compose([
+                transforms.Resize((32, 32)),
+                transforms.Lambda(lambda img: img.convert("RGB")),
+                transforms.ToTensor(),
+                transforms.Normalize((0,0,0,), (1,1,1,))
+            ])
+            command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_usps)'
+            command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_usps)'
         elif database_name == 'FMNIST':
             name = 'fmnist'
             Name = 'FashionMNIST'
@@ -289,7 +304,7 @@ class Utils():
         elif database_name == 'EMNIST':
             name = 'emnist'
             Name = 'EMNIST'
-            transformData = transformData_gray_28
+            transformData = transformData_gray_32
             command_train = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = True, transform = transformData)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, split = \'digits\', train = False, transform = transformData)'
         elif database_name == 'Letters':

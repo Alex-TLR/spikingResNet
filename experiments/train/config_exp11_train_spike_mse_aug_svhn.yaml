@@ -4,14 +4,14 @@
 # Dataset Parameters
 dataset:
   id: 'SVHN'
-  features: ['SVHN','CIFAR10', 'CIFAR100', 'tImage200']
+  features: ['SVHN','MNIST', 'EMNIST', 'CIFAR10', 'Textures', 'Places365']
 
 # Model Parameters (Base Configuration)
 # These are used for single runs or as defaults before experiment sweeps
 model:
   type: 'spike'  # Options: 'spike' or 'conv'
   num_classes: 26
-  num_time_steps_train: 1
+  num_time_steps_train: 4
   num_time_steps_extract: 1
 
 # Training Parameters (Base Configuration)
@@ -22,12 +22,12 @@ training:
   pretrained: false
   epochs: 400  # Set to 400 if auto_aug is True, otherwise 200
   loss: 'mse_count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
-  fit: 'spike'  # Options: 'membrane', 'spike'
+  fit: 'spike'
 
 # Optimizer Parameters
 optimizer:
   name: 'adam'
-  learning_rate: 5.0e-4
+  learning_rate: 2.0e-4
   momentum: 0.9
   weight_decay: 1.0e-4
 
@@ -50,7 +50,7 @@ mode: 'train'
 # These define arrays of values to iterate over during train experiments
 # Each combination of (seed × expansion × resnet_model) will be trained
 experiment:
-  case: '1'
+  case: '11'
   methods: null
   # Random seeds for multiple training runs (for statistical significance)
   seeds: [42, 1987, 1991, 2020, 2024]
@@ -65,7 +65,5 @@ experiment:
   override_feature_extraction: false
   
   # OOD detection methods (used in ex_1, ex_2 modes only)
-  # near_ood: ['SVHN', 'MNIST', 'USPS', 'OMNIGLOT', 'STL-10', 'FashionMNIST']
-  # far_ood: ['SVHN', 'CIFAR10', 'tImage200', 'LSUN', 'Texture']
   near_ood: ['SVHN', 'MNIST', 'EMNIST']
   far_ood: ['SVHN', 'CIFAR10', 'Textures', 'Places365']

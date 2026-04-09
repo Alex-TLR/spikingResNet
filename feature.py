@@ -5,7 +5,6 @@ from models.resnet import ResNet9Model, convNN4, ResNet10, ResNet18
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model
 from models.plain import spikeLinearNet1
 import numpy as np
-import matplotlib.pyplot as plt
 import torch.nn as nn
 import gc
 import snntorch.functional as SF
@@ -280,14 +279,10 @@ def feature_extraction_spike(config):
         print("Loss function not defined")
         return -1
 
-    # print(f"Feature length is: {len(config.dataset_feat)}")
     for i in range(len(config.dataset_feat)):
-        # print(f"Extracting features for {config.dataset_feat[i]}")
         if needs_grayscale_to_rgb(config.dataset_ID, config.dataset_feat[i]):
-            # print(1)
             dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], config, gray2rgb=True)
         else:
-            # print(2)
             dataset_train, dataset_test = Utils.load_data(config.dataset_feat[i], config)
         # Get image size
         channels, rows, cols = Utils.get_image_size(dataset_train, config.dataset_feat[i])
@@ -391,7 +386,6 @@ def feature_extraction_spike(config):
             Prob_train = []
             Volt_train = []
             Tags_train = []
-            # print(f"Extracting features for {config.dataset_feat[i]} on {config.dataset_ID}")
             if config.dataset_feat[i] == config.dataset_ID:
                 Spik_train = np.zeros((trainDataSize, config.num_classes))
                 Feat_train = np.zeros((trainDataSize, featSize))
@@ -516,47 +510,3 @@ def feature_extraction_spike(config):
     torch.cuda.empty_cache()
     # print(f"Summary of CUDA memory: {torch.cuda.memory_summary()}")
     return None
-
-def plotProb(prob, batchSize, numOfSteps):
-    '''
-    Plot one probability 
-    '''
-    print(f'Probs shape is {prob.shape}')
-    # for i in range(batchSize):
-    #     p = prob[:, i, 0].squeeze()
-
-    #     plt.figure(figsize=(10, 5))
-    #     plt.plot(p, marker='o')  # Convert to NumPy for plotting
-    #     plt.title('Memebrane voltage')
-    #     plt.xlabel('Steps')
-    #     plt.ylabel('Voltage')
-    #     plt.grid(True)
-    #     plt.show()
-    # Determine the number of columns and rows
-    num_cols = 3
-    num_rows = int(np.ceil(batchSize / num_cols))
-
-    # Create subplots
-    fig, axes = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(15, 5 * num_rows))
-    
-    # Flatten axes for easy indexing
-    axes = axes.flatten()
-
-    for i in range(batchSize):
-        p = prob[:, i, 1].squeeze()
-
-        axes[i].plot(p, marker='o')  # Plot on the ith subplot
-        axes[i].set_title(f'Membrane Voltage for Sample {i+1}')
-        axes[i].set_xlabel('Steps')
-        axes[i].set_ylabel('Voltage')
-        axes[i].grid(True)
-
-    # Hide any unused subplots
-    for j in range(batchSize, num_rows * num_cols):
-        fig.delaxes(axes[j])
-    
-    plt.tight_layout()  # Adjust layout to prevent overlap
-    plt.show()
-
-    probs_ = prob.max(axis=0)
-    print(f'Max value is {probs_}')

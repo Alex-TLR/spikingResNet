@@ -1,15 +1,15 @@
 ''' 
 Author: Aleksej Avramovic
-Last update: 27/08/2024
+Last update: 02/03/2026
 
-The first step towards spiking In Distribution / Out of Distribution detection
+02/03/2026: Code clean-up
+27/08/2024: The first step towards spiking In Distribution / Out of Distribution detection
 
 SpikeResNet9Model: Spiking-Resnet9 for MNIST, from the scratch
 '''
 
 # TODO: make generic Resenet model
 
-import scipy as sp
 import torch 
 import torch.nn as nn
 import sys
@@ -43,14 +43,6 @@ class BasicModel(nn.Module):
     def __init__(self, nClasses):
         super().__init__()
         self.numberOfClasses = nClasses
-    
-    # def progressBar(self, iter, total, prefix = '', suffix = '', length = 30, fill = '#'):
-    #     percent = f'{100 * (iter / (float(total))):.1f}'
-    #     filled = int(length * iter // total)
-    #     bar = fill * filled + '_' * (length - filled) + ' ' + percent
-    #     sys.stdout.write('\r%s |%s%% %s' % (prefix, bar, suffix))
-    #     sys.stdout.flush()
-    #     return None
     
     def progressBar(self, iter, total, prefix = '', suffix = '', length = 30, fill = '#'):
         percent = f'{100 * (iter / (float(total))):.1f}'
@@ -255,7 +247,6 @@ class BasicModel(nn.Module):
                             num_classes=model.numberOfClasses
                         )
                         batch_correct = (acc_rate * batch_size).item()
-                        # print(f"Population coding batch accuracy: {batch_correct}")
                         
                     else:
                         # Standard coding accuracy  
@@ -263,9 +254,7 @@ class BasicModel(nn.Module):
                         acc_rate = SF.accuracy_rate(spikes, labels)
                         batch_correct = (acc_rate * batch_size).item()
 
-                    # print(f"Training loss: {loss.detach().item():.2f}, Training accuracy: {batch_correct / batch_size:.2f}")
                     total_correct += batch_correct
-                    # print(f"Total correct so far: {total_correct} out of {total_samples}")
 
                 current_step = i * len(train_load) + batch_idx
                 del batch, labels
@@ -274,8 +263,6 @@ class BasicModel(nn.Module):
             end_time = time.time()  # Record end time
             execution_time = end_time - start_time  # Calculate execution time
             meanTA = total_correct / total_samples
-            # meanTL = sum(tLoss) / len(tLoss)
-            # meanTA = sum(tAcc) / len(tAcc)
             meanTL = sum(tLoss) / len(tLoss) 
 
             # Make progress bar
@@ -287,21 +274,19 @@ class BasicModel(nn.Module):
             if i%checkpointPeriod == 0:
                 fileName = checkpointFile
                 if sched is not None:
-                    # print(sched.state_dict())
-                    # print(f"sched.last_epoch: {sched.last_epoch}")
                     checkpoint = {
                         "model": model.state_dict(),
                         "optimizer": opt.state_dict(),
                         "lr_scheduler": sched.state_dict(),
                         "epochs": i,
-                        "current_step": current_step  # Store current step
+                        "current_step": current_step
                     }
                 else:
                     checkpoint = {
                         "model": model.state_dict(),
                         "optimizer": opt.state_dict(),
                         "epochs": i,
-                        "current_step": current_step  # Store current step
+                        "current_step": current_step
                     }
                 torch.save(checkpoint, fileName)
 
@@ -1883,25 +1868,4 @@ class spikeConvNN4(BasicModel):
         membranes = torch.stack(prob_trace, dim=0)   
         voltages = torch.stack(memb_trace, dim=0)
         return spikes, features, membranes, voltages
-
-
-
-
-
-#### SEW ####
-# from spikingjelly.clock_driven import neuron, surrogate, functional
-# from spikingjelly.clock_driven.model import sew_resnet
-# import torch
-
-# device = 'cuda'
-# T = 4
-# backend = 'torch'  # switch to `cupy` for faster training speed
-# net = sew_resnet.multi_step_sew_resnet18(pretrained=False, progress=True, T=T, cnf='ADD', multi_step_neuron=neuron.MultiStepIFNode, v_threshold=1., surrogate_function=surrogate.ATan(), detach_reset=True, backend=backend, num_classes=10)
-# # net = sew_resnet.sew_resnet18(pretrained=False, progress=True, cnf='ADD', single_step_neuron=neuron.SingleStepIFNode, v_threshold=1., surrogate_function=surrogate.ATan(), detach_reset=True, backend=backend)
-# net.to(device)
-# print(net)
-# with torch.no_grad():
-#     x = torch.rand([T, 1, 3, 32, 32], device=device)
-#     print(net(x).shape)
-#     functional.reset_net(net)
 

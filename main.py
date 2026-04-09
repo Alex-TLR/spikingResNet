@@ -2,12 +2,9 @@ import torch
 from test import test_accuracy
 from feature import feature_extraction_spike
 from train import training
-import numpy as np
 from utils.Utils import Utils
-# To enable downloading some datasets from pytorch
 import ssl
 import argparse
-import sys
 import os
 from config import ExperimentConfig, load_config_from_yaml
 from datetime import datetime

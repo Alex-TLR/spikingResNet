@@ -824,6 +824,8 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
         suffixID = '-on_letters'
     elif nameID == 'CIFAR10':
         suffixID = '-on_cifar10'
+    elif nameID == 'CIFAR100':
+        suffixID = '-on_cifar100'
     elif nameID == 'SVHN':
         suffixID = '-on_svhn'
     else:
