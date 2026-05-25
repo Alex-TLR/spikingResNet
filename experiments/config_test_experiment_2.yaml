@@ -10,7 +10,7 @@ dataset:
 model:
   type: 'spike'
   num_classes: 10
-  num_time_steps_train: 2
+  num_time_steps_train: 1
   num_time_steps_extract: 1
 
 # Training Parameters
