@@ -1655,7 +1655,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         for rm in resnet_models:
             data_out['results'][str(rm)] = {}
             for ft in feature_types:
-                data_out['results'][str(rm)][ft] = [{'near': 'not trained', 'far': 'not trained'} for _ in expansions]
+                data_out['results'][str(rm)][ft] = [{'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'} for _ in expansions]
         try:
             with open(datafile, 'w') as jf:
                 json.dump(data_out, jf, indent=2)
@@ -1676,10 +1676,10 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                     if i < len(serial):
                         entries.append(serial[i])
                     else:
-                        entries.append({'near': 'not trained', 'far': 'not trained'})
+                        entries.append({'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'})
                 results[rm][ft] = entries
             else:
-                results[rm][ft] = [{'near': 'not trained', 'far': 'not trained'} for _ in expansions]
+                results[rm][ft] = [{'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'} for _ in expansions]
 
     # Loop over resnet models and expansions
     for resnet_model in resnet_models:
@@ -1708,7 +1708,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
 
             # For each feature type compute per-seed AUROC and then average across seeds separately for near and far
             # We will attempt all seeds and only mark the expansion as 'done' in JSON when every seed produced valid results.
-            expansion_values = {ft: {'near': [], 'far': []} for ft in feature_types}
+            expansion_values = {ft: {'near': [], 'far': [], 'near_fpr': [], 'far_fpr': []} for ft in feature_types}
             # Track per-seed success (True if this seed produced numeric near/far for all feature types)
             seed_success = {seed: True for seed in seeds}
 
@@ -1801,13 +1801,16 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             # Run test on near list (if present)
                             if not near_list:
                                 near_mean = np.nan
+                                near_fpr_mean = np.nan
                             else:
                                 config.dataset_feat = list(near_list)
                                 stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
                                 if stats_local is None or stats_local.size == 0:
                                     near_mean = np.nan
+                                    near_fpr_mean = np.nan
                                 else:
                                     near_mean = float(np.nanmean(stats_local[:, :num_methods])) * 100.0
+                                    near_fpr_mean = float(np.nanmean(stats_local[:, 2*num_methods:3*num_methods])) * 100.0
                                 # free stats_local and do a light GPU cleanup to reduce memory pressure
                                 try:
                                     del stats_local
@@ -1831,14 +1834,17 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             # Run test on far list (if present)
                             if not far_list:
                                 far_mean = np.nan
+                                far_fpr_mean = np.nan
                             else:
                                 config.dataset_feat = list(far_list)
                                 print(f"Datasets for testing (far): {config.dataset_feat}")
                                 stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
                                 if stats_local is None or stats_local.size == 0:
                                     far_mean = np.nan
+                                    far_fpr_mean = np.nan
                                 else:
                                     far_mean = float(np.nanmean(stats_local[:, :num_methods])) * 100.0
+                                    far_fpr_mean = float(np.nanmean(stats_local[:, 2*num_methods:3*num_methods])) * 100.0
                                 # free stats_local and do a light GPU cleanup to reduce memory pressure
                                 try:
                                     del stats_local
@@ -1868,6 +1874,8 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
 
                             expansion_values[ft]['near'].append(near_mean)
                             expansion_values[ft]['far'].append(far_mean)
+                            expansion_values[ft]['near_fpr'].append(near_fpr_mean)
+                            expansion_values[ft]['far_fpr'].append(far_fpr_mean)
                             print(f"expansion_values: {expansion_values}")
                         except Exception as e:
                             print(f"[exp1] Error during testing feature={ft} resnet={resnet_model} exp={expansion} seed={seed}: {e}")
@@ -1879,6 +1887,8 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             # record failure for this seed
                             expansion_values[ft]['near'].append(np.nan)
                             expansion_values[ft]['far'].append(np.nan)
+                            expansion_values[ft]['near_fpr'].append(np.nan)
+                            expansion_values[ft]['far_fpr'].append(np.nan)
                             seed_success[seed] = False
                             # continue to next feature type / seed without breaking
                             continue
@@ -1928,10 +1938,12 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
             for ft in feature_types:
                 arr_near = np.array(expansion_values[ft]['near'], dtype=float)
                 arr_far = np.array(expansion_values[ft]['far'], dtype=float)
+                arr_near_fpr = np.array(expansion_values[ft]['near_fpr'], dtype=float)
+                arr_far_fpr = np.array(expansion_values[ft]['far_fpr'], dtype=float)
 
                 # If feature extraction/test failed (missing_any) or we have no valid values, mark as not trained
                 if missing_any or arr_near.size == 0 or arr_far.size == 0 or (np.all(np.isnan(arr_near)) and np.all(np.isnan(arr_far))):
-                    results[resnet_model][ft][idx] = {'near': 'not trained', 'far': 'not trained'}
+                    results[resnet_model][ft][idx] = {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'}
                 else:
                     # compute nan-aware means; if one side is all-NaN, keep that side as 'not trained'
                     if np.all(np.isnan(arr_near)):
@@ -1944,7 +1956,17 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                     else:
                         avg_far = float(np.nanmean(arr_far))
 
-                    results[resnet_model][ft][idx] = {'near': avg_near, 'far': avg_far}
+                    if np.all(np.isnan(arr_near_fpr)):
+                        avg_near_fpr = 'not trained'
+                    else:
+                        avg_near_fpr = float(np.nanmean(arr_near_fpr))
+
+                    if np.all(np.isnan(arr_far_fpr)):
+                        avg_far_fpr = 'not trained'
+                    else:
+                        avg_far_fpr = float(np.nanmean(arr_far_fpr))
+
+                    results[resnet_model][ft][idx] = {'near': avg_near, 'far': avg_far, 'near_fpr': avg_near_fpr, 'far_fpr': avg_far_fpr}
                     print(f"Results updated for ResNet{resnet_model} expansion {expansion}: {results[resnet_model][ft][idx]}")
 
             # Persist progress back to the JSON file so runs can be resumed
@@ -1956,7 +1978,9 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                     for entry in results[resnet_model][ft]:
                         def conv(v):
                             return v if isinstance(v, str) else float(v)
-                        serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])} if isinstance(entry, dict) else {'near': 'not trained', 'far': 'not trained'})
+                        serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far']),
+                                            'near_fpr': conv(entry.get('near_fpr', 'not trained')),
+                                            'far_fpr': conv(entry.get('far_fpr', 'not trained'))} if isinstance(entry, dict) else {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'})
                     data_out['results'][str(resnet_model)][ft] = serial_list
                 with open(datafile, 'w') as jf:
                     json.dump(data_out, jf, indent=2)
@@ -2030,6 +2054,67 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
 
             f.write(f"{'='*60}\n\n")
 
+    # Write FPR95 results file (same structure, uses near_fpr / far_fpr values)
+    if config.model_type == 'spike':
+        fpr_filename = os.path.join(out_dir, f'EX1_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds_fpr95.txt')
+    elif config.model_type == 'conv':
+        fpr_filename = os.path.join(out_dir, f'EX1_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_conv_seeds_fpr95.txt')
+    with open(fpr_filename, 'w') as f:
+        f.write(f"{'='*60}\n")
+        if config.model_type == 'spike':
+            f.write(f"Spiking ResNet Multi-Test Results (FPR95)\n")
+        elif config.model_type == 'conv':
+            f.write(f"Conv/ResNet Multi-Test Results (FPR95)\n")
+        f.write(f"{'='*60}\n")
+        f.write(f"Experiment Configuration:\n")
+        f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
+        f.write(f"  Case: {config.case}\n")
+        f.write(f"  Batch Size: {config.batch_size}\n")
+        f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
+        f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+        f.write(f"  Number of epochs: {config.epochs}\n")
+        f.write(f"  Fitting method: {config.fit}\n")
+        f.write(f"  Loss function: {config.loss}\n")
+        f.write(f"  Augmentation: {config.auto_aug}\n")
+        f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"\n")
+
+        def fmt_fpr(v):
+            return f"{v:>6.2f}" if isinstance(v, float) else f"{v:<20}"
+
+        for resnet_model in resnet_models:
+            f.write(f"ResNet Model: {resnet_model}\n")
+            f.write(f"Near OOD sets: {near_list}\n")
+            f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
+            f.write(f"{'-'*60}\n")
+            for idx, expansion in enumerate(expansions):
+                sp_val = None
+                volt_val = None
+                if 'features' in results[resnet_model]:
+                    entry = results[resnet_model]['features'][idx]
+                    sp_val = entry.get('near_fpr', 'not trained') if isinstance(entry, dict) else 'not trained'
+                if 'voltages' in results[resnet_model]:
+                    entry = results[resnet_model]['voltages'][idx]
+                    volt_val = entry.get('near_fpr', 'not trained') if isinstance(entry, dict) else 'not trained'
+                f.write(f"{expansion:<12}{(fmt_fpr(sp_val) if sp_val is not None else 'N/A'):<20}{(fmt_fpr(volt_val) if volt_val is not None else 'N/A'):<20}\n")
+            f.write(f"\n")
+
+            f.write(f"Far OOD sets: {far_list}\n")
+            f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
+            f.write(f"{'-'*60}\n")
+            for idx, expansion in enumerate(expansions):
+                sp_val = None
+                volt_val = None
+                if 'features' in results[resnet_model]:
+                    entry = results[resnet_model]['features'][idx]
+                    sp_val = entry.get('far_fpr', 'not trained') if isinstance(entry, dict) else 'not trained'
+                if 'voltages' in results[resnet_model]:
+                    entry = results[resnet_model]['voltages'][idx]
+                    volt_val = entry.get('far_fpr', 'not trained') if isinstance(entry, dict) else 'not trained'
+                f.write(f"{expansion:<12}{(fmt_fpr(sp_val) if sp_val is not None else 'N/A'):<20}{(fmt_fpr(volt_val) if volt_val is not None else 'N/A'):<20}\n")
+
+            f.write(f"{'='*60}\n\n")
+
     # Save plotting data (results) so plots can be regenerated without re-extraction
     data_out = {
         'dataset_ID': config.dataset_ID,
@@ -2046,7 +2131,9 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
             for entry in results[rm][ft]:
                 def conv(v):
                     return v if isinstance(v, str) else float(v)
-                serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
+                serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far']),
+                                    'near_fpr': conv(entry.get('near_fpr', 'not trained')),
+                                    'far_fpr': conv(entry.get('far_fpr', 'not trained'))})
             data_out['results'][str(rm)][ft] = serial_list
 
     if config.model_type == 'spike':
@@ -2186,7 +2273,11 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
         for rm in resnet_models:
             data_out['results'][str(rm)] = {}
             for ft in feature_types:
-                data_out['results'][str(rm)][ft] = [{'near': 'not trained', 'far': 'not trained'} for _ in expansions]
+                data_out['results'][str(rm)][ft] = [
+                    {'near': 'not trained', 'far': 'not trained',
+                     'near_fpr': 'not trained', 'far_fpr': 'not trained'}
+                    for _ in expansions
+                ]
         try:
             with open(datafile, 'w') as jf:
                 json.dump(data_out, jf, indent=2)
@@ -2242,7 +2333,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                 continue
 
             # For each feature type compute per-seed AUROC and then average across seeds separately for near and far
-            expansion_values = {ft: {'near': [], 'far': []} for ft in feature_types}
+            expansion_values = {ft: {'near': [], 'far': [], 'near_fpr': [], 'far_fpr': []} for ft in feature_types}
             missing_any = False
 
             for seed in seeds:
@@ -2279,35 +2370,46 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                             # Run test on near list (if present)
                             if not near_list:
                                 near_mean = None
+                                near_mean_fpr = None
                             else:
                                 config.dataset_feat = list(near_list)
                                 print(f"[exp2] Datasets for testing (near): {config.dataset_feat} (feature={ft})")
                                 stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
                                 if stats_local is None or stats_local.size == 0:
                                     near_mean = None
+                                    near_mean_fpr = None
                                 else:
                                     # compute per-method AUROC averaged across the listed OOD datasets
                                     per_method = np.nanmean(stats_local[:, :num_methods], axis=0)
                                     near_mean = (per_method * 100.0).tolist()
+                                    # compute per-method FPR95 averaged across the listed OOD datasets
+                                    per_method_fpr = np.nanmean(stats_local[:, 2*num_methods:3*num_methods], axis=0)
+                                    near_mean_fpr = (per_method_fpr * 100.0).tolist()
 
                             # Run test on far list (if present)
                             if not far_list:
                                 far_mean = None
+                                far_mean_fpr = None
                             else:
                                 config.dataset_feat = list(far_list)
                                 print(f"[exp2] Datasets for testing (far): {config.dataset_feat} (feature={ft})")
                                 stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods, features=ft)
                                 if stats_local is None or stats_local.size == 0:
                                     far_mean = None
+                                    far_mean_fpr = None
                                 else:
                                     per_method = np.nanmean(stats_local[:, :num_methods], axis=0)
                                     far_mean = (per_method * 100.0).tolist()
+                                    per_method_fpr = np.nanmean(stats_local[:, 2*num_methods:3*num_methods], axis=0)
+                                    far_mean_fpr = (per_method_fpr * 100.0).tolist()
 
                             # restore original dataset_feat for safety
                             config.dataset_feat = orig_dataset_feat
 
                             expansion_values[ft]['near'].append(near_mean)
                             expansion_values[ft]['far'].append(far_mean)
+                            expansion_values[ft]['near_fpr'].append(near_mean_fpr)
+                            expansion_values[ft]['far_fpr'].append(far_mean_fpr)
                         except Exception as e:
                             print(f"[exp2] Error during testing feature={ft} resnet={resnet_model} exp={expansion} seed={seed}: {e}")
                             missing_any = True
@@ -2339,6 +2441,8 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                 # expansion_values[ft]['near'] and ['far'] contain one entry per seed (or None)
                 seed_near = expansion_values[ft]['near']
                 seed_far = expansion_values[ft]['far']
+                seed_near_fpr = expansion_values[ft]['near_fpr']
+                seed_far_fpr = expansion_values[ft]['far_fpr']
 
                 # Require that ALL seeds produced valid (non-None) results for both near and far
                 all_near_ok = (len(seed_near) == len(seeds)) and all(v is not None for v in seed_near)
@@ -2346,7 +2450,10 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
 
                 if not (all_near_ok and all_far_ok):
                     # at least one seed missing or incomplete -> keep as not trained
-                    results[resnet_model][ft][idx] = {'near': 'not trained', 'far': 'not trained'}
+                    results[resnet_model][ft][idx] = {
+                        'near': 'not trained', 'far': 'not trained',
+                        'near_fpr': 'not trained', 'far_fpr': 'not trained',
+                    }
                     continue
 
                 # All seeds present: stack and average across seeds (nan-aware) per method
@@ -2361,7 +2468,14 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
 
                 avg_near = avg_over_seeds(seed_near)
                 avg_far = avg_over_seeds(seed_far)
-                results[resnet_model][ft][idx] = {'near': avg_near, 'far': avg_far}
+                all_near_fpr_ok = (len(seed_near_fpr) == len(seeds)) and all(v is not None for v in seed_near_fpr)
+                all_far_fpr_ok = (len(seed_far_fpr) == len(seeds)) and all(v is not None for v in seed_far_fpr)
+                avg_near_fpr = avg_over_seeds(seed_near_fpr) if all_near_fpr_ok else 'not trained'
+                avg_far_fpr = avg_over_seeds(seed_far_fpr) if all_far_fpr_ok else 'not trained'
+                results[resnet_model][ft][idx] = {
+                    'near': avg_near, 'far': avg_far,
+                    'near_fpr': avg_near_fpr, 'far_fpr': avg_far_fpr,
+                }
 
             # Persist progress back to EX2 JSON after each expansion so runs are resumable
             try:
@@ -2380,7 +2494,9 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                                 return [float(x) for x in v]
                             except Exception:
                                 return v
-                        serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
+                        serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far']),
+                                            'near_fpr': conv(entry.get('near_fpr', 'not trained')),
+                                            'far_fpr': conv(entry.get('far_fpr', 'not trained'))})
                     data_out['results'][str(resnet_model)][ft] = serial_list
                 with open(datafile, 'w') as jf:
                     json.dump(data_out, jf, indent=2)
@@ -2492,7 +2608,9 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                         return [float(x) for x in v]
                     except Exception:
                         return v
-                serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far'])})
+                serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far']),
+                                    'near_fpr': conv(entry.get('near_fpr', 'not trained')),
+                                    'far_fpr': conv(entry.get('far_fpr', 'not trained'))})
             data_out['results'][str(rm)][ft] = serial_list
 
     if config.model_type == 'spike':
@@ -2554,7 +2672,60 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
     #     plt.savefig(plotfile, dpi=300, bbox_inches='tight')
     #     plt.close()
 
+    # Write FPR95 results file with the same structure
+    if config.model_type == 'spike':
+        fpr_filename = os.path.join(out_dir, f'EX2_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds_fpr95.txt')
+    elif config.model_type == 'conv':
+        fpr_filename = os.path.join(out_dir, f'EX2_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_conv_seeds_fpr95.txt')
+    with open(fpr_filename, 'w') as f:
+        f.write(f"{'='*60}\n")
+        f.write(f"Spiking ResNet Experiment-2 Multi-Test Results (FPR95)\n")
+        f.write(f"{'='*60}\n")
+        f.write(f"Experiment Configuration:\n")
+        f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
+        f.write(f"  Case: {config.case}\n")
+        f.write(f"  Batch Size: {config.batch_size}\n")
+        f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
+        f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+        f.write(f"  Number of epochs: {config.epochs}\n")
+        f.write(f"  Fitting method: {config.fit}\n")
+        f.write(f"  Loss function: {config.loss}\n")
+        f.write(f"  Augmentation: {config.auto_aug}\n")
+        f.write(f"  Methods considered: {', '.join(methods)}\n")
+        f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"\n")
+
+        def _write_fpr_table(f, resnet_model, ft, ood_label, key):
+            f.write(f"\nFeature Type ({ood_label}): {ft}\n")
+            header = 'Expansion'.ljust(12) + ''.join([f"{m:>10s}" for m in methods]) + '\n'
+            f.write(header)
+            f.write('-' * (12 + 10 * len(methods)) + '\n')
+            for idx, expansion in enumerate(expansions):
+                entry = results[resnet_model][ft][idx]
+                val = entry.get(key) if isinstance(entry, dict) else None
+                if val is None or (isinstance(val, str) and val == 'not trained'):
+                    row = f"{expansion:<12}{str(val or 'not trained')}\n"
+                else:
+                    try:
+                        cols = ''.join([f"{(v if v is not None else float('nan')):10.2f}" for v in val])
+                    except Exception:
+                        cols = ' '.join([str(v) for v in val])
+                    row = f"{expansion:<12}{cols}\n"
+                f.write(row)
+
+        for resnet_model in resnet_models:
+            f.write(f"ResNet Model: {resnet_model}\n")
+            f.write(f"Near OOD sets: {near_list}\n")
+            for ft in feature_types:
+                _write_fpr_table(f, resnet_model, ft, 'NEAR', 'near_fpr')
+            f.write('\n')
+            f.write(f"Far OOD sets: {far_list}\n")
+            for ft in feature_types:
+                _write_fpr_table(f, resnet_model, ft, 'FAR', 'far_fpr')
+            f.write(f"{'='*60}\n\n")
+
     print(f"\nExperiment-2 detailed statistics and plots saved to: {results_filename} and {out_dir}")
+    print(f"FPR95 statistics saved to: {fpr_filename}")
 
 
 def plot_ex1_from_data(data_or_path, out_dir=None, y_min=50.0, y_max=100.0, y_step=5, legend_fontsize=18):
