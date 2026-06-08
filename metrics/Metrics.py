@@ -392,8 +392,6 @@ class Metrics():
         ASH (Activation Sparsity Hypothesis) for OoD detection, matching OpenOOD.
         Sparsifies top-k logits, computes logsumexp as score (higher for ID).
         """
-        from scipy.special import logsumexp
-        
         start_time = time.time()
         
         # Process ID logits
@@ -411,15 +409,13 @@ class Metrics():
         # Combine scores
         test_labels = np.concatenate((np.ones(len(ID_logits_test)), np.zeros(len(OOD_logits_test))))
         test_scores = np.concatenate((ID_energy, OOD_energy))
-        
-        # Threshold: 95th percentile of ID scores (higher = ID)
-        if len(ID_energy) > 0:
-            threshold = np.percentile(ID_energy, 95)
-        else:
-            threshold = 0.0
-        
+
+        # Use the same TPR95 thresholding protocol as other methods.
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_scores, 1, drop=False)
+        threshold = threshold_tpr95
+
         # Predictions: ID (1) if score > threshold
-        test_predictions = (test_scores > threshold).astype(int)
+        test_predictions = (test_scores > threshold).astype(np.int32)
         
         end_time = time.time()
         execution_time = end_time - start_time
@@ -961,6 +957,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
             OOD_prob_test  = OOD['arr5']  # Out-of-Distribution test set outputs (usually with no softmax applied)
             OOD_tags_test  = OOD['arr6']  # Out-of-Distribution test set labels
             OOD_volt_test  = OOD['arr9']  # Out-of-Distribution test set voltages
+        print(f"Shapes of OOD data for {namesOOD[i]}: OOD_prob_train: {OOD_prob_train.shape}, OOD_volt_train: {OOD_volt_train.shape}, OOD_prob_test: {OOD_prob_test.shape}, OOD_volt_test: {OOD_volt_test.shape}")
 
         if features == 'features':
             OOD_features_train = OOD_feat_train
@@ -1132,6 +1129,37 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
 
                 if features == 'probs' or features == 'spikes':
                     print(f"VIM on {namesOOD[i]}")
+                    expected_pen_dim = {4: 256, 10: 512, 18: 512}.get(getattr(config, 'resnet_model', None), None)
+                    id_train_dim = ID_penultimate_train.shape[1]
+                    id_test_dim = ID_penultimate_test.shape[1]
+                    ood_test_dim = OOD_penultimate_test.shape[1]
+
+                    dims_match = (id_train_dim == id_test_dim == ood_test_dim)
+                    expected_match = (expected_pen_dim is None) or (
+                        id_train_dim == expected_pen_dim and
+                        id_test_dim == expected_pen_dim and
+                        ood_test_dim == expected_pen_dim
+                    )
+
+                    if not dims_match or not expected_match:
+                        print(
+                            f"[VIM] Skipping due to penultimate-dimension mismatch "
+                            f"(resnet={getattr(config, 'resnet_model', 'NA')}, "
+                            f"expected={expected_pen_dim}, "
+                            f"ID_train={id_train_dim}, ID_test={id_test_dim}, OOD_test={ood_test_dim})."
+                        )
+                        print(
+                            "[VIM] This usually means cached features were generated with a different model "
+                            "(e.g., ResNet10/18=512 reused for ResNet4=256). "
+                            "Regenerate features with override_feature_extraction=true."
+                        )
+                        auroc, aupr, fpr95 = -0.01, -0.01, -0.01
+                        print(f"VIM auroc: {auroc:.2f}, aupr: {aupr:.2f}")
+                        stats[i, idx] = auroc
+                        stats[i, len(methods) + idx] = aupr
+                        stats[i, len(methods)*2 + idx] = fpr95
+                        continue
+
                     number_features = ID_penultimate_train.shape[1]  # Use penultimate features for residuals
                     number_residuals = number_features - number_classes
                     mu = ID_penultimate_train.mean(axis=0)
@@ -1172,7 +1200,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 else:
                     # print(f"VIM method is not applicable for {features}.")
                     auroc, aupr, fpr95 = -0.01, -0.01, -0.01
-                print(f"ASH auroc: {auroc:.2f}, aupr: {aupr:.2f}")
+                print(f"ASH auroc: {auroc:.2f}, fpr95: {fpr95:.2f}")
                 # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
                 # print(f"auroc: {auroc:.2f}, aupr {aupr:.2f}, tpr95 {tpr95:.2f}, fpr95 {fpr95:.2f}")
                 stats[i, idx] = auroc
@@ -1617,6 +1645,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         feature_types = ['voltages']
         model_tags = {4: 'Conv', 10: 'ResNet10', 18: 'ResNet18'}
     methods = config.methods
+    yaml_override_feature_extraction = bool(getattr(config, 'override_feature_extraction', False))
 
     out_dir = os.path.join('results', 'ex_1', 'exp'+str(config.case))
     os.makedirs(out_dir, exist_ok=True)
@@ -1704,7 +1733,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                 print(f"Skipping ResNet{resnet_model} expansion {expansion} — already trained in JSON.")
                 continue
             print(f"Processing expansion: {config.expansion}")
-            config.override_feature_extraction = True
+            config.override_feature_extraction = yaml_override_feature_extraction
 
             # For each feature type compute per-seed AUROC and then average across seeds separately for near and far
             # We will attempt all seeds and only mark the expansion as 'done' in JSON when every seed produced valid results.
@@ -2224,6 +2253,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
     # feature_types = ['features', 'voltages', 'spikes', 'probs']
     # Methods to evaluate (fall back to a sensible default if not set)
     methods = getattr(config, 'methods', ['ASH', 'MSP', 'ODIN', 'ENGY', 'MLS', 'VIM'])
+    yaml_override_feature_extraction = bool(getattr(config, 'override_feature_extraction', False))
 
     out_dir = os.path.join('results', 'ex_2', 'exp'+str(config.case))
     os.makedirs(out_dir, exist_ok=True)
@@ -2309,7 +2339,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
         config.resnet_model = resnet_model
         for idx, expansion in enumerate(expansions):
             config.expansion = expansion
-            config.override_feature_extraction = True
+            config.override_feature_extraction = yaml_override_feature_extraction
             # If this resnet+expansion is already present in the JSON for all feature types (near and far filled), skip it
             already_done = True
             for ft in feature_types:

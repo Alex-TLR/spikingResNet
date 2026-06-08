@@ -37,6 +37,20 @@
 \definecolor{labelgray}{HTML}{F7F7F7}
 \definecolor{gridgray}{HTML}{C4C4C4}
 
+% AUROC color palette (low -> high performance).
+% Visual direction used in tables: red/orange = weaker AUROC, yellow = mid,
+% green shades = stronger AUROC, darkest green = best AUROC.
+% AUROC thresholds used for color tiers in current tables:
+% redcell:   AUROC < 50
+% lowcell:   50 <= AUROC < 76
+% midcell:   76 <= AUROC < 87
+% highmidcell: 87 <= AUROC < 88
+% greenAcell: 88 <= AUROC < 89
+% greenBcell: 89 <= AUROC < 90
+% vhighcell: 90 <= AUROC < 92.5
+% topcell:   92.5 <= AUROC < 94
+% highcell:  94 <= AUROC < 95.5
+% peakcell:  AUROC >= 95.5
 \newcommand{\best}[1]{\textbf{#1}}
 \newcommand{\redcell}[1]{\cellcolor{cellred!55}#1}
 \newcommand{\lowcell}[1]{\cellcolor{low!55}#1}
@@ -51,8 +65,23 @@
 \newcommand{\modelname}[1]{\cellcolor{labelgray}\textbf{#1}}
 \newcommand{\groupgap}{\noalign{\vskip 0.24em}}
 \newcommand{\splitline}{\cline{1-6}\cline{8-12}}
-% FPR95 label and color commands for dual-row tables (lower FPR95 = better = darker green)
-\newcommand{\fprname}{\cellcolor{labelgray}\scriptsize\hspace{0.3em}FPR95\,$\downarrow$}
+\newcommand{\splitlinedual}{\cline{1-7}\cline{9-13}}
+
+% FPR95 color tiers (lower is better), using a non-linear scale.
+% 0-10% (best region) is split into four bins:
+% fprpeakcell:    0 <= FPR95 < 2.5
+% fprhighcell:    2.5 <= FPR95 < 5
+% fprtopcell:     5 <= FPR95 < 7.5
+% fprvhighcell:   7.5 <= FPR95 < 10
+% 10-12.5% is split into three bins:
+% fprhighmidcell: 10 <= FPR95 < 10.83
+% fprgreenAcell:  10.83 <= FPR95 < 11.67
+% fprgreenBcell:  11.67 <= FPR95 < 12.5
+% Broader tails:
+% fprmidcell:     12.5 <= FPR95 < 25
+% fprlowcell:     25 <= FPR95 < 50
+% fprredcell:     50 <= FPR95 <= 100
+\newcommand{\fprname}{\cellcolor{labelgray}\scriptsize\hspace{0.3em}FPR95}
 \newcommand{\fprpeakcell}[1]{\cellcolor{peak!60}#1}
 \newcommand{\fprhighcell}[1]{\cellcolor{high!45}#1}
 \newcommand{\fprtopcell}[1]{\cellcolor{green92!65}#1}
@@ -63,7 +92,9 @@
 
 \newcolumntype{L}{>{\raggedright\arraybackslash}m{3.5cm}}
 \newcolumntype{C}{>{\centering\arraybackslash}m{0.9cm}}
+\newcolumntype{S}{>{\centering\arraybackslash}m{1.0cm}}
 \newcolumntype{G}{>{\centering\arraybackslash}m{0.15cm}}
+\newcommand{\aurocname}{\cellcolor{labelgray}\scriptsize AUROC}
 
 \usepackage{bm}
 \makeatletter
@@ -385,7 +416,7 @@ To test the hypothesis that larger ID class counts benefit from larger populatio
 
 
 \begin{table*}[tbp]
-\caption{AUROC ($\uparrow$, upper sub-row) and FPR95 ($\downarrow$, lower sub-row) for OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. For AUROC rows, darker green indicates higher (better) values; for FPR95 rows, darker green indicates lower (better) values. Results are shown for spike-like models trained with MSE, CE and CL objectives and a CNN baseline trained with CE, across three backbones and both near- and far-OoD datasets.}
+\caption{AUROC and FPR95 for OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like models trained with MSE, CE and CL objectives and a CNN baseline trained with CE, across three backbones and both near- and far-OoD datasets.}
 \begin{center}
 
 \centering
@@ -394,47 +425,71 @@ To test the hypothesis that larger ID class counts benefit from larger populatio
 \setlength{\tabcolsep}{2pt}
 \arrayrulecolor{gridgray}
 
-\begin{tabular}{|L|C|C|C|C|C|G|C|C|C|C|C|}
-\splitline
+\begin{tabular}{LS|C|C|C|C|C|G|C|C|C|C|C|}
+\splitlinedual
 \rowcolor{headergray}
-\multicolumn{1}{c}{} & \multicolumn{5}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{5}{c}{\textbf{Near-OoD}} \\
+\multicolumn{2}{c}{} & \multicolumn{5}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{5}{c}{\textbf{Near-OoD}} \\
 \rowcolor{headergray}
+\multicolumn{2}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} \\
 
-\multicolumn{1}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} \\
+%\splitlinedual
+\multirow{2}{*}{\textbf{Conv-CE}}      & \aurocname & \redcell{25.28} & \redcell{36.32} & \lowcell{50.24} & \lowcell{57.89} & \lowcell{61.78} & & \redcell{15.43} & \redcell{24.86} & \redcell{36.12} & \redcell{40.47} & \redcell{44.25} \\
+                                       & \fprname   & \fprredcell{75.00} & \fprredcell{74.09} & \fprredcell{66.75} & \fprredcell{59.61} & \fprredcell{54.06} & & \fprredcell{98.86} & \fprredcell{98.50} & \fprredcell{93.71} & \fprredcell{88.49} & \fprredcell{82.97} \\
+\hline                                          
 
+%\splitlinedual
+\multirow{2}{*}{\textbf{spike-Conv-MSE}}     & \aurocname & \lowcell{68.34} & \lowcell{71.60} & \lowcell{69.53} & \lowcell{67.76} & \lowcell{68.39} & & \lowcell{54.18} & \lowcell{59.02} & \lowcell{59.55} & \lowcell{59.49} & \lowcell{53.79} \\
+                                             & \fprname   & \fprredcell{63.08} & \fprredcell{78.96} & \fprredcell{82.62} & \fprredcell{84.57} & \fprredcell{74.63} & & \fprredcell{90.87} & \fprredcell{91.81} & \fprredcell{91.62} & \fprredcell{92.35} & \fprredcell{93.87} \\
+\hline
+                                             
+\multirow{2}{*}{\textbf{spike-Conv-CE}}      & \aurocname & \midcell{\textbf{86.35}} & \midcell{81.65} & \midcell{78.24} & \midcell{76.19} & \lowcell{73.71} & & \midcell{\textbf{84.13}} & \midcell{80.50} & \midcell{78.35} & \midcell{75.95} & \lowcell{73.28} \\
+                                            & \fprname   & \fprredcell{\textbf{65.53}} & \fprredcell{78.90} & \fprredcell{82.68} & \fprredcell{82.73} & \fprredcell{86.99} & & \fprredcell{\textbf{67.27}} & \fprredcell{79.32} & \fprredcell{83.31} & \fprredcell{85.57} & \fprredcell{88.91} \\
+\hline
+                                            
+\multirow{2}{*}{\textbf{spike-Conv-CL}}      & \aurocname & \lowcell{62.52} & \lowcell{70.63} & \lowcell{70.52} & \lowcell{71.95} & \lowcell{72.70} & & \lowcell{54.98} & \lowcell{61.22} & \lowcell{60.56} & \lowcell{60.25} & \lowcell{60.09} \\
+                                            & \fprname   & \fprredcell{87.42} & \fprredcell{82.27} & \fprredcell{81.06} & \fprredcell{78.67} & \fprredcell{77.59} & & \fprredcell{93.11} & \fprredcell{90.73} & \fprredcell{90.66} & \fprredcell{90.56} & \fprredcell{90.90} \\
+\hline
+\hline
 
-\splitline
-\modelname{Conv-CE}      & \redcell{25.28} & \redcell{36.32} & \lowcell{50.24} & \lowcell{57.89} & \lowcell{61.78} & & \redcell{15.43} & \redcell{24.86} & \redcell{36.12} & \redcell{40.47} & \redcell{44.25} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Conv-MSE}     & \lowcell{68.34} & \lowcell{71.60} & \lowcell{69.53} & \lowcell{67.76} & \lowcell{68.39} & & \lowcell{54.18} & \lowcell{59.02} & \lowcell{59.55} & \lowcell{59.49} & \lowcell{53.79} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Conv-CE}      & \midcell{86.35} & \midcell{81.65} & \midcell{78.24} & \midcell{76.19} & \lowcell{73.71} & & \midcell{\textbf{84.13}} & \midcell{80.50} & \midcell{78.35} & \midcell{75.95} & \lowcell{73.28} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Conv-CL}      & \lowcell{62.52} & \lowcell{70.63} & \lowcell{70.52} & \lowcell{71.95} & \lowcell{72.70} & & \lowcell{54.98} & \lowcell{61.22} & \lowcell{60.56} & \lowcell{60.25} & \lowcell{60.09} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
+%\splitlinedual
+%\groupgap
+\multirow{2}{*}{\textbf{Resnet10-CE}}  & \aurocname & \greenBcell{89.55} & \vhighcell{90.04} & \greenBcell{89.89} & \greenBcell{89.50} & \greenBcell{89.58} & & \greenAcell{88.37} & \greenAcell{88.60} & \greenAcell{88.52} & \greenAcell{88.05} & \greenAcell{88.16} \\
+                                       & \fprname   & \fprlowcell{47.05} & \fprlowcell{46.60} & \fprlowcell{46.55} & \fprlowcell{47.09} & \fprlowcell{47.31} & & \fprlowcell{48.68} & \fprlowcell{49.09} & \fprlowcell{49.12} & \fprlowcell{49.81} & \fprlowcell{49.93} \\
+\hline
 
-\splitline
-\groupgap
-\modelname{Resnet10-CE}  & \greenBcell{89.55} & \vhighcell{90.04} & \greenBcell{89.89} & \greenBcell{89.50} & \greenBcell{89.58} & & \greenAcell{88.37} & \greenAcell{88.60} & \greenAcell{88.52} & \greenAcell{88.05} & \greenAcell{88.16} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Resnet10-MSE} & \topcell{92.79} & \highcell{94.15} & \highcell{94.47} & \highcell{94.63} & \peakcell{\textbf{95.85}} & & \greenBcell{89.83} & \greenBcell{89.02} & \vhighcell{90.72} & \vhighcell{91.89} & \topcell{\textbf{92.83}} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Resnet10-CE}  & \midcell{86.12} & \lowcell{74.26} & \midcell{77.83} & \midcell{83.56} & \midcell{82.49} & & \midcell{81.98} & \lowcell{69.51} & \lowcell{72.88} & \midcell{79.60} & \midcell{78.18} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Resnet10-CL}  & \midcell{80.39} & \midcell{82.03} & \lowcell{65.89} & \lowcell{66.41} & \lowcell{66.46} & & \midcell{77.86} & \midcell{79.91} & \lowcell{62.89} & \lowcell{62.88} & \lowcell{63.38} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
+%\splitlinedual
+\multirow{2}{*}{\textbf{spike-Resnet10-MSE}} & \aurocname & \topcell{92.79} & \highcell{94.15} & \highcell{94.47} & \highcell{94.63} & \peakcell{\textbf{95.85}} & & \greenBcell{89.83} & \greenBcell{89.02} & \vhighcell{90.72} & \vhighcell{91.89} & \topcell{\textbf{92.83}} \\
+                                              & \fprname   & \fprlowcell{28.96} & \fprmidcell{24.87} & \fprmidcell{20.52} & \fprmidcell{19.35} & \fprmidcell{\textbf{17.48}} & & \fprlowcell{44.90} & \fprlowcell{51.08} & \fprlowcell{38.75} & \fprlowcell{34.71} & \fprlowcell{\textbf{33.64}} \\
+\hline
+                                              
+\multirow{2}{*}{\textbf{spike-Resnet10-CE}}  & \aurocname & \midcell{86.12} & \lowcell{74.26} & \midcell{77.83} & \midcell{83.56} & \midcell{82.49} & & \midcell{81.98} & \lowcell{69.51} & \lowcell{72.88} & \midcell{79.60} & \midcell{78.18} \\
+                                            & \fprname   & \fprredcell{56.47} & \fprredcell{65.22} & \fprredcell{62.47} & \fprredcell{54.73} & \fprredcell{59.18} & & \fprredcell{67.12} & \fprredcell{77.69} & \fprredcell{76.04} & \fprredcell{67.53} & \fprredcell{72.68} \\
+\hline
+                                            
+\multirow{2}{*}{\textbf{spike-Resnet10-CL}}  & \aurocname & \midcell{80.39} & \midcell{82.03} & \lowcell{65.89} & \lowcell{66.41} & \lowcell{66.46} & & \midcell{77.86} & \midcell{79.91} & \lowcell{62.89} & \lowcell{62.88} & \lowcell{63.38} \\
+                                            & \fprname   & \fprredcell{59.22} & \fprlowcell{48.52} & \fprredcell{75.07} & \fprredcell{73.62} & \fprredcell{72.74} & & \fprredcell{68.96} & \fprredcell{59.59} & \fprredcell{81.59} & \fprredcell{81.88} & \fprredcell{80.73} \\
+\hline
+\hline
 
-\splitline
-\groupgap
-\modelname{spike-Resnet18-CE}  & \topcell{93.85} & \highcell{95.46} & \highcell{95.48} & \highcell{95.34} & \peakcell{95.56} & & \vhighcell{92.16} & \topcell{93.36} & \topcell{93.46} & \topcell{93.35} & \topcell{93.56} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Resnet18-MSE} & \highcell{95.26} & \peakcell{\textbf{96.63}} & \peakcell{96.10} & \highcell{95.26} & \peakcell{95.91} & & \vhighcell{91.55} & \topcell{\textbf{93.91}} & \topcell{92.86} & \vhighcell{91.56} & \vhighcell{92.47} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Resnet18-CE}  & \greenAcell{88.33} & \greenAcell{88.57} & \vhighcell{90.41} & \vhighcell{90.83} & \vhighcell{91.82} & & \midcell{83.94} & \midcell{84.12} & \midcell{86.04} & \highmidcell{87.29} & \highmidcell{87.83} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\modelname{spike-Resnet18-CL}  & \midcell{76.09} & \greenAcell{87.25} & \lowcell{67.09} & \lowcell{64.94} & \lowcell{66.44} & & \lowcell{70.68} & \midcell{82.54} & \lowcell{62.20} & \lowcell{59.82} & \lowcell{61.05} \\
-\fprname & {---} & {---} & {---} & {---} & {---} & & {---} & {---} & {---} & {---} & {---} \\
-\splitline
+%\splitlinedual
+%\groupgap
+\multirow{2}{*}{\textbf{Resnet18-CE}}  & \aurocname & \topcell{93.85} & \highcell{95.46} & \highcell{95.48} & \highcell{95.34} & \peakcell{95.56} & & \vhighcell{92.16} & \topcell{93.36} & \topcell{93.46} & \topcell{93.35} & \topcell{93.56} \\
+                                            & \fprname   & \fprlowcell{34.41} & \fprlowcell{26.71} & \fprlowcell{26.62} & \fprlowcell{26.71} & \fprlowcell{25.69} & & \fprlowcell{41.52} & \fprlowcell{36.33} & \fprlowcell{36.15} & \fprlowcell{35.69} & \fprlowcell{35.00} \\
+\hline
+                                            
+%\splitlinedual                                           
+\multirow{2}{*}{\textbf{spike-Resnet18-MSE}} & \aurocname & \highcell{95.26} & \peakcell{\textbf{96.63}} & \peakcell{96.10} & \highcell{95.26} & \peakcell{95.91} & & \vhighcell{91.55} & \topcell{\textbf{93.91}} & \topcell{92.86} & \vhighcell{91.56} & \vhighcell{92.47} \\
+                                            & \fprname   & \fprmidcell{21.67} & \fprmidcell{\textbf{17.13}} & \fprmidcell{19.80} & \fprmidcell{23.86} & \fprmidcell{18.53} & & \fprlowcell{36.69} & \fprlowcell{\textbf{29.99}} & \fprlowcell{33.87} & \fprlowcell{39.31} & \fprlowcell{33.15} \\
+\hline
+                                            
+%\splitlinedual
+\multirow{2}{*}{\textbf{spike-Resnet18-CE}}  & \aurocname & \greenAcell{88.33} & \greenAcell{88.57} & \vhighcell{90.41} & \vhighcell{90.83} & \vhighcell{91.82} & & \midcell{83.94} & \midcell{84.12} & \midcell{86.04} & \highmidcell{87.29} & \highmidcell{87.83} \\
+                                            & \fprname   & \fprredcell{51.90} & \fprredcell{51.44} & \fprlowcell{41.73} & \fprlowcell{37.99} & \fprlowcell{34.53} & & \fprredcell{63.62} & \fprredcell{63.80} & \fprredcell{55.75} & \fprredcell{51.04} & \fprredcell{50.06} \\
+\hline
+                                            
+\multirow{2}{*}{\textbf{spike-Resnet18-CL}}  & \aurocname & \midcell{76.09} & \greenAcell{87.25} & \lowcell{67.09} & \lowcell{64.94} & \lowcell{66.44} & & \lowcell{70.68} & \midcell{82.54} & \lowcell{62.20} & \lowcell{59.82} & \lowcell{61.05} \\
+                                             & \fprname  & \fprredcell{71.06} & \fprredcell{53.96} & \fprredcell{88.00} & \fprredcell{88.64} & \fprredcell{88.97} & & \fprredcell{80.44} & \fprredcell{64.87} & \fprredcell{90.65} & \fprredcell{91.26} & \fprredcell{92.26} \\
+%\splitlinedual
 \end{tabular}
 
 \label{tab:cifar10-experiment-1}
@@ -443,13 +498,13 @@ To test the hypothesis that larger ID class counts benefit from larger populatio
 
 This experiment uses CIFAR-10 as the ID dataset and evaluates spike-like models trained with a single simulation time step. Feature vectors are extracted from the penultimate layer, and OoD detection is performed using a kNN distance-based detector. Each backbone model is evaluated across different population-coding expansions and the three training objectives described in Section~\ref{sec:methodology} (spike-count MSE, membrane-potential CE, and spike-count CL). For CNN baselines, dense penultimate-layer features are extracted from analogous backbones trained with CE to ensure a fair comparison.
 
-Table~\ref{tab:cifar10-experiment-1} reports near-OoD and far-OoD AUROC for all three training objectives across three backbones and five population-coding expansions $(1, 5, 10, 25, 50)$. Cell background color encodes performance level: darker green indicates higher AUROC, yellow and orange denote intermediate values, and red marks the weakest scores. Bold entries indicate the best result per backbone within the Far-OoD and Near-OoD groups, respectively.
+Table~\ref{tab:cifar10-experiment-1} reports both AUROC (upper sub-row) and FPR95 (lower sub-row) for near-OoD and far-OoD across three training objectives, three backbones, and five population-coding expansions $(1, 5, 10, 25, 50)$. Color coding is metric-aware: darker green indicates better values (higher AUROC, lower FPR95), while yellow/orange/red indicates progressively weaker performance. Bold entries indicate the best value per backbone within Far-OoD and Near-OoD groups.
 
-Empirically, MSE- and CL-trained models yield stronger kNN separation when membrane-potential vectors are used, whereas CE-trained models perform better with spike-pattern features; the results in Table~\ref{tab:cifar10-experiment-1} therefore reflect this pairing throughout. Nearest-neighbor distances are computed directly on these features without additional detector training. Although population coding is applied at the output layer, its effect on OoD detection is assessed through its influence on the learned penultimate representations.
+Empirically, MSE- and CL-trained models yield stronger kNN separation when membrane-potential vectors are used, whereas CE-trained models perform better with spike-pattern features; the AUROC rows in Table~\ref{tab:cifar10-experiment-1} follow this pairing. Nearest-neighbor distances are computed directly on these features without additional detector training. Although population coding is applied at the output layer, its effect on OoD detection is assessed through its influence on learned penultimate representations.
 
-Spike-like models trained with the MSE objective consistently yield penultimate-layer membrane-potential features that achieve strong kNN-based OoD separation, while spike-like models trained with the CE objective produce competitive penultimate-layer spike-pattern features. Models trained with the CL (count loss) objective produce substantially weaker OoD representations across all backbones and population-coding expansions.
+For configurations with available FPR95 values, the observed behavior is broadly aligned with AUROC: models with stronger AUROC generally exhibit lower FPR95, while weaker AUROC is associated with higher FPR95. This agreement between ranking-based (AUROC) and operating-point (FPR95) metrics supports the same qualitative conclusion for the currently populated entries.
 
-When population coding is enabled, spike-like models trained with MSE and evaluated using penultimate-layer features achieve AUROC values comparable to, and in some cases exceeding, those of CNN baselines. These results support the hypothesis that single-step spiking models can produce discriminative OoD representations when combined with population coding. Moreover, population coding improves OoD performance across all backbones, with the larger gains observed for residual architectures. Although population coding is applied only at the final layer, its effect propagates to the penultimate layer through backpropagation: each penultimate neuron receives gradient contributions from $E$ output neurons per class rather than one, so the training loss enforces class separation through more gradient paths simultaneously, promoting more class-discriminative penultimate representations. As a result, features extracted before the population-coded layer exhibit improved intra-class compactness and inter-class separation, which directly benefits distance-based OoD detection.
+At this stage, Table~\ref{tab:cifar10-experiment-1} provides complete AUROC coverage but partial FPR95 coverage, with FPR95 values reported primarily for MSE rows and pending entries for CE/CL rows (\texttt{---}). A more detailed metric-by-metric analysis will be finalized after the full FPR95 table is completed.
 
 
 \subsubsection*{Final-layer features with scoring-based post-hoc methods}
@@ -459,7 +514,7 @@ When population coding is enabled, spike-like models trained with MSE and evalua
 
 
 \begin{table*}[tbp]
-\caption{AUROC for scoring-based post-hoc OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like residual models trained with the MSE objective, across near- and far-OoD datasets. Only membrane-potential features are reported; spike-pattern features yielded substantially lower AUROC across all evaluated methods. The \textbf{CNN} column reports the single baseline value for the corresponding conventional CNN backbone (no population coding).}
+\caption{AUROC and FPR95 for scoring-based post-hoc OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like residual models trained with the MSE objective, across near- and far-OoD datasets. Only membrane-potential features are reported; spike-pattern features yielded substantially lower AUROC across all evaluated methods. The \textbf{CNN} column reports the single baseline value for the corresponding conventional CNN backbone (no population coding). FPR95 values are reserved for a later update and are shown here as placeholders.}
 \begin{center}
 
 \centering
@@ -468,34 +523,56 @@ When population coding is enabled, spike-like models trained with MSE and evalua
 \setlength{\tabcolsep}{2pt}
 \arrayrulecolor{gridgray}
 
-% Column layout: L | C×5 (spike E=1..50) | C (CNN ref) | G (gap) | C×5 (spike E=1..50) | C (CNN ref)
-% CNN column carries the single baseline value; spike rows leave it as ---
-\begin{tabular}{|L|C|C|C|C|C|C|G|C|C|C|C|C|C|}
-\cline{1-7}\cline{9-14}
+% Column layout: L | S | C×5 (spike E=1..50) | C (CNN ref) | G (gap) | C×5 (spike E=1..50) | C (CNN ref)
+% The second column is the AUROC/FPR95 row label; FPR95 cells are placeholders.
+\begin{tabular}{LS|C|C|C|C|C|C|G|C|C|C|C|C|C|}
+\cline{1-8}\cline{10-15}
 \rowcolor{headergray}
-\multicolumn{1}{c}{} & \multicolumn{6}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{6}{c}{\textbf{Near-OoD}} \\
+\multicolumn{2}{c}{} & \multicolumn{6}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{6}{c}{\textbf{Near-OoD}} \\
 \rowcolor{headergray}
-\multicolumn{1}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\textbf{CNN}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\textbf{CNN}} \\
+\multicolumn{2}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\textbf{CNN}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\textbf{CNN}} \\
 
-\cline{1-7}\cline{9-14}
+\cline{1-8}\cline{10-15}
 \groupgap
-\modelname{spike-Resnet10 ASH}    & \lowcell{69.94} & \midcell{86.97} & \greenAcell{88.12} & \vhighcell{90.37} & \greenBcell{89.22} & 89.01 & & \lowcell{56.16} & \midcell{80.85} & \midcell{82.99} & \midcell{85.39} & \midcell{81.47} & 83.72 \\
-\modelname{spike-Resnet10 MSP}    & \lowcell{73.07} & \midcell{85.83} & \highmidcell{87.66} & \greenBcell{89.39} & \greenBcell{89.89} & 87.66 & & \lowcell{74.13} & \midcell{79.92} & \midcell{82.69} & \midcell{84.59} & \midcell{83.26} & 84.63 \\
-\modelname{spike-Resnet10 ODIN}   & \lowcell{73.01} & \midcell{85.70} & \greenAcell{88.24} & \vhighcell{90.31} & \vhighcell{90.18} & 87.73 & & \lowcell{74.08} & \midcell{79.79} & \midcell{83.16} & \midcell{85.60} & \midcell{83.39} & 82.36 \\
-\modelname{spike-Resnet10 Energy} & \redcell{44.45} & \highmidcell{87.52} & \midcell{84.10} & \midcell{86.22} & \midcell{78.60} & 89.01 & & \redcell{31.14} & \midcell{81.63} & \midcell{80.46} & \midcell{82.66} & \lowcell{71.05} & 83.70 \\
-\modelname{spike-Resnet10 MLS}    & \midcell{82.89} & \midcell{86.60} & \highmidcell{87.52} & \greenBcell{89.56} & \greenBcell{89.38} & 89.92 & & \lowcell{75.09} & \midcell{80.53} & \midcell{82.52} & \midcell{84.61} & \midcell{81.93} & 83.81 \\
-\modelname{spike-Resnet10 VIM}    & \midcell{85.34} & \peakcell{\textbf{96.77}} & \peakcell{95.55} & \peakcell{95.55} & \topcell{93.31} & 94.44 & & \midcell{81.05} & \topcell{\textbf{92.75}} & \vhighcell{91.13} & \vhighcell{91.97} & \midcell{86.68} & 91.95 \\
+\multirow{2}{*}{\modelname{spike-Resnet10 ASH}}    & \aurocname & \lowcell{69.94} & \midcell{86.97} & \greenAcell{88.12} & \vhighcell{90.37} & \greenBcell{89.22} & 89.01 & & \lowcell{56.16} & \midcell{80.85} & \midcell{82.99} & \midcell{85.39} & \midcell{81.47} & 83.72 \\
+                                             & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 MSP}}    & \aurocname & \lowcell{73.07} & \midcell{85.83} & \highmidcell{87.66} & \greenBcell{89.39} & \greenBcell{89.89} & 87.66 & & \lowcell{74.13} & \midcell{79.92} & \midcell{82.69} & \midcell{84.59} & \midcell{83.26} & 84.63 \\
+                                             & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 ODIN}}   & \aurocname & \lowcell{73.01} & \midcell{85.70} & \greenAcell{88.24} & \vhighcell{90.31} & \vhighcell{90.18} & 87.73 & & \lowcell{74.08} & \midcell{79.79} & \midcell{83.16} & \midcell{85.60} & \midcell{83.39} & 82.36 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 Energy}} & \aurocname & \redcell{44.45} & \highmidcell{87.52} & \midcell{84.10} & \midcell{86.22} & \midcell{78.60} & 89.01 & & \redcell{31.14} & \midcell{81.63} & \midcell{80.46} & \midcell{82.66} & \lowcell{71.05} & 83.70 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 MLS}}    & \aurocname & \midcell{82.89} & \midcell{86.60} & \highmidcell{87.52} & \greenBcell{89.56} & \greenBcell{89.38} & 89.92 & & \lowcell{75.09} & \midcell{80.53} & \midcell{82.52} & \midcell{84.61} & \midcell{81.93} & 83.81 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 VIM}}    & \aurocname & \midcell{85.34} & \peakcell{\textbf{96.77}} & \peakcell{95.55} & \peakcell{95.55} & \topcell{93.31} & 94.44 & & \midcell{81.05} & \topcell{\textbf{92.75}} & \vhighcell{91.13} & \vhighcell{91.97} & \midcell{86.68} & 91.95 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
 
-\cline{1-7}\cline{9-14}
+\cline{1-8}\cline{10-15}
 \groupgap
 % TODO: fill CNN column — replace --- with \<color>cell{value} once available
-\modelname{spike-Resnet18 ASH}    & \lowcell{73.21} & \midcell{85.70} & \topcell{92.10} & \topcell{92.92} & \topcell{93.90} & 92.87 & & \lowcell{61.05} & \midcell{86.91} & \greenAcell{88.45} & \greenBcell{89.60} & \greenBcell{89.56} & 89.40 \\
-\modelname{spike-Resnet18 MSP}    & \lowcell{75.92} & \vhighcell{91.75} & \topcell{92.63} & \topcell{92.67} & \topcell{92.38} & 91.74 & & \lowcell{70.55} & \midcell{86.48} & \greenAcell{88.14} & \greenAcell{88.00} & \highmidcell{87.15} & 89.43 \\
-\modelname{spike-Resnet18 ODIN}   & \lowcell{75.89} & \vhighcell{91.75} & \topcell{92.83} & \topcell{93.65} & \topcell{93.42} & 91.93 & & \lowcell{70.51} & \midcell{86.44} & \greenAcell{88.38} & \greenBcell{89.28} & \greenAcell{88.47} & 88.41 \\
-\modelname{spike-Resnet18 Energy} & \redcell{47.93} & \vhighcell{91.18} & \vhighcell{91.84} & \topcell{93.88} & \highcell{94.07} & 92.86 & & \redcell{40.29} & \midcell{86.81} & \greenAcell{88.10} & \greenBcell{89.62} & \greenBcell{89.61} & 89.39 \\
-\modelname{spike-Resnet18 MLS}    & \midcell{83.63} & \vhighcell{91.84} & \topcell{92.60} & \topcell{93.48} & \topcell{93.43} & 92.83 & & \lowcell{75.07} & \midcell{86.64} & \greenAcell{88.09} & \greenBcell{89.09} & \greenAcell{88.54} & 89.41 \\
-\modelname{spike-Resnet18 VIM}    & \greenAcell{88.39} & \topcell{92.00} & \topcell{93.01} & \topcell{93.87} & \peakcell{\textbf{95.57}} & 93.36 & & \midcell{82.20} & \highmidcell{87.99} & \greenBcell{89.39} & \vhighcell{90.07} & \vhighcell{\textbf{91.69}} & 91.90 \\
-\cline{1-7}\cline{9-14}
+\multirow{2}{*}{\modelname{spike-Resnet18 ASH}}    & \aurocname & \lowcell{73.21} & \midcell{85.70} & \topcell{92.10} & \topcell{92.92} & \topcell{93.90} & 92.87 & & \lowcell{61.05} & \midcell{86.91} & \greenAcell{88.45} & \greenBcell{89.60} & \greenBcell{89.56} & 89.40 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet18 MSP}}    & \aurocname & \lowcell{75.92} & \vhighcell{91.75} & \topcell{92.63} & \topcell{92.67} & \topcell{92.38} & 91.74 & & \lowcell{70.55} & \midcell{86.48} & \greenAcell{88.14} & \greenAcell{88.00} & \highmidcell{87.15} & 89.43 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet18 ODIN}}   & \aurocname & \lowcell{75.89} & \vhighcell{91.75} & \topcell{92.83} & \topcell{93.65} & \topcell{93.42} & 91.93 & & \lowcell{70.51} & \midcell{86.44} & \greenAcell{88.38} & \greenBcell{89.28} & \greenAcell{88.47} & 88.41 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet18 Energy}} & \aurocname & \redcell{47.93} & \vhighcell{91.18} & \vhighcell{91.84} & \topcell{93.88} & \highcell{94.07} & 92.86 & & \redcell{40.29} & \midcell{86.81} & \greenAcell{88.10} & \greenBcell{89.62} & \greenBcell{89.61} & 89.39 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet18 MLS}}    & \aurocname & \midcell{83.63} & \vhighcell{91.84} & \topcell{92.60} & \topcell{93.48} & \topcell{93.43} & 92.83 & & \lowcell{75.07} & \midcell{86.64} & \greenAcell{88.09} & \greenBcell{89.09} & \greenAcell{88.54} & 89.41 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet18 VIM}}    & \aurocname & \greenAcell{88.39} & \topcell{92.00} & \topcell{93.01} & \topcell{93.87} & \peakcell{\textbf{95.57}} & 93.36 & & \midcell{82.20} & \highmidcell{87.99} & \greenBcell{89.39} & \vhighcell{90.07} & \vhighcell{\textbf{91.69}} & 91.90 \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\cline{1-8}\cline{10-15}
 \end{tabular}
 
 \label{tab:cifar10-experiment-2}
