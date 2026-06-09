@@ -1,0 +1,93 @@
+\relax 
+\citation{hendrycks2017baseline,liu2020energy,lee2018simple}
+\citation{hendrycks2017baseline}
+\citation{liu2020energy}
+\citation{lee2018simple}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
+\newlabel{sec:introduction}{{I}{1}{}{}{}}
+\citation{Olber2022DetectionOO}
+\@writefile{toc}{\contentsline {section}{\numberline {II}Background (Research Context)}{2}{}\protected@file@percent }
+\newlabel{sec:background}{{II}{2}{}{}{}}
+\citation{hendrycks2017baseline}
+\citation{liu2020energy}
+\citation{wang2022vim}
+\citation{djurisic2022ash}
+\citation{lee2018simple}
+\citation{sun2022knn}
+\citation{sun2022out,zhang2022ood}
+\citation{sinhamahapatra2022all}
+\citation{kuan2022back,yang2022openood}
+\citation{2023-martinez}
+\citation{terresescudero2025}
+\citation{Sun_2023}
+\citation{prabodh2024}
+\newlabel{eq:01a}{{1}{3}{}{}{}}
+\newlabel{eq:01b}{{2}{3}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {III}Related work}{3}{}\protected@file@percent }
+\newlabel{sec:related}{{III}{3}{}{}{}}
+\citation{neftci2019surrogate,zenke2021remarkable,eshraghian2023training}
+\citation{2022-fang,2021-zheng}
+\citation{2020-rathi}
+\citation{2022-Guo}
+\citation{2025-shen}
+\citation{Tkacik2010Optimal,Tripp2012Population}
+\citation{Pan2019NeuralPopulation}
+\citation{Zhang2021PopulationCoding}
+\citation{roy2019towards,davies2018loihi,plagwitz2023to}
+\citation{chen2023training}
+\citation{lemaire2023estimation}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Network Architectures}{4}{}\protected@file@percent }
+\newlabel{sec:network}{{IV}{4}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {V}Methodology}{4}{}\protected@file@percent }
+\newlabel{sec:methodology}{{V}{4}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Population coding}{4}{}\protected@file@percent }
+\newlabel{sec:population-coding}{{\mbox  {V-A}}{4}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Comparison of computational and energy characteristics for CNNs, SNNs and spike-like models. Energy estimates are expressed qualitatively, based on existing literature.}}{5}{}\protected@file@percent }
+\newlabel{tab:energy-comparison-summary}{{1}{5}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Summary of network backbones. All models use LIF activations ($\beta =0.95$, threshold $=0.25$, reset $=0$), surrogate-gradient training, and optional population coding in the output layer. The number of parameters depends on the input image size and the number of classes.}}{5}{}\protected@file@percent }
+\newlabel{tab:network-backbones}{{2}{5}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Training Procedure}{5}{}\protected@file@percent }
+\citation{hendrycks2017baseline}
+\citation{liu2020energy}
+\citation{wang2022vim}
+\citation{djurisic2022ash}
+\citation{huo2025ncm}
+\citation{sun2022knn}
+\citation{ptflops}
+\citation{lemaire2023estimation}
+\citation{ptflops,lemaire2023estimation}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Feature Extraction for OoD Detection}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Evaluation Metrics}{6}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces  {\fontencoding  {T1}\fontseries  {b}\selectfont  {I}nput images are processed by the spiking backbone to produce features, optionally enhanced via population coding. The resulting features are then used for post-hoc or distance-based OoD detection. Dashed arrows indicate optional paths.}}}{6}{}\protected@file@percent }
+\newlabel{fig:feature-extraction-pipeline-narrow}{{1}{6}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Experimental results}{6}{}\protected@file@percent }
+\newlabel{sec:results}{{VI}{6}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Inference-Time Computational Analysis}{6}{}\protected@file@percent }
+\citation{yang2022openood}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Inference-time computational complexity comparison between CNN and spike-like backbones (single-step inference, $T = 1$).}}{7}{}\protected@file@percent }
+\newlabel{tab:computation-comparison}{{3}{7}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Near- and far-OoD datasets used for each in-distribution (ID) benchmark.}}{7}{}\protected@file@percent }
+\newlabel{tab:ood-datasets}{{4}{7}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Experimental setup}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}Experiments with CIFAR10}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces AUROC ($\uparrow $, upper sub-row) and FPR95 ($\downarrow $, lower sub-row) for OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like models trained with MSE, CE and CL objectives and a CNN baseline trained with CE, across three backbones and both near- and far-OoD datasets.}}{8}{}\protected@file@percent }
+\newlabel{tab:cifar10-experiment-1}{{5}{8}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces AUROC for scoring-based post-hoc OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like residual models trained with the MSE objective, across near- and far-OoD datasets. Only membrane-potential features are reported; spike-pattern features yielded substantially lower AUROC across all evaluated methods. The {\fontencoding  {T1}\fontseries  {b}\selectfont  {C}NN} column reports the single baseline value for the corresponding conventional CNN backbone (no population coding).}}{8}{}\protected@file@percent }
+\newlabel{tab:cifar10-experiment-2}{{6}{8}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}Experiment 4: SVHN and CIFAR100 with single-step model}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Conclusions}{9}{}\protected@file@percent }
+\newlabel{sec:conclusions}{{VII}{9}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces AUROC for kNN-based OoD detection on penultimate-layer membrane-potential features of spike-ResNet18 trained with the MSE objective, as a function of training time steps $T$ and population-coding expansion $E$. Inference is restricted to a single time step in all cases. Results are averaged over five independent runs.}}{10}{}\protected@file@percent }
+\newlabel{tab:cifar10-experiment-3}{{7}{10}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces AUROC for ViM-based OoD detection on spike-ResNet18 trained with the MSE objective, as a function of training time steps $T$ and population-coding expansion $E$. Inference is restricted to a single time step in all cases. Results are averaged over five independent runs. }}{10}{}\protected@file@percent }
+\newlabel{tab:cifar10-experiment-3-vim}{{8}{10}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Top-5 entries on the OpenOOD~v1.5 CIFAR-10 leaderboard (ResNet-18, $\approx $95\% ID accuracy), ranked by Near-OoD AUROC. Near-OoD: CIFAR-100, TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365. $^\dagger $Uses outlier training data (TIN-597).}}{10}{}\protected@file@percent }
+\newlabel{tab:openood-cifar10}{{9}{10}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Top-5 entries on the OpenOOD~v1.5 CIFAR-100 leaderboard (ResNet-18, $\approx $77\% ID accuracy), ranked by Near-OoD AUROC. Near-OoD: CIFAR-10, TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365. $^\dagger $Uses outlier training data (TIN-597). $^\ddagger $AUROC unavailable due to leaderboard pagination.}}{10}{}\protected@file@percent }
+\newlabel{tab:openood-cifar100}{{10}{10}{}{}{}}
+\bibstyle{IEEEtran}
+\bibdata{references}
+\@writefile{toc}{\contentsline {subsection}{First A. Author}{11}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{Second B. Author}{11}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{Third C. Author, Jr.}{11}{}\protected@file@percent }
+\gdef \@abspage@last{11}
