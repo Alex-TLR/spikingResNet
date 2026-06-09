@@ -1,13 +1,13 @@
 #!/usr/bin/bash
-#SBATCH --job-name=SNNResNet-exp_20_1_2
+#SBATCH --job-name=SNNResNet-exp_27_test
 #SBATCH --time=96:00:00
 #SBATCH --cpus-per-task=8
 #SBATCH --tasks=1
-#SBATCH --mem=48GB
+#SBATCH --mem=32GB
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
-#SBATCH --constraint=h100
-#SBATCH --output=exp_20_test_1_2.log
+#SBATCH --constraint=v100s
+#SBATCH --output=exp_27_test.log
 
 CONTAINER_PATH=../container/snn.sif
 #CIFAR10 case 06
@@ -25,6 +25,6 @@ CONTAINER_PATH=../container/snn.sif
 #KMNIST case 10
 #srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --model 18 --mode test --dataset KMNIST --case 10 --batch_size 64
 #srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --config experiments/test/config_exp12_test_experiment_1.yaml > exp12-test_experiment_1.log 2>&1
-srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --config experiments/test/config_exp20_test_experiment_1.yaml > exp20-test_experiment_1.log 2>&1
-srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --config experiments/test/config_exp20_test_experiment_2.yaml > exp20-test_experiment_2.log 2>&1
+srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --config experiments/test/config_exp27_test_experiment_1.yaml > exp27-test_experiment_1.log 2>&1
+srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --config experiments/test/config_exp27_test_experiment_2.yaml > exp27-test_experiment_2.log 2>&1
 #srun --ntasks=1 --cpus-per-task=8 --partition=gpu -G1 apptainer exec --nv "$CONTAINER_PATH" python main.py --config experiments/test/config_exp10_test_experiment_1.yaml > exp10-test_experiment_1.log 2>&1
