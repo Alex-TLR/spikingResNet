@@ -29,7 +29,7 @@ training:
 
 # Pipeline Mode and Test Type
 mode: 'test'  # Options: 'test' or 'train'
-test_type: 'standard'  # Options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2'
+test_type: 'standard'  # Options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2', 'experiment_3'
 
 # Device and Parallel Processing
 device: 'cuda'
@@ -50,11 +50,13 @@ scheduler:
 # Gradient Clipping
 gradient_clipping: 0.1
 
-# Experiment Sweep Parameters (for mode='train' or test_type='accuracy'/'experiment_1'/'experiment_2')
+# Experiment Sweep Parameters (for mode='train' or test_type='accuracy'/'experiment_1'/'experiment_2'/'experiment_3')
 # Leave null to use defaults or specify arrays for parameter sweeps
 experiment:
   case: '42'
   methods: null  # For OOD detection: ['VIM', 'NCM', 'ENGY', 'MSP', 'KNN', etc.]
+  methods_1: null  # For experiment_3 EX1 branch on 'features' (e.g., ['KNN'])
+  methods_2: null  # For experiment_3 EX2 branch on 'probs' (e.g., ['VIM'])
   seeds: null  # Example: [42, 1987, 1991, 2020, 2024]
   expansions: null  # Example: [1, 5, 10, 25, 50]
   resnet_models: null  # Example: [4, 10, 18]

@@ -1,5 +1,5 @@
-# Configuration for Experiment 8 Test Mode
-# KNN-based OOD detection evaluation
+# Configuration for Experiment 3 Test Mode
+# Combined KNN (penultimate features) + VIM (scoring-based) with single extraction pass
 
 # Dataset Parameters
 dataset:
@@ -10,7 +10,7 @@ dataset:
 model:
   type: 'spike'
   num_classes: 10
-  num_time_steps_train: 2
+  num_time_steps_train: 1
   num_time_steps_extract: 1
 
 # Training Parameters
@@ -25,7 +25,7 @@ training:
 
 # Test Mode and Type
 mode: 'test'
-test_type: 'experiment_1'
+test_type: 'experiment_3'
 
 # Device and Parallel Processing
 device: 'cuda'
@@ -49,14 +49,15 @@ gradient_clipping: 0.1
 # Experiment Sweep Parameters
 experiment:
   case: '9'
-  methods: ['KNN']  # OOD detection method for experiment 1
-  seeds: [42, 1987, 1991, 2020, 2024]
+  methods_1: ['KNN']  # Methods for EX1 branch on 'features'
+  methods_2: ['VIM']  # Methods for EX2 branch on 'probs'
+  seeds: [42]
   expansions: [1, 5, 10, 25, 50]
-  resnet_models: [18]
+  resnet_models: [4, 10, 18]
   override_feature_extraction: true
-  
+
   # Near-OOD datasets (similar to in-distribution)
   near_ood: ['CIFAR10', 'CIFAR100', 'tImage200']
-  
+
   # Far-OOD datasets (very different from in-distribution)
   far_ood: ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']

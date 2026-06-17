@@ -10,7 +10,7 @@ dataset:
 model:
   type: 'spike'
   num_classes: 10
-  num_time_steps_train: 2
+  num_time_steps_train: 8
   num_time_steps_extract: 1
 
 # Training Parameters
@@ -25,7 +25,7 @@ training:
 
 # Test Mode and Type
 mode: 'test'
-test_type: 'experiment_1'
+test_type: 'experiment_3'
 
 # Device and Parallel Processing
 device: 'cuda'
@@ -48,8 +48,9 @@ gradient_clipping: 0.1
 
 # Experiment Sweep Parameters
 experiment:
-  case: '9'
-  methods: ['KNN']  # OOD detection method for experiment 1
+  case: '13'
+  methods_1: ['KNN']  # OOD detection method for experiment 1
+  methods_2: ['VIM']  # OOD detection method for experiment 2
   seeds: [42, 1987, 1991, 2020, 2024]
   expansions: [1, 5, 10, 25, 50]
   resnet_models: [18]

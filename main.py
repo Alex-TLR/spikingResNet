@@ -8,7 +8,7 @@ import argparse
 import os
 from config import ExperimentConfig, load_config_from_yaml
 from datetime import datetime
-from metrics.Metrics import statistics, statistics_test_population, statistics_test_1, statistics_exp_1, statistics_exp_2
+from metrics.Metrics import statistics, statistics_test_population, statistics_test_1, statistics_exp_1, statistics_exp_2, statistics_exp_3
 
 def get_parser():
     parser = argparse.ArgumentParser(description="SpikingResNet Training Configuration")
@@ -192,9 +192,17 @@ if __name__ == "__main__":
             resnet_models = config.resnet_models
             statistics_exp_2(config, seeds, expansions, resnet_models)
             print("Done experiment 2.")
+        elif config.test_type == 'experiment_3':
+            # Experiment 3: Combined KNN (penultimate features) + VIM (scoring-based)
+            print("Experiment 3 on combined KNN and VIM with single extraction pass.")
+            seeds = config.seeds
+            expansions = config.expansions
+            resnet_models = config.resnet_models
+            statistics_exp_3(config, seeds, expansions, resnet_models)
+            print("Done experiment 3.")
         
         else:
-            print(f"Unknown test_type: {config.test_type}. Valid options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2'")
+            print(f"Unknown test_type: {config.test_type}. Valid options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2', 'experiment_3'")
 
     elif config.mode == 'train':
         seeds = config.seeds

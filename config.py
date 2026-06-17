@@ -333,6 +333,10 @@ def load_config_from_yaml(yaml_path):
             config.case = exp_cfg['case']
         if 'methods' in exp_cfg:
             config.methods = exp_cfg['methods']
+        if 'methods_1' in exp_cfg:
+            config.methods_1 = exp_cfg['methods_1']
+        if 'methods_2' in exp_cfg:
+            config.methods_2 = exp_cfg['methods_2']
         if 'seeds' in exp_cfg:
             config.seeds = exp_cfg['seeds']
         if 'expansions' in exp_cfg:
@@ -376,7 +380,7 @@ class ExperimentConfig:
 
         # Pipeline mode
         self.mode = 'test'
-        self.test_type = 'experiment_1'  # Options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2'
+        self.test_type = 'experiment_1'  # Options: 'standard', 'population', 'single_step', 'accuracy', 'experiment_1', 'experiment_2', 'experiment_3'
 
         # Device and processing
         self.device = 'cuda'
@@ -397,6 +401,8 @@ class ExperimentConfig:
         # These are None by default and will use hardcoded defaults in main.py if not specified
         self.case = '42'
         self.methods = None
+        self.methods_1 = None
+        self.methods_2 = None
         self.seeds = None
         self.expansions = None
         self.resnet_models = None

@@ -360,6 +360,9 @@ Performance of feature extraction and OoD detection is quantified using:
 \section{Experimental results}
 \label{sec:results}
 
+Unless explicitly stated otherwise, performance tables in this section use color-coded cells to support visual comparison: greener shades indicate better performance and redder shades indicate weaker performance. This visual convention is applied consistently to both AUROC and FPR95 entries.
+
+
 \subsection{Inference-Time Computational Analysis}
 As discussed in Sec.~\ref{sec:related}, CNN complexity is commonly reported using floating-point operation (FLOP) counts, typically expressed as the number of multiply--accumulate (MAC) operations that dominate convolutional inference. Architecture-level tools such as \texttt{ptflops}~\cite{ptflops} provide hardware-agnostic estimates of these costs. By contrast, spiking networks perform event-driven computation: synaptic operations occur only when spikes are emitted, so cost is more naturally expressed in synaptic operations (SynOps) or spike-triggered accumulations. In the spike-like models studied here, activations are binary and temporal integration is suppressed, which reduces arithmetic complexity.
 
@@ -426,7 +429,7 @@ To test the hypothesis that larger ID class counts benefit from larger populatio
 \arrayrulecolor{gridgray}
 
 \begin{tabular}{LS|C|C|C|C|C|G|C|C|C|C|C|}
-\splitlinedual
+%\splitlinedual
 \rowcolor{headergray}
 \multicolumn{2}{c}{} & \multicolumn{5}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{5}{c}{\textbf{Near-OoD}} \\
 \rowcolor{headergray}
@@ -502,9 +505,9 @@ Table~\ref{tab:cifar10-experiment-1} reports both AUROC (upper sub-row) and FPR9
 
 Empirically, MSE- and CL-trained models yield stronger kNN separation when membrane-potential vectors are used, whereas CE-trained models perform better with spike-pattern features; the AUROC rows in Table~\ref{tab:cifar10-experiment-1} follow this pairing. Nearest-neighbor distances are computed directly on these features without additional detector training. Although population coding is applied at the output layer, its effect on OoD detection is assessed through its influence on learned penultimate representations.
 
-For configurations with available FPR95 values, the observed behavior is broadly aligned with AUROC: models with stronger AUROC generally exhibit lower FPR95, while weaker AUROC is associated with higher FPR95. This agreement between ranking-based (AUROC) and operating-point (FPR95) metrics supports the same qualitative conclusion for the currently populated entries.
-
-At this stage, Table~\ref{tab:cifar10-experiment-1} provides complete AUROC coverage but partial FPR95 coverage, with FPR95 values reported primarily for MSE rows and pending entries for CE/CL rows (\texttt{---}). A more detailed metric-by-metric analysis will be finalized after the full FPR95 table is completed.
+%For configurations with available FPR95 values, the observed behavior is broadly aligned with AUROC: models with stronger AUROC generally exhibit lower FPR95, while weaker AUROC is associated with higher FPR95. This agreement between ranking-based (AUROC) and operating-point (FPR95) metrics supports the same qualitative conclusion for the currently populated entries.
+%
+%At this stage, Table~\ref{tab:cifar10-experiment-1} provides complete AUROC coverage but partial FPR95 coverage, with FPR95 values reported primarily for MSE rows and pending entries for CE/CL rows (\texttt{---}). A more detailed metric-by-metric analysis will be finalized after the full FPR95 table is completed.
 
 
 \subsubsection*{Final-layer features with scoring-based post-hoc methods}
@@ -523,90 +526,76 @@ At this stage, Table~\ref{tab:cifar10-experiment-1} provides complete AUROC cove
 \setlength{\tabcolsep}{2pt}
 \arrayrulecolor{gridgray}
 
-% Column layout: L | S | C×5 (spike E=1..50) | C (CNN ref) | G (gap) | C×5 (spike E=1..50) | C (CNN ref)
-% The second column is the AUROC/FPR95 row label; FPR95 cells are placeholders.
 \begin{tabular}{LS|C|C|C|C|C|C|G|C|C|C|C|C|C|}
-\cline{1-8}\cline{10-15}
+%\splitlinedual
 \rowcolor{headergray}
 \multicolumn{2}{c}{} & \multicolumn{6}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{6}{c}{\textbf{Near-OoD}} \\
 \rowcolor{headergray}
 \multicolumn{2}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\textbf{CNN}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\textbf{CNN}} \\
 
-\cline{1-8}\cline{10-15}
-\groupgap
-\multirow{2}{*}{\modelname{spike-Resnet10 ASH}}    & \aurocname & \lowcell{69.94} & \midcell{86.97} & \greenAcell{88.12} & \vhighcell{90.37} & \greenBcell{89.22} & 89.01 & & \lowcell{56.16} & \midcell{80.85} & \midcell{82.99} & \midcell{85.39} & \midcell{81.47} & 83.72 \\
-                                             & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+%\cline{1-8}\cline{10-15}
+%\groupgap
+\multirow{2}{*}{\modelname{spike-Resnet10 ASH}}    & \aurocname & \lowcell{69.94} & \midcell{86.97} & \greenAcell{88.12} & \vhighcell{90.37} & \greenBcell{89.22} & \greenBcell{89.01} & & \lowcell{56.16} & \midcell{80.85} & \midcell{82.99} & \midcell{85.39} & \midcell{81.47} & \midcell{83.72} \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{52.50} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{66.02} \\
 \hline
-\multirow{2}{*}{\modelname{spike-Resnet10 MSP}}    & \aurocname & \lowcell{73.07} & \midcell{85.83} & \highmidcell{87.66} & \greenBcell{89.39} & \greenBcell{89.89} & 87.66 & & \lowcell{74.13} & \midcell{79.92} & \midcell{82.69} & \midcell{84.59} & \midcell{83.26} & 84.63 \\
-                                             & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
-\hline
-\multirow{2}{*}{\modelname{spike-Resnet10 ODIN}}   & \aurocname & \lowcell{73.01} & \midcell{85.70} & \greenAcell{88.24} & \vhighcell{90.31} & \vhighcell{90.18} & 87.73 & & \lowcell{74.08} & \midcell{79.79} & \midcell{83.16} & \midcell{85.60} & \midcell{83.39} & 82.36 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
-\hline
-\multirow{2}{*}{\modelname{spike-Resnet10 Energy}} & \aurocname & \redcell{44.45} & \highmidcell{87.52} & \midcell{84.10} & \midcell{86.22} & \midcell{78.60} & 89.01 & & \redcell{31.14} & \midcell{81.63} & \midcell{80.46} & \midcell{82.66} & \lowcell{71.05} & 83.70 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
-\hline
-\multirow{2}{*}{\modelname{spike-Resnet10 MLS}}    & \aurocname & \midcell{82.89} & \midcell{86.60} & \highmidcell{87.52} & \greenBcell{89.56} & \greenBcell{89.38} & 89.92 & & \lowcell{75.09} & \midcell{80.53} & \midcell{82.52} & \midcell{84.61} & \midcell{81.93} & 83.81 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
-\hline
-\multirow{2}{*}{\modelname{spike-Resnet10 VIM}}    & \aurocname & \midcell{85.34} & \peakcell{\textbf{96.77}} & \peakcell{95.55} & \peakcell{95.55} & \topcell{93.31} & 94.44 & & \midcell{81.05} & \topcell{\textbf{92.75}} & \vhighcell{91.13} & \vhighcell{91.97} & \midcell{86.68} & 91.95 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
 
-\cline{1-8}\cline{10-15}
-\groupgap
+\multirow{2}{*}{\modelname{spike-Resnet10 MSP}}    & \aurocname & \lowcell{73.07} & \midcell{85.83} & \highmidcell{87.66} & \greenBcell{89.39} & \greenBcell{89.89} & \highmidcell{87.66} & & \lowcell{74.13} & \midcell{79.92} & \midcell{82.69} & \midcell{84.59} & \midcell{83.26} & \midcell{84.63} \\
+                                             
+                                             & \fprname   & \fprredcell{82.56} & \fprredcell{54.73} & \fprredcell{55.79} & \fprlowcell{48.21} & \fprlowcell{41.63} & \fprredcell{65.47} & & \fprredcell{79.81} & \fprredcell{70.62} & \fprredcell{69.29} & \fprredcell{64.55} & \fprredcell{62.38} & \fprredcell{71.07} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 ODIN}}   & \aurocname & \lowcell{73.01} & \midcell{85.70} & \greenAcell{88.24} & \vhighcell{90.31} & \vhighcell{90.18} & \highmidcell{87.73} & & \lowcell{74.08} & \midcell{79.79} & \midcell{83.16} & \midcell{85.60} & \midcell{83.39} & \midcell{82.36} \\
+                                            & \fprname   & \fprredcell{82.58} & \fprredcell{55.23} & \fprredcell{52.62} & \fprlowcell{43.81} & \fprlowcell{38.84} & \fprredcell{57.30} & & \fprredcell{79.81} & \fprredcell{71.14} & \fprredcell{67.24} & \fprredcell{60.79} & \fprredcell{59.60} & \fprredcell{69.78} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 Energy}} & \aurocname & \redcell{44.45} & \highmidcell{87.52} & \midcell{84.10} & \midcell{86.22} & \midcell{78.60} & \greenBcell{89.01} & & \redcell{31.14} & \midcell{81.63} & \midcell{80.46} & \midcell{82.66} & \lowcell{71.05} & \midcell{83.70} \\
+                                            & \fprname   & \fprredcell{97.41} & \fprredcell{50.73} & \fprredcell{80.04} & \fprredcell{72.41} & \fprredcell{78.20} & \fprredcell{52.58} & & \fprredcell{99.27} & \fprredcell{66.39} & \fprredcell{82.51} & \fprredcell{76.30} & \fprredcell{89.02} & \fprredcell{66.19} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 MLS}}    & \aurocname & \midcell{82.89} & \midcell{86.60} & \highmidcell{87.52} & \greenBcell{89.56} & \greenBcell{89.38} & \greenBcell{89.92} & & \lowcell{75.09} & \midcell{80.53} & \midcell{82.52} & \midcell{84.61} & \midcell{81.93} & \midcell{83.81} \\
+                                            & \fprname   & \fprlowcell{44.36} & \fprlowcell{47.89} & \fprlowcell{42.32} & \fprredcell{52.49} & \fprredcell{60.19} & \fprlowcell{46.90} & & \fprmidcell{20.52} & \fprlowcell{31.52} & \fprlowcell{30.09} & \fprlowcell{35.64} & \fprlowcell{39.41} & \fprlowcell{33.81} \\
+\hline
+\multirow{2}{*}{\modelname{spike-Resnet10 VIM}}    & \aurocname & \midcell{85.34} & \peakcell{\textbf{96.77}} & \peakcell{95.55} & \peakcell{95.55} & \topcell{93.31} & \highcell{94.44} & & \midcell{81.05} & \topcell{\textbf{92.75}} & \vhighcell{91.13} & \vhighcell{91.97} & \midcell{86.68} & \vhighcell{91.95} \\
+                                            & \fprname   & \fprredcell{52.00} & \fprredcell{82.26} & \fprredcell{77.96} & \fprredcell{79.76} & \fprredcell{73.85} & \fprredcell{69.49} & & \fprlowcell{34.69} & \fprredcell{60.05} & \fprredcell{58.15} & \fprredcell{62.42} & \fprredcell{52.31} & \fprredcell{61.68} \\
+                                            \hline
+                                            \hline
+
+%\cline{1-8}\cline{10-15}
+%\groupgap
 % TODO: fill CNN column — replace --- with \<color>cell{value} once available
-\multirow{2}{*}{\modelname{spike-Resnet18 ASH}}    & \aurocname & \lowcell{73.21} & \midcell{85.70} & \topcell{92.10} & \topcell{92.92} & \topcell{93.90} & 92.87 & & \lowcell{61.05} & \midcell{86.91} & \greenAcell{88.45} & \greenBcell{89.60} & \greenBcell{89.56} & 89.40 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\multirow{2}{*}{\modelname{spike-Resnet18 ASH}}    & \aurocname & \lowcell{73.21} & \midcell{85.70} & \topcell{92.10} & \topcell{92.92} & \topcell{93.90} & \topcell{92.87} & & \lowcell{61.05} & \midcell{86.91} & \greenAcell{88.45} & \greenBcell{89.60} & \greenBcell{89.56} & \greenBcell{89.40} \\
+                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprlowcell{36.80} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprlowcell{48.80} \\
 \hline
-\multirow{2}{*}{\modelname{spike-Resnet18 MSP}}    & \aurocname & \lowcell{75.92} & \vhighcell{91.75} & \topcell{92.63} & \topcell{92.67} & \topcell{92.38} & 91.74 & & \lowcell{70.55} & \midcell{86.48} & \greenAcell{88.14} & \greenAcell{88.00} & \highmidcell{87.15} & 89.43 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\multirow{2}{*}{\modelname{spike-Resnet18 MSP}}    & \aurocname & \lowcell{75.92} & \vhighcell{91.75} & \topcell{92.63} & \topcell{92.67} & \topcell{92.38} & \vhighcell{91.74} & & \lowcell{70.55} & \midcell{86.48} & \greenAcell{88.14} & \greenAcell{88.00} & \highmidcell{87.15} & \greenBcell{89.43} \\
+                                            & \fprname   & \fprredcell{84.27} & \fprlowcell{39.41} & \fprlowcell{38.35} & \fprlowcell{41.10} & \fprlowcell{39.71} & \fprredcell{52.07} & & \fprredcell{87.64} & \fprredcell{59.17} & \fprredcell{57.52} & \fprredcell{61.60} & \fprredcell{61.65} & \fprredcell{59.38} \\
 \hline
-\multirow{2}{*}{\modelname{spike-Resnet18 ODIN}}   & \aurocname & \lowcell{75.89} & \vhighcell{91.75} & \topcell{92.83} & \topcell{93.65} & \topcell{93.42} & 91.93 & & \lowcell{70.51} & \midcell{86.44} & \greenAcell{88.38} & \greenBcell{89.28} & \greenAcell{88.47} & 88.41 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\multirow{2}{*}{\modelname{spike-Resnet18 ODIN}}   & \aurocname & \lowcell{75.89} & \vhighcell{91.75} & \topcell{92.83} & \topcell{93.65} & \topcell{93.42} & \vhighcell{91.93} & & \lowcell{70.51} & \midcell{86.44} & \greenAcell{88.38} & \greenBcell{89.28} & \greenAcell{88.47} & \greenAcell{88.41} \\
+                                            & \fprname   & \fprredcell{84.30} & \fprlowcell{38.81} & \fprlowcell{35.64} & \fprlowcell{32.94} & \fprlowcell{32.54} & \fprlowcell{38.82} & & \fprredcell{87.67} & \fprredcell{58.51} & \fprredcell{54.40} & \fprredcell{52.12} & \fprredcell{53.55} & \fprredcell{50.61} \\
 \hline
-\multirow{2}{*}{\modelname{spike-Resnet18 Energy}} & \aurocname & \redcell{47.93} & \vhighcell{91.18} & \vhighcell{91.84} & \topcell{93.88} & \highcell{94.07} & 92.86 & & \redcell{40.29} & \midcell{86.81} & \greenAcell{88.10} & \greenBcell{89.62} & \greenBcell{89.61} & 89.39 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\multirow{2}{*}{\modelname{spike-Resnet18 Energy}} & \aurocname & \redcell{47.93} & \vhighcell{91.18} & \vhighcell{91.84} & \topcell{93.88} & \highcell{94.07} & \topcell{92.86} & & \redcell{40.29} & \midcell{86.81} & \greenAcell{88.10} & \greenBcell{89.62} & \greenBcell{89.61} & \greenBcell{89.39} \\
+                                            & \fprname   & \fprredcell{93.33} & \fprlowcell{41.21} & \fprlowcell{40.92} & \fprlowcell{30.74} & \fprlowcell{25.46} & \fprlowcell{36.83} & & \fprredcell{96.49} & \fprredcell{54.35} & \fprredcell{53.94} & \fprlowcell{49.41} & \fprlowcell{42.50} & \fprlowcell{48.80} \\
 \hline
-\multirow{2}{*}{\modelname{spike-Resnet18 MLS}}    & \aurocname & \midcell{83.63} & \vhighcell{91.84} & \topcell{92.60} & \topcell{93.48} & \topcell{93.43} & 92.83 & & \lowcell{75.07} & \midcell{86.64} & \greenAcell{88.09} & \greenBcell{89.09} & \greenAcell{88.54} & 89.41 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\multirow{2}{*}{\modelname{spike-Resnet18 MLS}}    & \aurocname & \midcell{83.63} & \vhighcell{91.84} & \topcell{92.60} & \topcell{93.48} & \topcell{93.43} & \topcell{92.83} & & \lowcell{75.07} & \midcell{86.64} & \greenAcell{88.09} & \greenBcell{89.09} & \greenAcell{88.54} & \greenBcell{89.41} \\
+                                            & \fprname   & \fprlowcell{49.75} & \fprredcell{61.50} & \fprredcell{62.76} & \fprredcell{65.16} & \fprredcell{68.85} & \fprredcell{62.21} & & \fprlowcell{27.53} & \fprlowcell{41.90} & \fprlowcell{43.90} & \fprlowcell{45.38} & \fprlowcell{48.79} & \fprredcell{50.54} \\
 \hline
-\multirow{2}{*}{\modelname{spike-Resnet18 VIM}}    & \aurocname & \greenAcell{88.39} & \topcell{92.00} & \topcell{93.01} & \topcell{93.87} & \peakcell{\textbf{95.57}} & 93.36 & & \midcell{82.20} & \highmidcell{87.99} & \greenBcell{89.39} & \vhighcell{90.07} & \vhighcell{\textbf{91.69}} & 91.90 \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
-\cline{1-8}\cline{10-15}
+\multirow{2}{*}{\modelname{spike-Resnet18 VIM}}    & \aurocname & \greenAcell{88.39} & \topcell{92.00} & \topcell{93.01} & \topcell{93.87} & \peakcell{\textbf{95.57}} & \topcell{93.36} & & \midcell{82.20} & \highmidcell{87.99} & \greenBcell{89.39} & \vhighcell{90.07} & \vhighcell{\textbf{91.69}} & \vhighcell{91.90} \\
+                                            & \fprname   & \fprlowcell{45.83} & \fprredcell{58.59} & \fprredcell{62.25} & \fprredcell{68.11} & \fprredcell{77.54} & \fprredcell{60.63} & & \fprlowcell{28.01} & \fprlowcell{42.10} & \fprlowcell{44.90} & \fprlowcell{48.18} & \fprredcell{55.88} & \fprredcell{55.77} \\
+%\cline{1-8}\cline{10-15}
 \end{tabular}
 
 \label{tab:cifar10-experiment-2}
 \end{center}
 \end{table*}
 
-
 This experiment evaluates scoring-based OoD detection methods applied to membrane-potential features extracted from spike-like residual networks trained with the MSE objective and operating at a single simulation time step. The evaluated methods include Maximum Softmax Probability (MSP), Energy, Maximum Logit Score (MLS), ASH, and Virtual Logit Matching (ViM). All methods are applied without additional detector training. In contrast to the previous experiment, where distance-based kNN detection was performed on penultimate-layer features, here post-hoc anomaly scores are computed from final-layer representations (with exception of ViM which uses both penultimate and final layer features). Population-coding expansions are varied to assess whether distributed output representations influence the separability of final-layer features and the effectiveness of scoring-based OoD detection.
 
-For the spike-ConvNet backbone, the resulting anomaly scores are uninformative regardless of the training objective, and its results are therefore omitted. Furthermore, spike-pattern features yield substantially lower AUROC than membrane-potential features across all evaluated methods, so only membrane-potential feature results are reported.
+For the spike-ConvNet backbone, the resulting anomaly scores are uninformative regardless of the training objective, and its results are therefore omitted. Furthermore, spike-pattern features yield substantially lower AUROC than membrane-potential features across all evaluated methods, so only membrane-potential feature results are reported. For the CNN backbone, population-coded scoring results are not reported because they were consistently worse than the corresponding non-population baseline.
 
-Table~\ref{tab:cifar10-experiment-2} summarizes results for the spike-ResNet10 and spike-ResNet18 backbones. Several consistent observations emerge. First, population coding consistently improves OoD detection performance across multiple post-hoc methods: demonstrating that distributed output representations benefit final-layer scoring-based detection as well as penultimate-layer distance-based detection. Second, ViM, which leverages both penultimate- and final-layer information, generally achieves the strongest performance, reaching peak AUROC values that substantially exceed those of the other methods. In some cases, the anomaly score  is especially sensitive to the absence of population coding, exhibiting near-random performance at $E=1$ for both backbones while recovering strongly at larger expansion values.
+Table~\ref{tab:cifar10-experiment-2} summarizes results for the spike-ResNet10 and spike-ResNet18 backbones. Several consistent observations emerge. First, the proposed spike-like models achieve AUROC values comparable to, and in multiple settings higher than, the CNN baseline for scoring-based post-hoc detection. Second, increasing the population-coding expansion generally improves AUROC, indicating that distributed output representations are beneficial for final-layer scoring. Third, ViM, which leverages both penultimate- and final-layer information, is the strongest method overall in this setup, reaching the highest AUROC values across the reported configurations. Finally, although AUROC trends are strong, many FPR95 values remain relatively high, indicating room for further improvement in operating-point performance.
 
 These results suggest that single-step spike-like models trained with the MSE objective can enable effective application of standard post-hoc OoD scoring methods, particularly when dense membrane-potential features are combined with population coding.
 
 
-
 \subsubsection*{Effect of multi-step training on single-step OoD Detection}
 
-%\begin{table}[tbp]
-%\caption{Effect of multi-step training on kNN and penultimate features. The given numbers is auroc for Near- and far-ood datasets.}
-%\begin{center}
-%\begin{tabular}{l| p{1cm} p{1cm} p{1cm} p{1cm} p{1cm}}
-%    & \multicolumn{5}{l}{spike-ResNet18} \\
-%    & 1             & 5             & 10            & 25            & 50            \\ \hline
-%T=1 & 91.55 / 95.26 & 93.91 / 96.63 & 92.86 / 96.10 & 91.56 / 95.26 & 92.47 / 95.91 \\
-%T=2 & 53.86 / 55.28 & 76.90 / 81.24 & 84.12 / 90.31 & 96.70 / 98.63 & 97.25 / 98.52 \\
-%T=4 & 51.60 / 53.64 & 79.61 / 86.76 & 88.02 / 93.70 & 95.84 / 98.01 & 96.33 / 98.15 \\
-%T=8 & 84.13 / 99.62 & 94.38 / 98.21 & 96.19 / 97.73 & 96.80 / 98.32 & 95.23 / 97.89    
-%\end{tabular}
-%\label{tab:cifar10-experiment-3}
-%\end{center}
-%\end{table}
-%
+
 %
 %This experiment introduces ablation setup based on the previous setup and employing multiple simulation time steps during training, while keeping inference restricted to a single time step. This way, training is leaned towards the SNN approach. It is investigated whether OoD detection performance can benefit from multi-step training while preserving the energy efficiency of single-step inference.
 %
@@ -616,7 +605,7 @@ These results suggest that single-step spike-like models trained with the MSE ob
 
 
 \begin{table*}[tbp]
-\caption{AUROC for kNN-based OoD detection on penultimate-layer membrane-potential features of spike-ResNet18 trained with the MSE objective, as a function of training time steps $T$ and population-coding expansion $E$. Inference is restricted to a single time step in all cases. Results are averaged over five independent runs.}
+\caption{AUROC and FPR95 for kNN-based OoD detection on penultimate-layer membrane-potential features of spike-ResNet18 trained with the MSE objective, as a function of training time steps $T$ and population-coding expansion $E$. Inference is restricted to a single time step in all cases. Results are averaged over five independent runs.}
 \begin{center}
 \centering
 \small
@@ -624,54 +613,49 @@ These results suggest that single-step spike-like models trained with the MSE ob
 \setlength{\tabcolsep}{2pt}
 \arrayrulecolor{gridgray}
 
-\begin{tabular}{|L|C|C|C|C|C|G|C|C|C|C|C|}
-\splitline
+\begin{tabular}{LS|C|C|C|C|C|G|C|C|C|C|C|}
+%\splitlinedual
+%\cline{1-7}\cline{9-13}
 \rowcolor{headergray}
-\multicolumn{1}{c}{} & \multicolumn{5}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{5}{c}{\textbf{Near-OoD}} \\
+\multicolumn{2}{c}{} & \multicolumn{5}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{5}{c}{\textbf{Near-OoD}} \\
 \rowcolor{headergray}
-\multicolumn{1}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} \\
+\multicolumn{2}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} \\
 
-\splitline
-kNN $T=1$ & \highcell{95.26} & \peakcell{96.63} & \peakcell{96.10} & \highcell{95.26} & \peakcell{95.91} & & \vhighcell{91.55} & \topcell{93.91} & \topcell{92.86} & \vhighcell{91.56} & \topcell{92.47} \\
-kNN $T=2$ & \lowcell{55.28} & \midcell{81.24} & \vhighcell{90.31} & \peakcell{98.63} & \peakcell{98.52} & & \lowcell{53.86} & \midcell{76.90} & \midcell{84.12} & \peakcell{96.70} & \peakcell{97.25} \\
-kNN $T=4$ & \lowcell{53.64} & \midcell{86.76} & \topcell{93.70} & \peakcell{98.01} & \peakcell{98.15} & & \lowcell{51.60} & \midcell{79.61} & \greenAcell{88.02} & \peakcell{95.84} & \peakcell{96.33} \\
-kNN $T=8$ & \peakcell{99.62} & \peakcell{98.21} & \peakcell{97.73} & \peakcell{98.32} & \peakcell{97.89} & & \midcell{84.13} & \highcell{94.38} & \peakcell{96.19} & \peakcell{96.80} & \highcell{95.23} \\
-\splitline
+%\cline{1-7}\cline{9-13}
+\multirow{2}{*}{kNN $T=1$} & \aurocname & \highcell{95.26} & \peakcell{96.63} & \peakcell{96.10} & \highcell{95.26} & \peakcell{95.91} & & \vhighcell{91.55} & \topcell{93.91} & \topcell{92.86} & \vhighcell{91.56} & \topcell{92.47} \\
+                            & \fprname   & \fprmidcell{21.67} & \fprmidcell{\textbf{17.13}} & \fprmidcell{19.80} & \fprmidcell{23.86} & \fprmidcell{18.53} & & \fprlowcell{36.69} & \fprlowcell{\textbf{29.99}} & \fprlowcell{33.87} & \fprlowcell{39.31} & \fprlowcell{33.15} \\
+\hline
+\multirow{2}{*}{kNN $T=2$} & \aurocname & \lowcell{55.28} & \midcell{81.24} & \vhighcell{90.31} & \peakcell{98.63} & \peakcell{98.52} & & \lowcell{53.86} & \midcell{76.90} & \midcell{84.12} & \peakcell{96.70} & \peakcell{97.25} \\
+                           & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{kNN $T=4$} & \aurocname & \lowcell{53.64} & \midcell{86.76} & \topcell{93.70} & \peakcell{98.01} & \peakcell{98.15} & & \lowcell{51.60} & \midcell{79.61} & \greenAcell{88.02} & \peakcell{95.84} & \peakcell{96.33} \\
+                           & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{kNN $T=8$} & \aurocname & \peakcell{99.62} & \peakcell{98.21} & \peakcell{97.73} & \peakcell{98.32} & \peakcell{97.89} & & \midcell{84.13} & \highcell{94.38} & \peakcell{96.19} & \peakcell{96.80} & \highcell{95.23} \\
+                           & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\hline
+
+%\cline{1-7}\cline{9-13}
+\multirow{2}{*}{ViM $T=1$} & \aurocname & \greenAcell{88.39} & \topcell{92.00} & \peakcell{96.10} & \highcell{95.26} & \peakcell{95.57} & & \midcell{82.20} & \highmidcell{87.99} & \topcell{93.01} & \topcell{93.87} & \vhighcell{91.69} \\
+                           & \fprname   & \fprlowcell{45.83} & \fprredcell{58.59} & \fprredcell{62.25} & \fprredcell{68.11} & \fprredcell{77.54} & & \fprlowcell{28.01} & \fprlowcell{42.10} & \fprlowcell{44.90} & \fprlowcell{48.18} & \fprredcell{55.88} \\
+\hline
+\multirow{2}{*}{ViM $T=2$} & \aurocname & \lowcell{54.08} & \midcell{82.03} & \greenBcell{89.91} & \highcell{95.46} & \highcell{95.46} & & \lowcell{53.49} & \lowcell{75.93} & \midcell{84.15} & \vhighcell{91.43} & \topcell{92.53} \\
+                           & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{ViM $T=4$} & \aurocname & \lowcell{53.11} & \midcell{85.14} & \vhighcell{90.17} & \topcell{92.45} & \topcell{93.36} & & \lowcell{51.24} & \midcell{77.46} & \midcell{83.67} & \midcell{86.23} & \greenAcell{88.79} \\
+                           & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+\hline
+\multirow{2}{*}{ViM $T=8$} & \aurocname & \midcell{81.78} & {---} & \vhighcell{91.10} & \highcell{94.85} & \peakcell{98.65} & & \lowcell{67.11} & {---} & \midcell{85.77} & \topcell{92.80} & \highcell{94.59} \\
+                           & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
+
 \end{tabular}
-
 \label{tab:cifar10-experiment-3}
 \end{center}
 \end{table*}
 
-\begin{table*}[tbp]
-\caption{AUROC for ViM-based OoD detection on spike-ResNet18 trained with the MSE objective, as a function of training time steps $T$ and population-coding expansion $E$. Inference is restricted to a single time step in all cases. Results are averaged over five independent runs. }
-\begin{center}
-\centering
-\small
-\renewcommand{\arraystretch}{1.18}
-\setlength{\tabcolsep}{2pt}
-\arrayrulecolor{gridgray}
 
-\begin{tabular}{|L|C|C|C|C|C|G|C|C|C|C|C|}
-\splitline
-\rowcolor{headergray}
-\multicolumn{1}{c}{} & \multicolumn{5}{c}{\textbf{Far-OoD}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{5}{c}{\textbf{Near-OoD}} \\
-\rowcolor{headergray}
-\multicolumn{1}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} \\
-
-\splitline
-ViM $T=1$ & \greenAcell{88.39} & \topcell{92.00} & \peakcell{96.10} & \highcell{95.26} & \peakcell{95.57} & & \midcell{82.20} & \highmidcell{87.99} & \topcell{93.01} & \topcell{93.87} & \vhighcell{91.69} \\
-ViM $T=2$ & \lowcell{54.08} & \midcell{82.03} & \greenBcell{89.91} & \highcell{95.46} & \highcell{95.46} & & \lowcell{53.49} & \lowcell{75.93} & \midcell{84.15} & \vhighcell{91.43} & \topcell{92.53} \\
-ViM $T=4$ & \lowcell{53.11} & \midcell{85.14} & \vhighcell{90.17} & \topcell{92.45} & \topcell{93.36} & & \lowcell{51.24} & \midcell{77.46} & \midcell{83.67} & \midcell{86.23} & \greenAcell{88.79} \\
-ViM $T=8$ & \midcell{81.78} & {---} & \vhighcell{91.10} & \highcell{94.85} & \peakcell{98.65} & & \lowcell{67.11} & {---} & \midcell{85.77} & \topcell{92.80} & \highcell{94.59} \\
-\splitline
-\end{tabular}
-
-\label{tab:cifar10-experiment-3-vim}
-\end{center}
-\end{table*}
-
-This experiment extends the first CIFAR-10 experiment into an ablation study: the spike-ResNet18 backbone is trained with the MSE objective across four training-step budgets $T \in \{1, 2, 4, 8\}$, while inference is kept at a single time step in all cases. Restricting inference to $T=1$ preserves the low-compute, energy-efficient profile of spike-like models regardless of how many steps are used during training. The kNN distance-based detector applied to penultimate-layer membrane-potential features is retained throughout, isolating the effect of training depth from other variables. Table~\ref{tab:cifar10-experiment-3} and Table~\ref{tab:cifar10-experiment-3-vim} report results for kNN and ViM detection, respectively.
+This experiment extends the first CIFAR-10 experiment into an ablation study: the spike-ResNet18 backbone is trained with the MSE objective across four training-step budgets $T \in \{1, 2, 4, 8\}$, while inference is kept at a single time step in all cases. Restricting inference to $T=1$ preserves the low-compute, energy-efficient profile of spike-like models regardless of how many steps are used during training. The effect of training depth is evaluated with both kNN (on penultimate-layer membrane-potential features) and ViM (standard ViM setup), and both sets of results are summarized in Table~\ref{tab:cifar10-experiment-3}.
 
 Two distinct regimes emerge from the color patterns in the tables. Without population coding ($E=1$), increasing the number of training steps does not consistently improve OoD performance and in several cases substantially degrades it. This indicates that temporal integration during training restructures the internal representations in a way that is poorly suited to single-step feature extraction when the output layer is unexpanded. With sufficient population coding ($E \geq 25$), the picture changes markedly: multi-step training then yields clearly stronger OoD separation than single-step training, with the improvement visible as a shift from lighter to darker greens across the corresponding columns. The benefit of multi-step training therefore depends on the presence of an adequately expanded output layer to relay the richer gradient signal back to the penultimate layer.
 
@@ -679,77 +663,117 @@ Population coding plays a dual role here. In addition to amplifying the effect o
 
 A further observation concerns the relative merit of detection strategies. The kNN detector applied to penultimate-layer membrane-potential features achieves performance comparable to, and in several configurations exceeding, the best scoring-based method (ViM) evaluated on final-layer features. This is notable because kNN operates directly on raw penultimate features without any calibration or transformation, suggesting that well-structured penultimate representations alone can be sufficient for competitive OoD detection.
     
- 
-\begin{table}[tbp]
-\caption{Top-5 entries on the OpenOOD~v1.5 CIFAR-10 leaderboard (ResNet-18,
-$\approx$95\% ID accuracy), ranked by Near-OoD AUROC. Near-OoD: CIFAR-100,
-TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365. $^\dagger$Uses
-outlier training data (TIN-597).}
+\subsubsection*{Comaprison with the state of the art}
+Here we want to compare our best results with the state-of-the-art reported for CIFAR10 
+\begin{table*}[tbp]
+\caption{Top-5 entries on the OpenOOD~v1.5 CIFAR-10 leaderboard (ResNet-18, $\approx$95\% ID accuracy), ranked by Near-OoD AUROC, with both AUROC and FPR95 reported. Near-OoD: CIFAR-100, TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365. $^\dagger$Uses outlier training data (TIN-597).}
 \begin{center}
 \footnotesize
-\begin{tabular}{|c|p{2.7cm}|p{2.4cm}|c||p{2.7cm}|p{2.4cm}|c|}
+\begin{tabular}{|c|c|p{2.6cm}|p{2.0cm}|c|c|}
 \hline
-\multirow{2}{*}{\textbf{Rank}}
-  & \multicolumn{3}{c||}{\textbf{Near-OoD AUROC}}
-  & \multicolumn{3}{c|}{\textbf{Far-OoD AUROC}} \\
-\cline{2-7}
-  & \textbf{Training} & \textbf{Postprocessor} & \textbf{AUROC}
-  & \textbf{Training} & \textbf{Postprocessor} & \textbf{AUROC} \\
+\multirow{2}{*}{\textbf{Rank}} & \multirow{2}{*}{\textbf{Metric}}
+  & \multirow{2}{*}{\textbf{Training}} & \multirow{2}{*}{\textbf{Postprocessor}}
+  & \multicolumn{2}{c|}{\textbf{Value}} \\
+\cline{5-6}
+  & & & & \textbf{Near-OoD} & \textbf{Far-OoD} \\
 \hline
-1 & RotPred + PixMix & RotPred         & 94.86
-  & RotPred + PixMix & RotPred         & 98.18 \\
-2 & OE$^\dagger$     & MSP             & 94.82
-  & LogitNorm        & MSP             & 96.74 \\
-3 & RotPred          & RotPred         & 92.68
-  & RotPred          & RotPred         & 96.62 \\
-4 & LogitNorm        & MSP             & 92.33
-  & OE$^\dagger$     & MSP             & 96.00 \\
-5 & MCD$^\dagger$    & MCD             & 91.03
-  & G-ODIN           & G-ODIN          & 95.51 \\
+\multirow{2}{*}{1} & AUROC & RotPred + PixMix & RotPred & 94.86 & 98.18 \\
+                    & FPR95 & RotPred + PixMix & RotPred & 20.69 & 6.56 \\
+\hline
+\multirow{2}{*}{2} & AUROC & OE$^\dagger$ & MSP & 94.82 & 96.00 \\
+                    & FPR95 & OE$^\dagger$ & MSP & 19.84 & 13.13 \\
+\hline
+\multirow{2}{*}{3} & AUROC & LogitNorm + PixMix & MSP & 94.25 & 97.90 \\
+                    & FPR95 & LogitNorm + PixMix & MSP & 23.16 & 9.33 \\
+\hline
+\multirow{2}{*}{4} & AUROC & PixMix & KNN & 93.10 & 95.94 \\
+                    & FPR95 & PixMix & KNN & 27.60 & 16.97 \\
+\hline
+\multirow{2}{*}{5} & AUROC & PixMix & MSP & 93.07 & 95.65 \\
+                    & FPR95 & PixMix & MSP & 24.96 & 16.33 \\
+\hline
+\hline
+\multirow{2}{*}{Ours} & AUROC & spike-ResNet18-MSE & kNN ($T{=}1$, $E{=}5$) & 93.91 & 96.63 \\
+                       & FPR95 & spike-ResNet18-MSE & kNN ($T{=}1$, $E{=}5$) & 29.99 & 17.13 \\
 \hline
 \end{tabular}
 \label{tab:openood-cifar10}
 \end{center}
-\end{table}
+\end{table*}
     
-\begin{table}[tbp]
-\caption{Top-5 entries on the OpenOOD~v1.5 CIFAR-100 leaderboard (ResNet-18,
-$\approx$77\% ID accuracy), ranked by Near-OoD AUROC. Near-OoD: CIFAR-10,
-TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365. $^\dagger$Uses
-outlier training data (TIN-597). $^\ddagger$AUROC unavailable due to
-leaderboard pagination.}
+%\begin{table}[tbp]
+%\caption{Top-5 entries on the OpenOOD~v1.5 CIFAR-100 leaderboard (ResNet-18,
+%$\approx$77\% ID accuracy), ranked by Near-OoD AUROC. Near-OoD: CIFAR-10,
+%TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365. $^\dagger$Uses
+%outlier training data (TIN-597). $^\ddagger$AUROC unavailable due to
+%leaderboard pagination.}
+%\begin{center}
+%\footnotesize
+%\begin{tabular}{|c|p{2.7cm}|p{2.4cm}|c||p{2.7cm}|p{2.4cm}|c|}
+%\hline
+%\multirow{2}{*}{\textbf{Rank}}
+%  & \multicolumn{3}{c||}{\textbf{Near-OoD AUROC}}
+%  & \multicolumn{3}{c|}{\textbf{Far-OoD AUROC}} \\
+%\cline{2-7}
+%  & \textbf{Training} & \textbf{Postprocessor} & \textbf{AUROC}
+%  & \textbf{Training} & \textbf{Postprocessor} & \textbf{AUROC} \\
+%\hline
+%1 & OE$^\dagger$   & MSP         & 88.30
+%  & RotPred        & RotPred     & 88.40 \\
+%2 & OAL            & EBO         & 82.03
+%  & G-ODIN         & G-ODIN      & 85.67 \\
+%3 & CrossEntropy   & WeiPer+KLD  & 81.37
+%  & OAL            & EBO         & 84.03 \\
+%4 & CrossEntropy   & GEN         & $-^\ddagger$
+%  & CrossEntropy   & RMDS        & 82.92 \\
+%5 & CrossEntropy   & MLS         & 81.05
+%  & CrossEntropy   & KNN         & 82.40 \\
+%\hline
+%\end{tabular}
+%\label{tab:openood-cifar100}
+%\end{center}
+%\end{table}
+
+\subsection{Experiments with CIFAR100}
+Just keep it as a proof of a concept, avoiding detailed graphic representations.
+\subsubsection*{Comaprison with the state of the art}
+\begin{table*}[tbp]
+\caption{Top-5 entries on the OpenOOD~v1.5 CIFAR-100 leaderboard (ResNet-18, $\approx$77\% ID accuracy), ranked by Near-OoD AUROC. Near-OoD: CIFAR-10, TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365. $^\dagger$Uses outlier training data (TIN-597). FPR95 values are filled from the OpenOOD spreadsheet tab (gid=2104599404) when available; missing entries are shown as placeholders.}
 \begin{center}
 \footnotesize
-\begin{tabular}{|c|p{2.7cm}|p{2.4cm}|c||p{2.7cm}|p{2.4cm}|c|}
+\begin{tabular}{|c|c|p{2.6cm}|p{2.0cm}|c|c|}
 \hline
-\multirow{2}{*}{\textbf{Rank}}
-  & \multicolumn{3}{c||}{\textbf{Near-OoD AUROC}}
-  & \multicolumn{3}{c|}{\textbf{Far-OoD AUROC}} \\
-\cline{2-7}
-  & \textbf{Training} & \textbf{Postprocessor} & \textbf{AUROC}
-  & \textbf{Training} & \textbf{Postprocessor} & \textbf{AUROC} \\
+\multirow{2}{*}{\textbf{Rank}} & \multirow{2}{*}{\textbf{Metric}}
+  & \multirow{2}{*}{\textbf{Training}} & \multirow{2}{*}{\textbf{Postprocessor}}
+  & \multicolumn{2}{c|}{\textbf{Value}} \\
+\cline{5-6}
+  & & & & \textbf{Near-OoD} & \textbf{Far-OoD} \\
 \hline
-1 & OE$^\dagger$   & MSP         & 88.30
-  & RotPred        & RotPred     & 88.40 \\
-2 & OAL            & EBO         & 82.03
-  & G-ODIN         & G-ODIN      & 85.67 \\
-3 & CrossEntropy   & WeiPer+KLD  & 81.37
-  & OAL            & EBO         & 84.03 \\
-4 & CrossEntropy   & GEN         & $-^\ddagger$
-  & CrossEntropy   & RMDS        & 82.92 \\
-5 & CrossEntropy   & MLS         & 81.05
-  & CrossEntropy   & KNN         & 82.40 \\
+\multirow{2}{*}{1} & AUROC & OE$^\dagger$ & MSP & 88.30 & 81.41 \\
+                    & FPR95 & OE$^\dagger$ & MSP & 30.73 & 54.82 \\
+\hline
+\multirow{2}{*}{2} & AUROC & OAL & EBO & 82.03 & 84.03 \\
+                    & FPR95 & OAL & EBO & --- & --- \\
+\hline
+\multirow{2}{*}{3} & AUROC & CrossEntropy & WeiPer+KLD & 81.37 & 79.01 \\
+                    & FPR95 & CrossEntropy & WeiPer+KLD & --- & --- \\
+\hline
+\multirow{2}{*}{4} & AUROC & CrossEntropy & GEN & 81.31 & 79.68 \\
+                    & FPR95 & CrossEntropy & GEN & 54.42 & 56.71 \\
+\hline
+\multirow{2}{*}{5} & AUROC & CrossEntropy & fDBD & 81.26 & 79.85 \\
+                    & FPR95 & CrossEntropy & fDBD & --- & --- \\
+\hline
+\hline
+\multirow{2}{*}{Ours} & AUROC & spike-ResNet18-MSE & kNN (best cfg.) & --- & --- \\
+                       & FPR95 & spike-ResNet18-MSE & kNN (best cfg.) & --- & --- \\
 \hline
 \end{tabular}
 \label{tab:openood-cifar100}
 \end{center}
-\end{table}
-
-\subsection{Experiment 4: SVHN and CIFAR100 with single-step model}
-Just keep it as a proof of a concept, avoiding detailed graphic representations.
+\end{table*}
 
 
-TODO: Consider where to input the FPR95 in the tables 
 
 \section{Conclusions}
 \label{sec:conclusions}
@@ -778,76 +802,26 @@ unnumbered footnote on the first page, not here.
 \bibliography{references} 
 
 
-\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{author1.png}}]{First A. Author} received the B.S. and M.S. degrees in aerospace engineering from
-the University of Virginia, Charlottesville, in 2001 and the Ph.D. degree in
-mechanical engineering from Drexel University, Philadelphia, PA, in 2008.
-
-From 2001 to 2004, he was a Research Assistant with the Princeton Plasma
-Physics Laboratory. Since 2009, he has been an Assistant Professor with the
-Mechanical Engineering Department, Texas A{\&}M University, College Station.
-He is the author of three books, more than 150 articles, and more than 70
-inventions. His research interests include high-pressure and high-density
-nonthermal plasma discharge processes and applications, microscale plasma
-discharges, discharges in liquids, spectroscopic diagnostics, plasma
-propulsion, and innovation plasma applications. He is an Associate Editor of
-the journal \emph{Earth, Moon, Planets}, and holds two patents.
-
-Dr. Author was a recipient of the International Association of Geomagnetism
-and Aeronomy Young Scientist Award for Excellence in 2008, and the IEEE
-Electromagnetic Compatibility Society Best Symposium Paper Award in 2011.
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{aa.jpg}}]{Aleksej Avramovi\'{c}} received the B.S. degree in Electrical engineering from the Faculty of Electrical Engineering, University  of Banja Luka in 2007, and the PhD degree from the School of Electrical Enginnering, University of Belgrade in 2016. From 2007 to 2016, he was a Research Assistant with the Faculty of Electrical Engineering in Banja Luka. Since 2016, he has been an Assistant Professor with the same faculty. His research interests include digital signal and image processing, machine learning applications and electrical measurements.
 \end{IEEEbiography}
 
 
-\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{author2.png}}]{Second B. Author} (M'76--SM'81--F'87) and all authors may include
-biographies. Biographies are often not included in conference-related
-papers. This author became a Member (M) of IEEE in 1976, a Senior
-Member (SM) in 1981, and a Fellow (F) in 1987. The first paragraph may
-contain a place and/or date of birth (list place, then date). Next,
-the author's educational background is listed. The degrees should be
-listed with type of degree in what field, which institution, city,
-state, and country, and year the degree was earned. The author's major
-field of study should be lower-cased.
-
-The second paragraph uses the pronoun of the person (he or she) and not the
-author's last name. It lists military and work experience, including summer
-and fellowship jobs. Job titles are capitalized. The current job must have a
-location; previous positions may be listed
-without one. Information concerning previous publications may be included.
-Try not to list more than three books or published articles. The format for
-listing publishers of a book within the biography is: title of book
-(publisher name, year) similar to a reference. Current and previous research
-interests end the paragraph.
-
-The third paragraph begins with the author's
-title and last name (e.g., Dr.\ Smith, Prof.\ Jones, Mr.\ Kajor, Ms.\ Hunter).
-List any memberships in professional societies other than the IEEE. Finally,
-list any awards and work for IEEE committees and publications. If a
-photograph is provided, it should be of good quality, and
-professional-looking. Following are two examples of an author's biography.
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{ds.png}}]{Davor Sluga} received the B.Sc. and Ph.D. degrees in computer science from the University of Ljubljana, Slovenia, in 2010 and 2017,
+respectively. He currently holds the position of a Teaching Assistant at the Faculty of Computer and Information Science, University of Ljubljana. His research interests include high-performance computing, general-purpose GPU computing, and machine learning.
 \end{IEEEbiography}
 
-\newpage
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,angle=90,origin=c,clip,keepaspectratio]{sg.jpg}}]{Slavica Gaji\'{c}} was born on October 7, 1986, in Mrkonjić Grad, where she completed her primary and secondary education. She received her B.Sc. and M.Sc. degrees in Electronic and Telecommunications Engineering from the Faculty of Electrical Engineering, University of Banja Luka. She earned her Ph.D. degree in Energy, Electronics and Telecommunications Engineering from the Faculty of Technical Sciences, University of Novi Sad. Since March 2010, she has been employed at the Faculty of Electrical Engineering, University of Banja Luka, where she currently holds the position of Assistant Professor. Her research interests include digital signal and image processing, artificial intelligence applications, and electromagnetics. She has participated in several national and international scientific and research projects. 
+\end{IEEEbiography}
 
-%If you do not have or do not want to include a photo, you can use IEEEbiographynophoto as shown below:
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{vj.jpg}}]{Vedran Jovanovi\'{c}} received the Dipl. Ing. (B.S.) and Master's degrees in electrical engineering from the Faculty of Electrical Engineering, University of Banja Luka, Banja Luka, Bosnia and Herzegovina, in 2013 and 2018, respectively. Since 2014, he has been working as a Teaching and Research Assistant with the Department of General Electrical Engineering, Faculty of Electrical Engineering, University of Banja Luka. His current research interests include applied artificial intelligence, multimedia signal processing, computer vision, and robotic hand-eye calibration systems.  
+\end{IEEEbiography}
 
-\begin{IEEEbiographynophoto}{Third C. Author, Jr.} (M'87) received the B.S. degree in mechanical
-engineering from National Chung Cheng University, Chiayi, Taiwan, in 2004
-and the M.S. degree in mechanical engineering from National Tsing Hua
-University, Hsinchu, Taiwan, in 2006. He is currently pursuing the Ph.D.
-degree in mechanical engineering at Texas A{\&}M University, College
-Station, TX, USA.
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,angle=90,origin=c,clip,keepaspectratio]{vr.jpg}}]{Vladimir Risojevi\'{c}} received the Ph.D. degree in electrical engineering from the University of Banja Luka in 2014. He is a professor at the Faculty of Electrical Engineering, University of Banja Luka. His current research interests include digital signal and image processing, computer vision, and machine learning. He is the author or co-author of five textbooks and more than 50 articles. 
+\end{IEEEbiography}
 
-From 2008 to 2009, he was a Research Assistant with the Institute of
-Physics, Academia Sinica, Tapei, Taiwan. His research interest includes the
-development of surface processing and biological/medical treatment
-techniques using nonthermal atmospheric pressure plasmas, fundamental study
-of plasma sources, and fabrication of micro- or nanostructured surfaces.
+%\newpage
 
-Mr. Author's awards and honors include the Frew Fellowship (Australian
-Academy of Science), the I. I. Rabi Prize (APS), the European Frequency and
-Time Forum Award, the Carl Zeiss Research Award, the William F. Meggers
-Award and the Adolph Lomb Medal (OSA).
-\end{IEEEbiographynophoto}
+
 
 \EOD
 

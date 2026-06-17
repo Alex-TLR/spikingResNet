@@ -1691,6 +1691,16 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         except Exception as e:
             print(f"Warning: failed to write initial EX1 JSON skeleton: {e}")
 
+    # Ensure per-seed checkpoint structure exists so interrupted runs can resume from the last completed seed.
+    data_out.setdefault('seed_results', {})
+    for rm in resnet_models:
+        rm_key = str(rm)
+        data_out['seed_results'].setdefault(rm_key, {})
+        for ft in feature_types:
+            data_out['seed_results'][rm_key].setdefault(ft, {})
+            for i in range(len(expansions)):
+                data_out['seed_results'][rm_key][ft].setdefault(str(i), {})
+
     # Initialize results from loaded or newly-created JSON skeleton. This allows skipping already-done entries.
     results = {}
     for rm in resnet_models:
@@ -1741,10 +1751,44 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
             # Track per-seed success (True if this seed produced numeric near/far for all feature types)
             seed_success = {seed: True for seed in seeds}
 
+            def _valid_seed_entry_exp1(entry):
+                if not isinstance(entry, dict):
+                    return False
+                try:
+                    float(entry.get('near'))
+                    float(entry.get('far'))
+                    float(entry.get('near_fpr'))
+                    float(entry.get('far_fpr'))
+                    return True
+                except Exception:
+                    return False
+
+            # Preload already-computed seed values for this expansion and skip those seeds.
+            completed_seeds = set()
             for seed in seeds:
+                seed_done = True
+                for ft in feature_types:
+                    cached = data_out['seed_results'][str(resnet_model)][ft][str(idx)].get(str(seed))
+                    if _valid_seed_entry_exp1(cached):
+                        expansion_values[ft]['near'].append(float(cached['near']))
+                        expansion_values[ft]['far'].append(float(cached['far']))
+                        expansion_values[ft]['near_fpr'].append(float(cached['near_fpr']))
+                        expansion_values[ft]['far_fpr'].append(float(cached['far_fpr']))
+                    else:
+                        seed_done = False
+                        break
+                if seed_done:
+                    completed_seeds.add(seed)
+                    seed_success[seed] = True
+
+            for seed in seeds:
+                if seed in completed_seeds:
+                    print(f"[exp1] Skipping completed seed: ResNet{resnet_model} E={expansion} S={seed}")
+                    continue
                 config.seed = seed
                 print(f"Processing seed: {config.seed}")
                 # We deliberately do NOT break on per-seed errors; instead record NaNs and continue so all seeds are attempted
+                seed_ft_values = {}
                 try:
                     # For efficiency, extract features once for the union of near and far OOD sets
                     orig_dataset_feat = getattr(config, 'dataset_feat', None)
@@ -1905,6 +1949,12 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             expansion_values[ft]['far'].append(far_mean)
                             expansion_values[ft]['near_fpr'].append(near_fpr_mean)
                             expansion_values[ft]['far_fpr'].append(far_fpr_mean)
+                            seed_ft_values[ft] = {
+                                'near': near_mean,
+                                'far': far_mean,
+                                'near_fpr': near_fpr_mean,
+                                'far_fpr': far_fpr_mean,
+                            }
                             print(f"expansion_values: {expansion_values}")
                         except Exception as e:
                             print(f"[exp1] Error during testing feature={ft} resnet={resnet_model} exp={expansion} seed={seed}: {e}")
@@ -1918,6 +1968,12 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             expansion_values[ft]['far'].append(np.nan)
                             expansion_values[ft]['near_fpr'].append(np.nan)
                             expansion_values[ft]['far_fpr'].append(np.nan)
+                            seed_ft_values[ft] = {
+                                'near': np.nan,
+                                'far': np.nan,
+                                'near_fpr': np.nan,
+                                'far_fpr': np.nan,
+                            }
                             seed_success[seed] = False
                             # continue to next feature type / seed without breaking
                             continue
@@ -1939,6 +1995,27 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                     seed_success[seed] = False
                     # continue with next seed
                     continue
+
+                # Persist this seed immediately so interruptions can resume from the next unfinished seed.
+                try:
+                    for ft in feature_types:
+                        vals = seed_ft_values.get(ft)
+                        entry = {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'}
+                        if isinstance(vals, dict):
+                            try:
+                                n = float(vals.get('near'))
+                                f = float(vals.get('far'))
+                                nf = float(vals.get('near_fpr'))
+                                ff = float(vals.get('far_fpr'))
+                                if not (np.isnan(n) or np.isnan(f) or np.isnan(nf) or np.isnan(ff)):
+                                    entry = {'near': n, 'far': f, 'near_fpr': nf, 'far_fpr': ff}
+                            except Exception:
+                                pass
+                        data_out['seed_results'][str(resnet_model)][ft][str(idx)][str(seed)] = entry
+                    with open(datafile, 'w') as jf:
+                        json.dump(data_out, jf, indent=2)
+                except Exception as e:
+                    print(f"Warning: failed to persist EX1 per-seed checkpoint for ResNet{resnet_model} E={expansion} S={seed}: {e}")
 
             # after processing all seeds for this expansion, release any remaining caches
             try:
@@ -2314,6 +2391,16 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
         except Exception as e:
             print(f"Warning: failed to write initial EX2 JSON skeleton: {e}")
 
+    # Ensure per-seed checkpoint structure exists so interrupted runs can resume from the last completed seed.
+    data_out.setdefault('seed_results', {})
+    for rm in resnet_models:
+        rm_key = str(rm)
+        data_out['seed_results'].setdefault(rm_key, {})
+        for ft in feature_types:
+            data_out['seed_results'][rm_key].setdefault(ft, {})
+            for i in range(len(expansions)):
+                data_out['seed_results'][rm_key][ft].setdefault(str(i), {})
+
     # Initialize results from the JSON skeleton so we can skip completed experiments
     results = {}
     for rm in resnet_models:
@@ -2366,8 +2453,47 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
             expansion_values = {ft: {'near': [], 'far': [], 'near_fpr': [], 'far_fpr': []} for ft in feature_types}
             missing_any = False
 
+            def _valid_method_list(v):
+                if not isinstance(v, list) or len(v) != num_methods:
+                    return False
+                try:
+                    for x in v:
+                        if x is None or np.isnan(float(x)):
+                            return False
+                    return True
+                except Exception:
+                    return False
+
+            # Preload completed seeds for this expansion from checkpoint.
+            completed_seeds = set()
             for seed in seeds:
+                seed_done = True
+                for ft in feature_types:
+                    cached = data_out['seed_results'][str(resnet_model)][ft][str(idx)].get(str(seed))
+                    if not isinstance(cached, dict):
+                        seed_done = False
+                        break
+                    near_c = cached.get('near')
+                    far_c = cached.get('far')
+                    near_fpr_c = cached.get('near_fpr')
+                    far_fpr_c = cached.get('far_fpr')
+                    if _valid_method_list(near_c) and _valid_method_list(far_c) and _valid_method_list(near_fpr_c) and _valid_method_list(far_fpr_c):
+                        expansion_values[ft]['near'].append([float(x) for x in near_c])
+                        expansion_values[ft]['far'].append([float(x) for x in far_c])
+                        expansion_values[ft]['near_fpr'].append([float(x) for x in near_fpr_c])
+                        expansion_values[ft]['far_fpr'].append([float(x) for x in far_fpr_c])
+                    else:
+                        seed_done = False
+                        break
+                if seed_done:
+                    completed_seeds.add(seed)
+
+            for seed in seeds:
+                if seed in completed_seeds:
+                    print(f"[exp2] Skipping completed seed: ResNet{resnet_model} E={expansion} S={seed}")
+                    continue
                 config.seed = seed
+                seed_ft_values = {}
                 try:
                     # For efficiency, extract features once for the union of near and far OOD sets
                     union_list = []
@@ -2440,9 +2566,16 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                             expansion_values[ft]['far'].append(far_mean)
                             expansion_values[ft]['near_fpr'].append(near_mean_fpr)
                             expansion_values[ft]['far_fpr'].append(far_mean_fpr)
+                            seed_ft_values[ft] = {
+                                'near': near_mean,
+                                'far': far_mean,
+                                'near_fpr': near_mean_fpr,
+                                'far_fpr': far_mean_fpr,
+                            }
                         except Exception as e:
                             print(f"[exp2] Error during testing feature={ft} resnet={resnet_model} exp={expansion} seed={seed}: {e}")
                             missing_any = True
+                            seed_ft_values[ft] = {'near': None, 'far': None, 'near_fpr': None, 'far_fpr': None}
                             break
 
                 # after finishing per-feature tests for this seed, do NOT remove on-disk .npz files here
@@ -2465,6 +2598,29 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                         torch.cuda.empty_cache()
                     except Exception:
                         pass
+
+                # Persist this seed immediately so interruptions can resume from the next unfinished seed.
+                try:
+                    for ft in feature_types:
+                        vals = seed_ft_values.get(ft)
+                        entry = {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'}
+                        if isinstance(vals, dict):
+                            n = vals.get('near')
+                            f = vals.get('far')
+                            nf = vals.get('near_fpr')
+                            ff = vals.get('far_fpr')
+                            if _valid_method_list(n) and _valid_method_list(f) and _valid_method_list(nf) and _valid_method_list(ff):
+                                entry = {
+                                    'near': [float(x) for x in n],
+                                    'far': [float(x) for x in f],
+                                    'near_fpr': [float(x) for x in nf],
+                                    'far_fpr': [float(x) for x in ff],
+                                }
+                        data_out['seed_results'][str(resnet_model)][ft][str(idx)][str(seed)] = entry
+                    with open(datafile, 'w') as jf:
+                        json.dump(data_out, jf, indent=2)
+                except Exception as e:
+                    print(f"Warning: failed to persist EX2 per-seed checkpoint for ResNet{resnet_model} E={expansion} S={seed}: {e}")
 
             # finalize expansion entry
             for ft in feature_types:
@@ -2756,6 +2912,470 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
 
     print(f"\nExperiment-2 detailed statistics and plots saved to: {results_filename} and {out_dir}")
     print(f"FPR95 statistics saved to: {fpr_filename}")
+
+
+def statistics_exp_3(config, seeds, expansions, resnet_models):
+    """Experiment-3: combine EX1 and EX2 with a single extraction pass per seed.
+
+    - KNN branch: uses `voltages` representation with method ['KNN'].
+    - VIM branch: uses scoring-based path with method ['VIM'] on `probs`.
+    - The current paper uses the EX3 setup with voltages for KNN and probs for VIM.
+    - Writes resumable JSON checkpoints (including per-seed values) and TXT summaries.
+    - Does not generate plots.
+    """
+    methods_1 = getattr(config, 'methods_1', None)
+    methods_2 = getattr(config, 'methods_2', None)
+    if not isinstance(methods_1, list) or len(methods_1) == 0:
+        methods_1 = ['KNN']
+    if not isinstance(methods_2, list) or len(methods_2) == 0:
+        methods_2 = ['VIM']
+
+    # EX3 couples EX1 and EX2 branches: methods_1 run on `voltages`, methods_2 on `probs`.
+    feature_method_map = {
+        'voltages': list(methods_1),
+        'probs': list(methods_2),
+    }
+
+    def _method_alias(name):
+        # Normalize method key names for JSON fields.
+        return ''.join(ch.lower() if ch.isalnum() else '_' for ch in str(name)).strip('_')
+
+    # Dynamic result aliases driven by YAML methods, e.g. KNN -> knn, VIM -> vim.
+    method_alias_to_branch = {}
+    for m in methods_1:
+        method_alias_to_branch[_method_alias(m)] = 'voltages'
+    for m in methods_2:
+        method_alias_to_branch[_method_alias(m)] = 'probs'
+
+    branch_to_aliases = {'voltages': [], 'probs': []}
+    for alias, branch in method_alias_to_branch.items():
+        branch_to_aliases.setdefault(branch, []).append(alias)
+    yaml_override_feature_extraction = bool(getattr(config, 'override_feature_extraction', False))
+
+    out_dir = os.path.join('results', 'ex_3', 'exp' + str(config.case))
+    os.makedirs(out_dir, exist_ok=True)
+
+    near_list = list(getattr(config, 'near_ood', []) or [])
+    far_list = list(getattr(config, 'far_ood', []) or [])
+    orig_dataset_feat = getattr(config, 'dataset_feat', None)
+
+    if config.model_type == 'spike':
+        model_tags = {4: 'spike-Conv', 10: 'spike-ResNet10', 18: 'spike-ResNet18'}
+    elif config.model_type == 'conv':
+        model_tags = {4: 'Conv', 10: 'ResNet10', 18: 'ResNet18'}
+    else:
+        model_tags = {}
+
+    if config.model_type == 'spike':
+        datafile = os.path.join(out_dir, f'EX3_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}.json')
+    else:
+        datafile = os.path.join(out_dir, f'EX3_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}_conv.json')
+
+    data_out = None
+    if os.path.exists(datafile):
+        try:
+            with open(datafile, 'r') as jf:
+                data_out = json.load(jf)
+        except Exception:
+            data_out = None
+
+    def _empty_entry():
+        return {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'}
+
+    if data_out is None:
+        data_out = {
+            'dataset_ID': config.dataset_ID,
+            'case': config.case,
+            'expansions': list(expansions),
+            'methods_1': list(methods_1),
+            'methods_2': list(methods_2),
+            'feature_method_map': feature_method_map,
+            'model_tags': {str(k): v for k, v in model_tags.items()},
+            'results': {},
+        }
+        for rm in resnet_models:
+            data_out['results'][str(rm)] = {}
+            for ft in feature_method_map:
+                data_out['results'][str(rm)][ft] = [_empty_entry() for _ in expansions]
+            # Explicit method-specific aliases requested for EX3 consumers (dynamic from YAML)
+            for alias in method_alias_to_branch:
+                data_out['results'][str(rm)][alias] = [_empty_entry() for _ in expansions]
+        try:
+            with open(datafile, 'w') as jf:
+                json.dump(data_out, jf, indent=2)
+        except Exception as e:
+            print(f"Warning: failed to write initial EX3 JSON skeleton: {e}")
+
+    # Do not reuse legacy `features` checkpoints for EX3 KNN.
+    # This paper defines EX3 KNN on `voltages`, so older feature-based runs must be recomputed.
+
+    data_out.setdefault('seed_results', {})
+    for rm in resnet_models:
+        rm_key = str(rm)
+        data_out['seed_results'].setdefault(rm_key, {})
+        for ft in feature_method_map:
+            data_out['seed_results'][rm_key].setdefault(ft, {})
+            for i in range(len(expansions)):
+                data_out['seed_results'][rm_key][ft].setdefault(str(i), {})
+        # Keep per-seed method aliases too, so resume can continue from explicit method fields.
+        for alias in method_alias_to_branch:
+            data_out['seed_results'][rm_key].setdefault(alias, {})
+            for i in range(len(expansions)):
+                data_out['seed_results'][rm_key][alias].setdefault(str(i), {})
+
+    results = {}
+    for rm in resnet_models:
+        results[rm] = {}
+        rm_key = str(rm)
+        for ft in feature_method_map:
+            serial = data_out.get('results', {}).get(rm_key, {}).get(ft, [])
+            entries = []
+            for i in range(len(expansions)):
+                if i < len(serial) and isinstance(serial[i], dict):
+                    entries.append(serial[i])
+                else:
+                    entries.append(_empty_entry())
+            results[rm][ft] = entries
+
+        # Keep explicit method keys in-memory as aliases (driven by methods_1/methods_2)
+        for alias, branch in method_alias_to_branch.items():
+            alias_serial = data_out.get('results', {}).get(rm_key, {}).get(alias, [])
+            alias_entries = []
+            for i in range(len(expansions)):
+                if i < len(alias_serial) and isinstance(alias_serial[i], dict):
+                    alias_entries.append(alias_serial[i])
+                elif i < len(results[rm][branch]):
+                    alias_entries.append(results[rm][branch][i])
+                else:
+                    alias_entries.append(_empty_entry())
+            results[rm][alias] = alias_entries
+
+    for resnet_model in resnet_models:
+        config.resnet_model = resnet_model
+        print(f"[exp3] Processing ResNet{resnet_model}")
+        for idx, expansion in enumerate(expansions):
+            config.expansion = expansion
+            config.override_feature_extraction = yaml_override_feature_extraction
+
+            already_done = True
+            for ft in feature_method_map:
+                entry = results[resnet_model][ft][idx]
+                near_v = entry.get('near') if isinstance(entry, dict) else 'not trained'
+                far_v = entry.get('far') if isinstance(entry, dict) else 'not trained'
+                if (isinstance(near_v, str) and near_v == 'not trained') or near_v is None:
+                    already_done = False
+                    break
+                if (isinstance(far_v, str) and far_v == 'not trained') or far_v is None:
+                    already_done = False
+                    break
+            if already_done:
+                print(f"[exp3] Skipping ResNet{resnet_model} expansion {expansion} - already present in EX3 JSON.")
+                continue
+
+            expansion_values = {ft: {'near': [], 'far': [], 'near_fpr': [], 'far_fpr': []} for ft in feature_method_map}
+
+            def _valid_scalar_entry(v):
+                if not isinstance(v, dict):
+                    return False
+                try:
+                    vals = [float(v.get('near')), float(v.get('far')), float(v.get('near_fpr')), float(v.get('far_fpr'))]
+                    return not any(np.isnan(x) for x in vals)
+                except Exception:
+                    return False
+
+            completed_seeds = set()
+
+            def _get_seed_cached_entry(rm_value, feature_key, exp_idx, seed_value):
+                # Prefer canonical branch key, then fall back to any alias of that branch.
+                seed_obj = data_out['seed_results'].get(str(rm_value), {})
+                v = seed_obj.get(feature_key, {}).get(str(exp_idx), {}).get(str(seed_value))
+                if _valid_scalar_entry(v):
+                    return v
+                for alias in branch_to_aliases.get(feature_key, []):
+                    v2 = seed_obj.get(alias, {}).get(str(exp_idx), {}).get(str(seed_value))
+                    if _valid_scalar_entry(v2):
+                        return v2
+                return None
+
+            for seed in seeds:
+                seed_done = True
+                for ft in feature_method_map:
+                    cached = _get_seed_cached_entry(resnet_model, ft, idx, seed)
+                    if cached is not None:
+                        expansion_values[ft]['near'].append(float(cached['near']))
+                        expansion_values[ft]['far'].append(float(cached['far']))
+                        expansion_values[ft]['near_fpr'].append(float(cached['near_fpr']))
+                        expansion_values[ft]['far_fpr'].append(float(cached['far_fpr']))
+                    else:
+                        seed_done = False
+                        break
+                if seed_done:
+                    completed_seeds.add(seed)
+
+            for seed in seeds:
+                if seed in completed_seeds:
+                    print(f"[exp3] Skipping completed seed: ResNet{resnet_model} E={expansion} S={seed}")
+                    continue
+
+                config.seed = seed
+                seed_ft_values = {}
+
+                try:
+                    union_list = sorted(set(list(near_list) + list(far_list))) if (near_list or far_list) else []
+                except Exception:
+                    union_list = list(near_list) + list(far_list)
+
+                extracted_ok = True
+                if union_list:
+                    try:
+                        config.dataset_feat = list(union_list)
+                        print(f"[exp3] Extracting once for union list: {config.dataset_feat} (ResNet{resnet_model}, E={expansion}, S={seed})")
+                        if config.model_type == 'spike':
+                            feature_extraction_spike(config)
+                        elif config.model_type == 'conv':
+                            feature_extraction_conv(config)
+                    except Exception as e:
+                        print(f"[exp3] Warning: feature extraction failed for ResNet{resnet_model} E={expansion} S={seed}: {e}")
+                        extracted_ok = False
+
+                for ft, methods_local in feature_method_map.items():
+                    if not extracted_ok:
+                        seed_ft_values[ft] = {'near': np.nan, 'far': np.nan, 'near_fpr': np.nan, 'far_fpr': np.nan}
+                        expansion_values[ft]['near'].append(np.nan)
+                        expansion_values[ft]['far'].append(np.nan)
+                        expansion_values[ft]['near_fpr'].append(np.nan)
+                        expansion_values[ft]['far_fpr'].append(np.nan)
+                        continue
+
+                    num_methods = len(methods_local)
+                    try:
+                        if not near_list:
+                            near_mean = np.nan
+                            near_fpr = np.nan
+                        else:
+                            config.dataset_feat = list(near_list)
+                            stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods_local, features=ft)
+                            if stats_local is None or stats_local.size == 0:
+                                near_mean = np.nan
+                                near_fpr = np.nan
+                            else:
+                                near_mean = float(np.nanmean(stats_local[:, :num_methods])) * 100.0
+                                near_fpr = float(np.nanmean(stats_local[:, 2*num_methods:3*num_methods])) * 100.0
+
+                        if not far_list:
+                            far_mean = np.nan
+                            far_fpr = np.nan
+                        else:
+                            config.dataset_feat = list(far_list)
+                            stats_local = test_metrics(config, case=config.case, nameID=config.dataset_ID, methods=methods_local, features=ft)
+                            if stats_local is None or stats_local.size == 0:
+                                far_mean = np.nan
+                                far_fpr = np.nan
+                            else:
+                                far_mean = float(np.nanmean(stats_local[:, :num_methods])) * 100.0
+                                far_fpr = float(np.nanmean(stats_local[:, 2*num_methods:3*num_methods])) * 100.0
+
+                        seed_ft_values[ft] = {
+                            'near': near_mean,
+                            'far': far_mean,
+                            'near_fpr': near_fpr,
+                            'far_fpr': far_fpr,
+                        }
+                        expansion_values[ft]['near'].append(near_mean)
+                        expansion_values[ft]['far'].append(far_mean)
+                        expansion_values[ft]['near_fpr'].append(near_fpr)
+                        expansion_values[ft]['far_fpr'].append(far_fpr)
+                    except Exception as e:
+                        print(f"[exp3] Error during testing feature={ft} resnet={resnet_model} exp={expansion} seed={seed}: {e}")
+                        seed_ft_values[ft] = {'near': np.nan, 'far': np.nan, 'near_fpr': np.nan, 'far_fpr': np.nan}
+                        expansion_values[ft]['near'].append(np.nan)
+                        expansion_values[ft]['far'].append(np.nan)
+                        expansion_values[ft]['near_fpr'].append(np.nan)
+                        expansion_values[ft]['far_fpr'].append(np.nan)
+
+                try:
+                    per_ft_entry = {}
+                    for ft in feature_method_map:
+                        vals = seed_ft_values.get(ft, {})
+                        entry = _empty_entry()
+                        try:
+                            n = float(vals.get('near'))
+                            f = float(vals.get('far'))
+                            nf = float(vals.get('near_fpr'))
+                            ff = float(vals.get('far_fpr'))
+                            if not (np.isnan(n) or np.isnan(f) or np.isnan(nf) or np.isnan(ff)):
+                                entry = {'near': n, 'far': f, 'near_fpr': nf, 'far_fpr': ff}
+                        except Exception:
+                            pass
+                        per_ft_entry[ft] = entry
+                        data_out['seed_results'][str(resnet_model)][ft][str(idx)][str(seed)] = entry
+
+                    # Mirror branch entries under dynamic method aliases for robust resume.
+                    for alias, branch in method_alias_to_branch.items():
+                        alias_entry = per_ft_entry.get(branch, _empty_entry())
+                        data_out['seed_results'][str(resnet_model)][alias][str(idx)][str(seed)] = alias_entry
+
+                    with open(datafile, 'w') as jf:
+                        json.dump(data_out, jf, indent=2)
+                except Exception as e:
+                    print(f"Warning: failed to persist EX3 per-seed checkpoint for ResNet{resnet_model} E={expansion} S={seed}: {e}")
+                finally:
+                    try:
+                        config.dataset_feat = orig_dataset_feat
+                    except Exception:
+                        pass
+                    try:
+                        import gc
+                        gc.collect()
+                    except Exception:
+                        pass
+                    try:
+                        import torch
+                        torch.cuda.empty_cache()
+                    except Exception:
+                        pass
+
+            for ft in feature_method_map:
+                arr_near = np.array(expansion_values[ft]['near'], dtype=float)
+                arr_far = np.array(expansion_values[ft]['far'], dtype=float)
+                arr_near_fpr = np.array(expansion_values[ft]['near_fpr'], dtype=float)
+                arr_far_fpr = np.array(expansion_values[ft]['far_fpr'], dtype=float)
+
+                all_seed_values = (
+                    len(arr_near) == len(seeds) and
+                    len(arr_far) == len(seeds) and
+                    len(arr_near_fpr) == len(seeds) and
+                    len(arr_far_fpr) == len(seeds)
+                )
+
+                if not all_seed_values or np.any(np.isnan(arr_near)) or np.any(np.isnan(arr_far)) or np.any(np.isnan(arr_near_fpr)) or np.any(np.isnan(arr_far_fpr)):
+                    results[resnet_model][ft][idx] = _empty_entry()
+                else:
+                    results[resnet_model][ft][idx] = {
+                        'near': float(np.nanmean(arr_near)),
+                        'far': float(np.nanmean(arr_far)),
+                        'near_fpr': float(np.nanmean(arr_near_fpr)),
+                        'far_fpr': float(np.nanmean(arr_far_fpr)),
+                    }
+
+            try:
+                data_out['results'][str(resnet_model)] = data_out['results'].get(str(resnet_model), {})
+                data_out['methods_1'] = list(methods_1)
+                data_out['methods_2'] = list(methods_2)
+                data_out['feature_method_map'] = feature_method_map
+                for ft in feature_method_map:
+                    serial_list = []
+                    for entry in results[resnet_model][ft]:
+                        serial_list.append({
+                            'near': entry['near'] if isinstance(entry['near'], str) else float(entry['near']),
+                            'far': entry['far'] if isinstance(entry['far'], str) else float(entry['far']),
+                            'near_fpr': entry['near_fpr'] if isinstance(entry['near_fpr'], str) else float(entry['near_fpr']),
+                            'far_fpr': entry['far_fpr'] if isinstance(entry['far_fpr'], str) else float(entry['far_fpr']),
+                        })
+                    data_out['results'][str(resnet_model)][ft] = serial_list
+
+                # Persist explicit method-specific aliases for easier downstream parsing.
+                for alias, branch in method_alias_to_branch.items():
+                    data_out['results'][str(resnet_model)][alias] = list(data_out['results'][str(resnet_model)].get(branch, []))
+                    results[resnet_model][alias] = list(results[resnet_model].get(branch, []))
+                with open(datafile, 'w') as jf:
+                    json.dump(data_out, jf, indent=2)
+            except Exception as e:
+                print(f"Warning: failed to persist EX3 JSON after ResNet{resnet_model} E={expansion}: {e}")
+
+    if config.model_type == 'spike':
+        results_filename = os.path.join(out_dir, f'EX3_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds.txt')
+        fpr_filename = os.path.join(out_dir, f'EX3_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_seeds_fpr95.txt')
+    else:
+        results_filename = os.path.join(out_dir, f'EX3_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_conv_seeds.txt')
+        fpr_filename = os.path.join(out_dir, f'EX3_{config.dataset_ID}_T1_{config.num_time_steps_train}_T2_{config.num_time_steps_extract}_A_{config.auto_aug}_L_{config.loss}_conv_seeds_fpr95.txt')
+
+    with open(results_filename, 'w') as f:
+        f.write(f"{'='*60}\n")
+        f.write("Spiking ResNet Experiment-3 (KNN+VIM) Multi-Test Results\n")
+        f.write(f"{'='*60}\n")
+        f.write("Experiment Configuration:\n")
+        f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
+        f.write(f"  Case: {config.case}\n")
+        f.write(f"  Batch Size: {config.batch_size}\n")
+        f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
+        f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+        f.write(f"  Number of epochs: {config.epochs}\n")
+        f.write(f"  Fitting method: {config.fit}\n")
+        f.write(f"  Loss function: {config.loss}\n")
+        f.write(f"  Augmentation: {config.auto_aug}\n")
+        f.write(f"  Branches: voltages->{methods_1}, probs->{methods_2}\n")
+        f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+        for resnet_model in resnet_models:
+            f.write(f"ResNet Model: {resnet_model}\n")
+            f.write(f"Near OOD sets: {near_list}\n")
+            f.write(f"{'Expansion':<12}{'KNN(voltages)':<20}{'VIM(probs)':<20}\n")
+            f.write(f"{'-'*60}\n")
+            for idx, expansion in enumerate(expansions):
+                knn_near = results[resnet_model]['voltages'][idx]['near']
+                vim_near = results[resnet_model]['probs'][idx]['near']
+                knn_str = f"{knn_near:>6.2f}" if isinstance(knn_near, float) else f"{knn_near:<20}"
+                vim_str = f"{vim_near:>6.2f}" if isinstance(vim_near, float) else f"{vim_near:<20}"
+                f.write(f"{expansion:<12}{knn_str:<20}{vim_str:<20}\n")
+
+            f.write("\n")
+            f.write(f"Far OOD sets: {far_list}\n")
+            f.write(f"{'Expansion':<12}{'KNN(voltages)':<20}{'VIM(probs)':<20}\n")
+            f.write(f"{'-'*60}\n")
+            for idx, expansion in enumerate(expansions):
+                knn_far = results[resnet_model]['voltages'][idx]['far']
+                vim_far = results[resnet_model]['probs'][idx]['far']
+                knn_str = f"{knn_far:>6.2f}" if isinstance(knn_far, float) else f"{knn_far:<20}"
+                vim_str = f"{vim_far:>6.2f}" if isinstance(vim_far, float) else f"{vim_far:<20}"
+                f.write(f"{expansion:<12}{knn_str:<20}{vim_str:<20}\n")
+
+            f.write(f"{'='*60}\n\n")
+
+    with open(fpr_filename, 'w') as f:
+        f.write(f"{'='*60}\n")
+        f.write("Spiking ResNet Experiment-3 (KNN+VIM) Multi-Test Results (FPR95)\n")
+        f.write(f"{'='*60}\n")
+        f.write("Experiment Configuration:\n")
+        f.write(f"  In-Distribution Dataset: {config.dataset_ID}\n")
+        f.write(f"  Case: {config.case}\n")
+        f.write(f"  Batch Size: {config.batch_size}\n")
+        f.write(f"  Trained on: {config.num_time_steps_train} time steps\n")
+        f.write(f"  Feature extracted using: {config.num_time_steps_extract} time steps\n")
+        f.write(f"  Number of epochs: {config.epochs}\n")
+        f.write(f"  Fitting method: {config.fit}\n")
+        f.write(f"  Loss function: {config.loss}\n")
+        f.write(f"  Augmentation: {config.auto_aug}\n")
+        f.write(f"  Branches: voltages->{methods_1}, probs->{methods_2}\n")
+        f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+        for resnet_model in resnet_models:
+            f.write(f"ResNet Model: {resnet_model}\n")
+            f.write(f"Near OOD sets: {near_list}\n")
+            f.write(f"{'Expansion':<12}{'KNN(voltages)':<20}{'VIM(probs)':<20}\n")
+            f.write(f"{'-'*60}\n")
+            for idx, expansion in enumerate(expansions):
+                knn_near = results[resnet_model]['voltages'][idx]['near_fpr']
+                vim_near = results[resnet_model]['probs'][idx]['near_fpr']
+                knn_str = f"{knn_near:>6.2f}" if isinstance(knn_near, float) else f"{knn_near:<20}"
+                vim_str = f"{vim_near:>6.2f}" if isinstance(vim_near, float) else f"{vim_near:<20}"
+                f.write(f"{expansion:<12}{knn_str:<20}{vim_str:<20}\n")
+
+            f.write("\n")
+            f.write(f"Far OOD sets: {far_list}\n")
+            f.write(f"{'Expansion':<12}{'KNN(voltages)':<20}{'VIM(probs)':<20}\n")
+            f.write(f"{'-'*60}\n")
+            for idx, expansion in enumerate(expansions):
+                knn_far = results[resnet_model]['voltages'][idx]['far_fpr']
+                vim_far = results[resnet_model]['probs'][idx]['far_fpr']
+                knn_str = f"{knn_far:>6.2f}" if isinstance(knn_far, float) else f"{knn_far:<20}"
+                vim_str = f"{vim_far:>6.2f}" if isinstance(vim_far, float) else f"{vim_far:<20}"
+                f.write(f"{expansion:<12}{knn_str:<20}{vim_str:<20}\n")
+
+            f.write(f"{'='*60}\n\n")
+
+    print(f"\nExperiment-3 detailed statistics saved to: {results_filename}")
+    print(f"Experiment-3 FPR95 statistics saved to: {fpr_filename}")
 
 
 def plot_ex1_from_data(data_or_path, out_dir=None, y_min=50.0, y_max=100.0, y_step=5, legend_fontsize=18):
