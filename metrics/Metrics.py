@@ -119,8 +119,8 @@ class Metrics():
         _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
         threshold = threshold_tpr95
 
-        ID_predictions = (ID_distances < threshold).astype(np.int32)
-        OOD_predictions = (OOD_distances < threshold).astype(np.int32)
+        ID_predictions = (ID_distances > threshold).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
 
         # Concatenate predictions
         test_predictions = np.concatenate((ID_predictions, OOD_predictions))
@@ -305,14 +305,14 @@ class Metrics():
         # For consistency with other methods, use S(x) directly, higher values indicate ID
         test_distances = np.concatenate((ID_scores, OOD_scores))
 
-        # Set threshold at 5th percentile of ID scores (literature standard for higher=ID)
-        if len(ID_scores) > 0:
-            threshold = np.percentile(ID_scores, 5)
-        else:
-            threshold = 0.0  # Fallback
+        # Use the same TPR95 thresholding protocol as all other scoring-based methods.
+        # find_threshold operates on the full joint distribution via the ROC curve and
+        # returns the score threshold at which TPR (ID recall) = 95%, matching FPR@95 convention.
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop=False)
+        threshold = threshold_tpr95
 
-        ID_predictions = (ID_scores > threshold).astype(np.int32)  # Higher S(x) for ID
-        OOD_predictions = (OOD_scores <= threshold).astype(np.int32)
+        ID_predictions = (ID_scores > threshold).astype(np.int32)
+        OOD_predictions = (OOD_scores > threshold).astype(np.int32)
         test_predictions = np.concatenate((ID_predictions, OOD_predictions))
 
         end_time = time.time()

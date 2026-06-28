@@ -2,10 +2,10 @@
 
 This repository contains the code accompanying the paper:
 
-> **Spike-Like Models for Energy-Efficient Out-of-Distribution Detection**  
+> **Out-of-Distribution Detection with Spike-Like Networks: Population Coding, Training Depth, and Single-Step Feature Representations**  
 > A. Avramović, S. Gajić, V. Jovanović, V. Risojević, D. Sluga
 
-Spike-like models replace standard ReLU activations with leaky integrate-and-fire (LIF) neurons on conventional ResNet backbones, operating at a single inference time step to achieve binary spike activations and substantially reduced arithmetic complexity, while remaining competitive with full-precision CNN baselines on OpenOOD benchmarks.
+Spike-like models replace standard ReLU activations with leaky isntegrate-and-fire (LIF) neurons on conventional ResNet backbones, operating at a single inference time step to achieve binary spike activations and substantially reduced arithmetic complexity, while remaining competitive with full-precision CNN baselines on OpenOOD benchmarks.
 
 Key results on CIFAR-10 (ResNet-18, single-step inference):
 - **93.91% / 96.63% AUROC** (Near-OoD / Far-OoD) with `T=1`, `E=5` — competitive with OpenOOD top-5
@@ -247,19 +247,6 @@ experiment:
 
 ---
 
-## Running on a SLURM Cluster
-
-Training and test submission scripts for SLURM + Apptainer are provided. Edit the `--job-name`, `--output` log name, and the `python main.py --config ...` line to point to your desired config, then submit:
-
-```bash
-sbatch runTrain.sh   # Submit a training job
-sbatch runTest.sh    # Submit an evaluation job
-```
-
-The container image is expected at `../container/snn.sif`. Adjust `CONTAINER_PATH` in the scripts if your image is located elsewhere.
-
----
-
 ## Outputs
 
 | Location | Contents |
@@ -268,9 +255,3 @@ The container image is expected at `../container/snn.sif`. Adjust `CONTAINER_PAT
 | `features/spike/` or `features/conv/` | Extracted feature vectors (`.npz`) |
 | `results/` | JSON files with AUROC / FPR95 per method, backbone, expansion, and seed |
 
-To reproduce the paper's plots and summary tables from the JSON result files, use the scripts in `tools/`:
-
-```bash
-python tools/plot_ex1_from_json.py
-python tools/smoke_statistics_exp1.py
-```

@@ -1,6 +1,7 @@
 \documentclass{ieeeaccess}
 \usepackage{cite}
-\usepackage{amsmath,amssymb,amsfonts}
+%\usepackage{amsmath,amssymb} %,amsfonts}
+\usepackage{amsmath}
 \usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{textcomp}
@@ -21,7 +22,7 @@
 \usepackage{newtxtext,newtxmath}
 \usepackage[table]{xcolor}
 %\usepackage{array}
-\usepackage{booktabs}
+%\usepackage{booktabs}
 
 \definecolor{cellred}{HTML}{E74C3C}
 \definecolor{low}{HTML}{F47C40}
@@ -159,12 +160,13 @@
 \title{Out-of-Distribution Detection with Spike-Like Networks: Population Coding, Training Depth, and Single-Step Feature Representations}
 \author{Aleksej Avramovi\'{c}\authorrefmark{1,2},
 Slavica Gaji\'{c}\authorrefmark{2}, Vedran Jovanovi\'{c}\authorrefmark{2,1},
-\IEEEmembership{Member, IEEE}, Vladimir Risojevi\'{c}\authorrefmark{2}, and Davor Sluga\authorrefmark{3},}
+\IEEEmembership{Member, IEEE}, Vladimir Risojevi\'{c} \IEEEmembership{Member, IEEE} \authorrefmark{2}, and Davor Sluga\authorrefmark{3},}
 
 \address[1]{HTEC Group, Banja Luka, Bosnia and Herzegovina}
 \address[2]{Faculty of Electrical Engineering, University of Banja Luka, Bosnia and Herzegovina}
 \address[3]{Faculty of Computer and Information Science, University of Ljubljana, Slovenia}
-\tfootnote{This research was supported by Slovenian Research and Innovation Agency under Grant P2-0241 (Synergy of Technological Systems and Processes).}
+\tfootnote{This research was supported by Slovenian Research and Innovation Agency under Grant P2-0241 (Synergy of Technological Systems and Processes) and by the Bilateral Collaboration
+Project of Slovenian Research Agency (ARRS) and the Ministry of Scientific and Technological Development and Higher Education of the Republic of Srpska, under contract 19/6-020/966-3-1/23.}
 
 \markboth
 {A. Avramovi\'{c} \headeretal: Out-of-Distribution Detection with Spike-Like Networks}
@@ -174,63 +176,50 @@ Slavica Gaji\'{c}\authorrefmark{2}, Vedran Jovanovi\'{c}\authorrefmark{2,1},
 
 
 \begin{abstract}
-Out-of-distribution (OoD) detection is a critical requirement for deploying deep learning systems in open-world environments, yet most existing methods rely on dense, full-precision convolutional networks with high computational and energy demands. This paper investigates spike-like models, based on standard convolutional backbones in which conventional activations are replaced by leaky integrate-and-fire neurons, as a computationally efficient alternative for OoD detection. Constrained to a single simulation time step at inference, these models produce inherently binary spike activations while retaining the feature-extraction capacity of the underlying backbone, thereby substantially reducing arithmetic complexity relative to conventional CNNs. We systematically study the interaction between training objectives, feature representation type, population coding, and post-hoc OoD detection methods across multiple backbone architectures and in-distribution benchmarks, including CIFAR-10, SVHN, and CIFAR-100. Two families of detectors are evaluated: distance-based methods operating on penultimate-layer membrane-potential features, and scoring-based post-hoc methods applied to final-layer representations. Experimental results show that spike-like models trained with a mean-squared-error objective produce penultimate-layer features that support strong $k$-nearest-neighbor OoD detection, matching or exceeding conventional CNN baselines at a fraction of the arithmetic cost. On the OpenOOD CIFAR-10 benchmark, a Near-OoD AUROC of 93.91\% and a Far-OoD AUROC of 96.63\% are achieved under single-step inference, ranking competitively with the top-5 state-of-the-art methods. With multi-step training combined with single-step inference, AUROC values of 97.64\% (Near-OoD) and 98.86\% (Far-OoD) are reached with FPR95 of 12.34\% and 5.41\%, respectively, outperforming all compared baselines on both metrics. On the harder CIFAR-100 benchmark, a Near-OoD AUROC of 88.89\% and a Far-OoD AUROC of 93.39\% are attained, exceeding the top CNN entry on the OpenOOD leaderboard. Population coding consistently improves OoD separability and is identified as a prerequisite for multi-step training to yield further gains under single-step inference.
+Out-of-distribution (OoD) detection is a critical requirement for deploying deep learning systems in open-world environments, yet most existing methods rely on convolutional networks with high computational and energy demands. Spike-like models, based on standard convolutional backbones in which conventional activations are replaced by leaky integrate-and-fire neurons, are investigated as a computationally efficient alternative for OoD detection. Constrained to a single simulation time step at inference, inherently binary spike activations are produced while the feature-extraction capacity of the underlying backbone is retained, thereby substantially reducing arithmetic complexity relative to conventional CNNs: floating-point MAC operations are reduced by over two orders of magnitude for residual backbones, with the remaining compute dominated by energy-efficient integer accumulations. The interaction between training objectives, feature representation type, population coding, and post-hoc OoD detection methods is systematically studied across multiple backbone architectures and in-distribution benchmarks: CIFAR-10 and CIFAR-100. Both distance-based and scoring-based post-hoc detectors are evaluated. MSE-trained spike-like models with $k$-nearest-neighbor detection match or exceed CNN baselines at a fraction of the arithmetic cost. On the OpenOOD CIFAR-10 benchmark, single-step inference achieves Near-OoD AUROC of 93.91\% and Far-OoD AUROC of 96.63\%; multi-step training with single-step inference further raises these to 97.64\% and 98.86\% (FPR95 of 12.34\% and 5.41\%), outperforming all compared baselines. On CIFAR-100, Near-OoD AUROC of 88.89\% and Far-OoD AUROC of 93.39\% are achieved, exceeding the top CNN entry on the OpenOOD leaderboard. Population coding consistently improves OoD separability and is identified as a prerequisite for multi-step training to yield further gains under single-step inference.
 \end{abstract}
 
 \begin{keywords}
-Anomaly detection, convolutional neural networks, distance-based detection, energy-efficient inference, feature representations, k-nearest neighbours, leaky integrate-and-fire neurons, membrane potentials, neuromorphic computing, out-of-distribution detection, population coding, post-hoc detection, residual networks, scoring-based detection, single-step inference, spike patterns, spiking neural networks, surrogate gradient training.
+Convolutional neural networks, energy-efficient inference, $k$-nearest neighbours, leaky integrate-and-fire neurons, out-of-distribution detection, population coding, spiking neural networks, surrogate gradient training.
 \end{keywords}
 
 \titlepgskip=-21pt
 
 \maketitle
 
-% TODO Keep the latex formatting, tabes and references.
-% The text is more or less solid, but needs fine tuning for the following.
-%TODO: harmozine therminology for: single-step spiking network, single-step SNN, hard-quantized network, signle-step spike-like network
-%Suggest the unified therminology and if needed, suggest the way to define it in the introduction
-% TODO Keep the passive voice. Fix spelling and grammar. Keep the fluency.
-
-%Keep the existing single-sentence definition you added, then (a) add a 2–3 line glossary/footnote listing: "CNN = standard non‑spiking conv nets; SNN = fully spiking (multi‑step); spike‑like = single‑step SNN implemented on a CNN backbone (CNN+LIF); spike‑based = adjective for features produced by any spiking mechanism." After that, perform a small pass applying the specific replacements above.
-
-
 \section{Introduction}
 \label{sec:introduction}
 
 \PARstart{M}{achine} learning (ML) and artificial intelligence (AI) have become central to modern industrial, scientific, and societal applications. From autonomous vehicles and robotics to medical diagnostics and predictive maintenance, intelligent systems are increasingly deployed in environments where reliability and adaptability are critical. The success of such systems is determined not only by performance on known data but also by their robustness in unexpected or unfamiliar situations.
 
-One of the major challenges in this context is out-of-distribution (OoD) detection, which involves identifying inputs that deviate from the data distribution observed during training. In safety-critical domains, a failure to recognise such unfamiliar inputs can lead to incorrect or hazardous outcomes. As a result, OoD detection has emerged as a fundamental component of trustworthy and safe AI, ensuring that models can distinguish between familiar and novel data and respond appropriately~\cite{hendrycks2017baseline, liu2020energy, lee2018simple}.
+One of the major challenges in this context is out-of-distribution (OoD) detection, which involves identifying inputs that deviate from the data distribution observed during training. A failure to recognize such unfamiliar inputs can lead to incorrect or hazardous outcomes, especially in safety-critical domains. As a result, OoD detection has emerged as a fundamental component of trustworthy and safe AI, ensuring that models can distinguish between familiar and novel data and respond appropriately~\cite{hendrycks2017baseline, liu2020energy, lee2018simple}.
 
-Convolutional Neural Networks (CNNs) remain a common choice for OoD detection thanks to their strong feature extraction and mature architectures, although recent studies have also investigated transformer-based backbones for this task. A variety of post-hoc scoring methods, including Maximum Softmax Probability (MSP)~\cite{hendrycks2017baseline}, energy-based scores~\cite{liu2020energy}, and Mahalanobis-distance-based detectors~\cite{lee2018simple}, have been proposed to assess predictive confidence and identify OoD samples without retraining the model. These approaches provide strong baselines in the literature. However, CNN-based inference relies on dense floating-point activations and a large number of multiply-accumulate (MAC) operations, resulting in significant computational and energy demands that limit applicability in resource-constrained, embedded, or real-time environments.
+Convolutional Neural Networks (CNNs) remain a dominant choice for OoD detection due to their strong feature extraction capabilities and mature architectures, although recent studies have also investigated transformer-based backbones for this task~\cite{ming2022delving}. A variety of post-hoc scoring methods, including Maximum Softmax Probability (MSP)~\cite{hendrycks2017baseline}, energy-based scores~\cite{liu2020energy}, and Mahalanobis-distance-based detectors~\cite{lee2018simple}, have been proposed to assess predictive confidence and isolate OoD samples without retraining the underlying model. While these approaches establish strong baselines, conventional CNN-based inference relies on dense floating-point activations and a large number of multiply-accumulate (MAC) operations. The resulting significant computational and energy demands limit their applicability in resource-constrained, embedded, or real-time environments.
 
-Spiking Neural Networks (SNNs) offer a promising alternative due to their event-driven and sparse computational paradigm. In SNNs, neurons emit discrete spikes only when their membrane potentials exceed a threshold, leading to reduced activity and potentially lower energy consumption during inference. In particular, when inference is performed with a small number of time steps, and in the extreme case with a single time step, the number of synaptic operations can be significantly reduced. However, this efficiency can trade off against representational capacity: high classification accuracy in SNNs is often achieved via rate-based coding and long temporal integration windows, which require many time steps and diminish potential energy savings. Consequently, a fundamental trade-off arises between accuracy and efficiency in SNN-based systems.
+Spiking Neural Networks (SNNs) offer a promising alternative by exploiting a sparse, event-driven computational paradigm. In SNNs, neurons emit discrete spikes only when their membrane potentials exceed a threshold, leading to reduced activity and potentially lower energy consumption during inference. In particular, operating in low-latency regimes, ideally with a single simulation time step $(T=1)$, substantially reduces synaptic operations by substituting floating-point multiply-accumulate operations with sparse integer accumulations. However, this efficiency can trade off against representational capacity: high classification accuracy in SNNs is often achieved via rate-based coding across long temporal integration windows, which require many time steps and diminish potential energy savings. Consequently, a fundamental trade-off arises between accuracy and efficiency in SNN-based systems.
 
-Population coding has been proposed to mitigate these limitations. By representing information across groups of neurons rather than single units, population coding can improve robustness, reduce sensitivity to noise, and stabilise training dynamics. In SNNs, population coding may approximate rate-based representations even with few time steps, making it attractive for low-latency, energy-efficient inference regimes where traditional temporal coding strategies are impractical.
+To mitigate these limitations, population coding has emerged as a promising structural complement~\cite{eliasmith2003neural}. By distributing information across groups of neurons rather than single units, population coding can improve robustness, reduce sensitivity to noise, and stabilize training dynamics. Within spiking architectures, population coding can approximate rate-based representations without incurring their temporal latency, making it attractive for low-latency, energy-efficient inference regimes where traditional temporal coding strategies are impractical.
 
-Motivated by these observations, the question of whether competitive OoD detection can be provided by spike-like models under low-latency, low-compute inference regimes, that is, with reduced time steps and arithmetic operations, is investigated. Specifically, the questions of whether training strategies can be adapted to obtain sufficiently discriminative feature representations under single-step inference and whether standard post-hoc OoD detection methods can be effectively applied to such representations are addressed. In addition, the role of population coding in enhancing feature separability and robustness is examined. 'Spike-like' is used to denote single-step spiking models implemented on conventional convolutional backbones, that is, CNN architectures with LIF activations; 'SNN' is used to refer to fully spiking networks, including multi-step and event-driven variants, and 'CNN' is used to denote standard non-spiking convolutional models.
+Motivated by these observations, this paper systematically investigates whether single-step spike-like networks can yield discriminative feature representations for post-hoc OoD detection under low-latency, low-compute inference constraints. Specifically, this paper addresses three questions: whether training strategies can be adapted to learn discriminative representations from scratch under single-step inference, whether standard post-hoc OoD detection methods transfer effectively to such representations, and whether population coding further enhances feature separability and robustness. `Spike-like' denotes our single-step ($T=1$) spiking models built on conventional convolutional backbones, in which standard non-linearities are replaced by leaky integrate-and-fire (LIF) neurons; `SNN' refers to fully spiking networks with multi-step temporal processing or event-driven execution; `CNN' denotes standard non-spiking convolutional models with full-precision activations. 
 
-Related work~\cite{Olber2022DetectionOO} has shown that binary activation patterns extracted from CNNs can capture internal network responses that are informative for OoD detection. In this study, such binary representations are learned directly from spiking activations during training, enabling the generation of feature vectors inherently suitable for OoD detection from scratch. A fair and direct comparison with CNN-based baselines is enabled by this design choice, while key spiking characteristics--namely binary activations, sparse computation, and reduced arithmetic complexity--are preserved, thereby allowing the trade-off between discriminative performance and computational efficiency to be systematically analysed.
+Under single-step inference with zero initial membrane state, a spike-like model is mathematically equivalent to a Binarized Neural Network (BNN)~\cite{courbariaux2016binarized}, the LIF leak and reset have no influence on the forward pass, producing hard-quantized outputs natively and bypassing the overhead of conventional quantization schemes. Prior work~\cite{Olber2022DetectionOO} has demonstrated that binary activation patterns extracted post-hoc from trained CNNs are informative for OoD detection. The present approach differs in two key respects: representations are learned from scratch using full multi-step LIF dynamics and surrogate-gradient training, exploiting a training/inference asymmetry that has no analogue in static BNNs, and population coding is incorporated as an SNN-specific output mechanism absent from standard BNN pipelines (see Section~\ref{sec:network}).
 
-In this context, the direct training of spike-like models is investigated: the spike activations of these networks are inherently binary, so quantised outputs are produced without applying conventional quantisation methods. In such single-step models, feature representations suitable for OoD detection can be learned from scratch.
-%, without reliance on post-hoc conversion from pre-trained CNNs.
-
-The main contributions of this work are:
+The main contributions of this work are summarized as follows:
 \begin{itemize}
-  \item A spiking-based framework in which spiking activation dynamics are incorporated into standard convolutional backbones, enabling reduced computational complexity and energy-efficient inference.
-  \item A systematic analysis of training strategies for single-step and multi-step SNNs, with particular emphasis on achieving competitive performance under single-step inference.
-  \item An evaluation of standard post-hoc OoD detection methods on spike-patterns and membrane-potential-based feature representations.
-  \item An investigation of the impact of population coding on feature robustness, separability, and OoD detection performance across multiple architectures and datasets.
-  \item An exploration of directly trained, inherently binarised spike-like models, avoiding reliance on CNN-to-SNN conversion pipelines.
+  \item \textit{Low-Latency Spike-Like OoD Framework:} A spike-like OoD detection framework is introduced, based on standard convolutional backbones with single-step LIF activations that eliminate full-precision floating-point activations and reduce MAC operations by one to two orders of magnitude relative to CNN baselines, while retaining compatibility with standard post-hoc detection pipelines. State-of-the-art (SOTA)-competitive OoD detection is demonstrated from a BNN-equivalent inference baseline ($T=1$), with performance progressively improved through multi-step training and population coding.
+  \item \textit{Systematic Evaluation of Training Objectives:} A comparative analysis of training objectives (mean squared error (MSE), cross-entropy (CE), and spike-count loss (CL)) and multi-step training configurations is conducted, showing that MSE-trained models yield the most discriminative representations and that multi-step training is beneficial only when combined with sufficient population-coding expansion.
+  \item \textit{Extensive Post-Hoc Benchmarking:} Distance-based ($k$-nearest-neighbor (kNN)) and six scoring-based post-hoc OoD detectors are evaluated on spike-like feature representations, demonstrating SOTA-competitive performance on the OpenOOD CIFAR-10 and CIFAR-100 benchmarks at substantially reduced arithmetic cost.
+  \item \textit{Isolation of Population Coding as a Performance Enabler:} Population coding is identified as the single most consistent performance enabler, independently improving both distance-based and scoring-based detection, and established as a prerequisite for multi-step training gains under single-step inference.
 \end{itemize}
 
-The remainder of this paper is organised as follows. Section~II reviews related work on CNN- and SNN-based OoD detection. Section~III describes the proposed architecture and training methodology. Section~IV presents the experimental setup and results. Section~V concludes the paper and outlines future research directions.
-
-
+The remainder of this paper is organized as follows. Section~\ref{sec:background} provides background on spiking neural networks and OoD detection. Section~\ref{sec:related} reviews related work on CNN- and SNN-based OoD detection. Section~\ref{sec:network} describes the network architectures employed. Section~\ref{sec:methodology} presents the proposed training methodology. Section~\ref{sec:results} reports the experimental setup and results. Section~\ref{sec:conclusions} concludes the paper and outlines future research directions.
 
 \section{Background (Research Context)}
 \label{sec:background}
 
-The OoD detection task is to determine whether a test sample $x \in \mathcal{X}$ originates from the training distribution $P_{\text{train}}(x)$. When a sample is out-of-distribution (i.e. $x \nsim P_{\text{train}}(x)$), feature representations and confidence scores may be misleading, so such inputs are flagged to prevent overconfident or erroneous decisions. Let $P_{\text{train}}(x, y)$ denote the joint distribution of inputs and labels observed during training, and let $P_{\text{train}}(x)$ denote its marginal. OoD detection can then be formulated as a binary hypothesis test:
+\subsection{Out-of-Distribution Detection}
+
+The OoD detection task is to determine whether a test sample $x \in \mathcal{X}$ originates from the training distribution $P_{\text{train}}(x)$. When a sample is out-of-distribution (i.e. $x \nsim P_{\text{train}}(x)$), feature representations and confidence scores may be misleading, typically such inputs are flagged to prevent overconfident or erroneous decisions. Let $P_{\text{train}}(x, y)$ denote the joint distribution of inputs and labels observed during training, and let $P_{\text{train}}(x)$ denote its marginal. OoD detection can then be formulated as a binary hypothesis test:
 \begin{equation}
 \label{eq:01a}
 \mathcal{H}_0: \; x \sim P_{\text{train}}(x),
@@ -239,19 +228,48 @@ The OoD detection task is to determine whether a test sample $x \in \mathcal{X}$
 \label{eq:01b}
 \mathcal{H}_1: \; x \sim P_{\text{out}}(x), \quad P_{\text{out}} \neq P_{\text{train}},
 \end{equation}
-where $\mathcal{H}_0$ corresponds to in-distribution samples and $\mathcal{H}_1$ to out-of-distribution samples. Reliable OoD detection is essential for deploying deep learning models in open-world environments, where unexpected or anomalous samples may occur.
+where $\mathcal{H}_0$ corresponds to in-distribution samples and $\mathcal{H}_1$ to out-of-distribution samples. Reliable OoD detection is essential for deploying deep learning models in open-world environments where unexpected or anomalous samples may occur.
 
-Conventional CNN-based inference relies on dense convolutional operations, resulting in significant computational load and power consumption during feature extraction and classification. This cost is largely independent of input activity, since all layers are evaluated exhaustively at inference time. While strong representational capacity and state-of-the-art OoD performance are provided by CNNs, deployment in energy-constrained environments remains challenging.
+\subsection{Convolutional and Spiking Neural Network Backbones}
 
-SNNs provide an alternative computational paradigm based on sparse and event-driven processing. Spikes are emitted only when membrane potentials exceed a threshold, allowing computation to be performed selectively. Under appropriate sparsity conditions and short inference windows, both computational cost and energy consumption can be reduced. However, these advantages depend strongly on spike activity, encoding strategies, and network configuration.
+Conventional CNN backbones forward-propagate continuous, full-precision activations across all layers. For a standard convolutional or fully connected layer, the output activation vector $\mathbf{a}$ is computed as:
+\begin{equation}
+\label{eq:cnn}
+\mathbf{a} = \sigma(\mathbf{W}\mathbf{x} + \mathbf{b}),
+\end{equation}
+where $\mathbf{W}$ is the weight matrix, $\mathbf{b}$ the bias, and $\sigma(\cdot)$ a continuous non-linear activation such as ReLU. Because all activation tensors are evaluated exhaustively at inference time regardless of input, the computational load is high and independent of input activity.
 
-In this work, OoD detection is studied on static images, and it is investigated whether temporal dynamics can be constrained (e.g., to single-step inference) without degrading detection performance. By using a single-step regime, arithmetic complexity is reduced while key spiking characteristics such as sparse, event-driven activations are preserved.
+SNNs replace the continuous activation with a leaky LIF neuron. Over discrete simulation time steps $t = 1, \ldots, T$, the membrane potential $u_i^t$ of neuron $i$ integrates weighted pre-synaptic spikes while decaying:
+\begin{equation}
+\label{eq:lif}
+u_i^t = \beta\, u_i^{t-1} + \sum_{j} w_{ij}\, s_j^t,
+\end{equation}
+where $\beta \in (0,1)$ is the temporal decay factor and $s_j^t \in \{0,1\}$ is the binary spike from pre-synaptic neuron $j$. When $u_i^t$ exceeds a firing threshold $\vartheta$, an output spike is emitted and the potential is reset:
+\begin{equation}
+\label{eq:spike}
+s_i^t = H\!\left(u_i^t - \vartheta\right), \qquad u_i^t \leftarrow u_i^t(1 - s_i^t) + u_{\text{reset}}\,s_i^t,
+\end{equation}
+where $H(\cdot)$ is the Heaviside step function. Because computation is triggered only by spikes, energy consumption scales with spike activity and sparsity~\cite{2021-eshraghian}, unlike CNNs where cost is fixed.
 
-Feature representations can be obtained either as binary spike patterns or as continuous membrane potentials from intermediate network layers. Input images are used directly as grayscale or RGB inputs rather than being converted into a temporal spike sequence; the first convolutional layer, together with the spike activation function, implicitly converts pixel intensities into spike activations (this conversion is part of the spiking backbone, not a separate CNN preprocessor), and subsequent layers operate only on spike activations. This design avoids the overhead of rate- or time-based encoding schemes and supports low-latency inference.
+\subsection{Single-Step Inference and BNN Equivalence}
 
-The network models are based on standard convolutional and residual architectures in which conventional activations are replaced by spiking leaky integrate-and-fire (LIF) neurons. Training is performed using surrogate-gradient methods because spikes are non-differentiable. Both single-step and multi-step training regimes are considered, while inference is restricted to a single time step.
+When inference is restricted to a single simulation time step ($T=1$) starting from zero initial membrane state ($u_i^0 = 0$), the decay term $\beta\, u_i^{t-1}$ in Eq.~(\ref{eq:lif}) vanishes. The LIF dynamics collapse to a spatial threshold operation:
+\begin{equation}
+\label{eq:t1}
+u_i = \sum_{j} w_{ij}\, s_j, \qquad s_i = H\!\left(u_i - \vartheta\right).
+\end{equation}
+This is mathematically equivalent to the binary threshold activation of a BNNs~\cite{courbariaux2016binarized}: the model fires if and only if the weighted input sum exceeds $\vartheta$. Deeper layers thus process inherently binary arrays, replacing floating-point MACs with sparse integer accumulations.
 
-Within this framework, population coding is investigated as a mechanism for improving feature robustness and separability. By distributing information across groups of neurons, resilience to noise can be enhanced and the discriminative structure of feature representations used for OoD detection can be improved.
+Because the Heaviside function has zero derivative almost everywhere, standard backpropagation is not applicable. Surrogate-gradient training replaces the true derivative with a smooth proxy $\sigma'(u)$ during the backward pass, enabling gradient-based optimization from scratch. Feature representations are extracted post-hoc either as binary spike patterns $\mathbf{s}$ or as continuous membrane potentials $\mathbf{u}$ from intermediate layers. Input images are used directly as grayscale or RGB inputs; the first convolutional layer together with the spike activation implicitly converts pixel intensities into spike activations, avoiding the overhead of rate- or time-based input encoding.
+
+\subsection{Population Coding}
+
+To counteract the potential loss of representational capacity caused by constraining inference to $T=1$, population coding~\cite{eliasmith2003neural} is applied at the output layer. Instead of assigning each of the $C$ target classes to a single output neuron, the final linear layer is expanded by a factor $E$, yielding $C \times E$ output units. Class predictions are derived by aggregating over each sub-population:
+\begin{equation}
+\label{eq:popcoding}
+\tilde{z}_c = \mathcal{A}\!\left(\left\{ z_{c,e} \right\}_{e=1}^{E}\right),
+\end{equation}
+where $z_{c,e}$ is the activation (spike count or membrane potential) of the $e$-th neuron assigned to class $c$, and $\mathcal{A}$ is an aggregation operator (e.g., mean or sum). By distributing information across groups of neurons, population coding improves robustness to noise, stabilizes training dynamics, and reshapes the learned feature space towards greater intra-class compactness and inter-class separation, enhancing both classification accuracy and OoD discriminability without increasing the computational footprint of the convolutional backbone.
 
 
 \section{Related work}
@@ -270,7 +288,7 @@ CNN & Multiply-and-accumulate operations in all layers & FLOPs / MACs & High: de
 \midrule
 SNN & Synaptic accumulations triggered by spikes & SynOps / spike counts & Potentially low: depends on spike activity and sparsity & High: computation occurs only when spikes are generated \\
 \midrule
-Spike-like model & First layer: MACs; deeper layers: ACs on binary activations & MACs and ACs & Reduced: lower arithmetic complexity while preserving spiking properties & Moderate: sparse activations with single-step inference \\
+Spike-like model & First layer: MACs; deeper layers: ACs on binary activations & MACs and ACs & Reduced: lower arithmetic complexity while preserving spiking properties & High: sparse activations with single-step inference \\
 \bottomrule
 \end{tabular}
 }
@@ -283,32 +301,41 @@ In many real-world applications, such as autonomous driving or industrial monito
 
 \vspace{0.3em}
 \noindent\textbf{CNN-based OoD detection.}
-Many OoD approaches are applied post-hoc on feature representations extracted from a trained classifier. Broadly, post-hoc methods used in the literature fall into two families. Scoring-based methods compute a scalar anomaly score from a single feature vector or logit, including Maximum Softmax Probability (MSP)~\cite{hendrycks2017baseline}, energy-based scores~\cite{liu2020energy}, Virtual Logit Matching (ViM)~\cite{wang2022vim}, ASH~\cite{djurisic2022ash}, and more recent approaches such as GEN~\cite{10203747} and Fast Decision Boundary Detection (FDBD)~\cite{liu2024fast}, which leverage logit geometry and decision-boundary information to improve separability between in-distribution and OoD samples. Distance-based methods derive anomaly scores from distances in feature space to in-distribution references, such as Mahalanobis-distance detectors~\cite{lee2018simple}, Nearest Class Mean (NCM), and $k$-Nearest Neighbours (kNN)~\cite{sun2022knn}.
+Existing CNN-based OoD detection frameworks are predominantly applied post-hoc to feature representations of pre-trained classifiers. These inference-time strategies fall into two primary paradigms. Scoring-based methods derive a scalar anomaly metric from individual feature vectors or final logit distributions, including Maximum Softmax Probability (MSP)~\cite{hendrycks2017baseline}, energy-based scores~\cite{liu2020energy}, Virtual Logit Matching (VIM)~\cite{wang2022vim}, and Activation Shaping (ASH)~\cite{djurisic2022ash}. More recent approaches such as GEN~\cite{10203747} and Fast Decision Boundary Detection (FDBD)~\cite{liu2024fast} analyze decision geometry and boundary margins to enhance the separability between in-distribution and OoD samples. Distance-based methods evaluate spatial displacement relative to in-distribution references in the learned latent space, including Mahalanobis-distance detectors~\cite{lee2018simple}, Nearest Class Mean (NCM)~\cite{huo2025ncm}, and $k$-nearest-neighbor (kNN) algorithms~\cite{sun2022knn}.
 
-Beyond these post-hoc approaches, several methods explicitly model the structure of feature representations. Examples include feature-space density estimation and density-ratio models~\cite{sun2022out, zhang2022ood}, clustering-based repre\-sen\-tation learning approaches~\cite{sinhamahapatra2022all}, and generative approaches based on latent diffusion models~\cite{10.1145/3731715.3733326}. Recent work has also explored the geometry of classifier parameters themselves; WeiPer~\cite{granz2024weiper} estimates OoD uncertainty through perturbations of class projection weights and demonstrates that classifier-weight information can provide complementary anomaly-detection signals. These methods aim to improve the separation between in-distribution and OoD samples directly in the learned embedding space.
+Beyond these post-hoc approaches, several methods explicitly model the structure of feature representations. Examples include feature-space density estimation and density-ratio models~\cite{sun2022knn, zhang2022ood}, clustering-based repre\-sen\-tation learning approaches~\cite{sinhamahapatra2022all}, and generative approaches based on latent diffusion models~\cite{10.1145/3731715.3733326}. Recent work has also explored the geometry of classifier parameters themselves; WeiPer~\cite{granz2024weiper} estimates OoD uncertainty through perturbations of class projection weights and demonstrates that classifier-weight information can provide complementary anomaly-detection signals. These methods aim to improve the separation between in-distribution and OoD samples directly in the learned embedding space.
 
-Another important research direction focuses on improving OoD detection during training. Hendrycks \textit{et al.}~\cite{NEURIPS2019} demonstrated that incorporating self-supervised learning objectives produces more robust feature representations and improves uncertainty estimation, leading to enhanced OoD detection performance. Outlier Exposure (OE)~\cite{hendrycks2018deep} further improves OoD awareness by introducing auxiliary outlier datasets during training and encouraging low-confidence predictions on anomalous samples. A data-augmentation strategy was proposed in PixMix~\cite{Hendrycks_2022_CVPR} that mixes training images with structurally complex patterns such as fractals, yielding simultaneous improvements in corruption robustness, calibration, anomaly detection, and OoD performance. Similarly, Logit Normalisation (LogitNorm)~\cite{pmlr-v162-wei22d} modifies the cross-entropy objective by constraining the norm of the logit vector, reducing network overconfidence and improving the separability between in-distribution and OoD confidence scores. Virtual Outlier Synthesis (VOS)~\cite{du2022towards} generates synthetic outliers in low-density regions of the feature space to facilitate unknown-aware learning without requiring large auxiliary OoD datasets. Mixture Outlier Exposure (MixOE)~\cite{Zhang_2023_WACV} extends exposure-based training by constructing mixed inlier--outlier samples, improving OoD detection in fine-grained classification tasks.
+Another important research direction focuses on improving OoD detection during training. Hendrycks \textit{et al.}~\cite{NEURIPS2019} demonstrated that incorporating self-supervised learning objectives produces more robust feature representations and improves uncertainty estimation, leading to enhanced OoD detection performance. Outlier Exposure (OE)~\cite{hendrycks2018deep} further improves OoD awareness by introducing auxiliary outlier datasets during training and encouraging low-confidence predictions on anomalous samples. A data-augmentation strategy was proposed in PixMix~\cite{Hendrycks_2022_CVPR} that mixes training images with structurally complex patterns such as fractals, yielding simultaneous improvements in corruption robustness, calibration, anomaly detection, and OoD performance. Similarly, Logit Normalization (LogitNorm)~\cite{pmlr-v162-wei22d} modifies the cross-entropy objective by constraining the norm of the logit vector, reducing network overconfidence and improving the separability between in-distribution and OoD samples. Mixture Outlier Exposure (MixOE)~\cite{Zhang_2023_WACV} extends exposure-based training by constructing mixed inlier-outlier samples, improving OoD detection in fine-grained classification tasks.
+Virtual Outlier Synthesis (VOS)~\cite{du2022towards} generates synthetic outliers in low-density regions of the feature space to facilitate unknown-aware learning without requiring large auxiliary OoD datasets.
 
 In parallel, improved evaluation methodologies and benchmark suites have refined the assessment of OoD detectors and highlighted limitations of earlier evaluation protocols~\cite{kuan2022back, yang2022openood}. While most of the above approaches were originally developed for convolutional neural networks, many can be adapted to spiking neural networks by operating on either spike representations or membrane potentials. However, the effectiveness of transferring OoD detection techniques to sparse and event-driven representations remains an active area of research.
 
 
 \vspace{0.3em}
 \noindent\textbf{OoD detection with spiking networks.}
-OoD detection in spiking neural networks has only recently been explored. In~\cite{2023-martinez}, spike-count activations across layers were used to derive explainable OoD indicators, achieving competitive performance on both static and event-based datasets. In~\cite{terresescudero2025}, the robustness of fully spiking networks in open-world scenarios was investigated, and improved generalisation under forward-only training schemes was demonstrated.
+OoD detection in spiking neural networks has only recently been explored. In~\cite{2023-martinez}, spike-count activations across layers were used to derive explainable OoD indicators, achieving competitive performance on both static and event-based datasets. In~\cite{terresescudero2025}, the robustness of fully spiking networks in open-world scenarios was investigated, and improved generalization under forward-only training schemes was demonstrated.
 
 Uncertainty estimation in SNNs has also been studied as a related problem. Spike-based confidence measures~\cite{Sun_2023} and Bayesian formulations~\cite{prabodh2024} indicate that spike activity statistics can provide meaningful uncertainty estimates that can be leveraged for OoD detection.
 
+%While these existing approaches demonstrate competitive performance, they rely on multi-step temporal processing or event-driven execution to accumulate sufficient spike statistics. In contrast, the framework proposed in this work operates strictly within a single-step ($T=1$) spike-like regime, eliminating temporal execution latency while preserving computational efficiency through native activation sparsity.
+
 \vspace{0.3em}
 \noindent\textbf{Training and architectural advances in SNNs.}
-Recent progress in surrogate-gradient learning has enabled effective training of deep spiking networks using gradient-based optimization~\cite{neftci2019surrogate, zenke2021remarkable, eshraghian2023training}. Architectures such as Spiking-ResNet~\cite{2022-fang, 2021-zheng} and directly trained deep SNNs~\cite{2020-rathi} have achieved performance comparable to CNNs on standard benchmarks. Additional improvements include information-theoretic loss functions~\cite{2022-Guo} and learnable membrane dynamics~\cite{2025-shen}, which enhance representation quality under limited temporal depth.
+Recent progress in surrogate-gradient learning has enabled effective training of deep spiking networks using gradient-based optimization~\cite{neftci2019surrogate, zenke2021remarkable, eshraghian2023training}. Architectures such as Spiking-ResNet~\cite{2022-fang, 2021-zheng} and directly trained deep SNNs~\cite{2020-rathi} have achieved performance comparable to CNNs on standard benchmarks. Additional improvements include information-theoretic loss functions~\cite{2022-Guo} and learnable membrane dynamics~\cite{2025-shen}, which enhance representation quality under limited temporal depth. These advances are particularly relevant for low-latency deployments, as they preserve the discriminative structure of learned feature representations even as the temporal integration window approaches its minimum.
 
 \vspace{0.3em}
 \noindent\textbf{Population coding in spiking networks.}  
 Population coding distributes information across groups of neurons, leading to robust and noise-tolerant representations~\cite{Tkacik2010Optimal, Tripp2012Population}. Its application in machine learning includes temporal classification~\cite{Pan2019NeuralPopulation} and reinforcement learning~\cite{Zhang2021PopulationCoding}. However, its role in OoD detection has not been extensively studied, and its potential as a mechanism for improving feature separability in both spiking and dense representations remains largely unexplored.
 
 \vspace{0.3em}
+\noindent\textbf{Binarized and quantized neural networks.}
+Binarized Neural Networks (BNNs)~\cite{courbariaux2016binarized} constrain both weights and activations to binary values ($\{-1,+1\}$ or $\{0,1\}$), replacing multiply-accumulate operations with XNOR-popcount operations and reducing memory and energy consumption substantially. XNOR-Net~\cite{rastegari2016xnor} demonstrated that this idea scales to deep convolutional architectures on ImageNet-scale tasks. More broadly, the field of quantized neural networks (QNNs) has shown that low-bit-width inference can approach floating-point accuracy across a wide range of vision tasks, and that the arithmetic savings are hardware-realizable on both conventional and neuromorphic accelerators.
+
+%The relationship between single-step spiking networks and BNNs is an important one and is explicitly acknowledged in this work. When a LIF neuron is simulated for a single time step starting from zero membrane potential, the leak factor $\beta$ and the reset mechanism have no mathematical influence on the output: the neuron fires if and only if the weighted input sum exceeds the threshold, which is precisely the behavior of a deterministic binary threshold (sign) activation. At $T=1$ with zero initial state, the spike-like model is therefore equivalent to a BNN or threshold-activation network. This work starts from this BNN-like baseline deliberately and exploits two complementary mechanisms to improve OoD discriminability beyond what a statically trained BNN achieves: (i)~a training-inference asymmetry in which the number of simulation steps used during training is progressively increased beyond one, allowing genuine LIF temporal dynamics and multi-step surrogate-gradient learning to shape the learned feature representations while inference remains fixed at $T=1$; and (ii)~population coding at the output layer, which is an SNN-inspired representation strategy with no direct counterpart in standard BNN pipelines. Neither the training-inference asymmetry nor the role of population coding in OoD detection have been studied in the BNN or QNN literature, which motivates the SNN framing adopted here.
+
+\vspace{0.3em}
 \noindent\textbf{Computational and energy considerations.}  
-The compu\-tational complexity of CNNs is typically measured using floating-point operations (FLOPs) or multiply-accumulate (MAC) counts. In contrast, SNNs rely on spike-triggered synaptic operations (SynOps), which depend on activity and sparsity~\cite{roy2019towards, davies2018loihi, plagwitz2023to}. For spike-like models, deeper layers primarily involve accumulate-only (AC) operations, reducing arithmetic complexity~\cite{chen2023training}. Comparisons between MACs and SynOps are commonly used as a hardware-agnostic proxy for computational efficiency~\cite{lemaire2023estimation}. The key characteristics of CNNs, SNNs (multi‑step fully spiking), and spike-like models (single‑step CNN with LIF) are summarised in Table~\ref{tab:energy-comparison-summary}.
+The compu\-tational complexity of CNNs is typically measured using floating-point operations (FLOPs) or multiply-accumulate (MAC) counts. In contrast, SNNs rely on spike-triggered synaptic operations (SynOps), which depend on activity and sparsity~\cite{roy2019towards, davies2018loihi, plagwitz2023to}. For spike-like models, deeper layers primarily involve accumulate-only (AC) operations, reducing arithmetic complexity~\cite{chen2023training}. Comparisons between MACs and SynOps are commonly used as a hardware-agnostic proxy for computational efficiency~\cite{lemaire2023estimation}. The key characteristics of CNNs, SNNs (multi-step fully spiking), and spike-like models (single-step CNN with LIF) are summarized in Table~\ref{tab:energy-comparison-summary}.
 
 
 \section{Network Architectures}
@@ -333,15 +360,15 @@ spike-ResNet18 & 18 conv + 1 FC & Residual blocks [64, 128, 256, 512], conv2d+BN
 \end{center}
 \end{table*}
 
-The implemented network architectures are based on convolutional backbones augmented with key properties of spiking neural networks. Standard ReLU activations used in CNNs are replaced by LIF neurons, which produce binary spike outputs while preserving spatial feature-extraction capabilities. Both sparse feature vectors and dense feature representations can be extracted and subsequently used for post-hoc OoD detection. These representations can be obtained either as sparse spike patterns (1 indicating a spike and 0 indicating silence) or as dense feature vectors derived from membrane potentials in the penultimate or output layer.
+The utilized network architectures are based on convolutional backbones augmented with key properties of spiking neural networks. Standard ReLU activations used in CNNs are replaced by LIF neurons, which produce binary spike outputs while preserving spatial feature-extraction capabilities. Both sparse feature vectors and dense feature representations can be extracted and subsequently used for post-hoc OoD detection. These representations can be obtained either as sparse spike patterns (1 indicating a spike and 0 indicating silence) or as dense feature vectors derived from membrane potentials in the penultimate or output layer.
 
-The number of simulation time steps employed during training and inference can be selected flexibly. In prior work on OoD detection with spiking networks, inference commonly required on the order of tens of time steps; studies emphasising classification accuracy sometimes operated with fewer steps.
+The number of simulation time steps $T$ employed during training and inference can be selected flexibly based on deployment constraints. In prior SNN work on OoD detection, inference commonly required tens of time steps to accumulate stable firing rates~\cite{2023-martinez}; classification-focused models occasionally operated with fewer~\cite{2021deep}.
 
-In the limiting case, the number of simulation time steps can be reduced to one. Under this configuration, the network operates as a binarised spike-like model: activations are binary, and the temporal dynamics of LIF neurons are largely suppressed, resulting in integrate-and-fire (IF) behaviour. A neuron emits a spike only if sufficient input activity from the previous layer causes its membrane potential to exceed the firing threshold. Although explicit temporal processing is not exploited, this single-step regime preserves the sparsity and computational efficiency associated with spiking networks while enabling the spiking-augmented convolutional backbone to produce discriminative feature representations: spike patterns and continuous membrane-potential vectors. Both representation types are suitable for OoD detection.
+In the limiting case of $T=1$, the network operates as a binarized spike-like model. Temporal integration is suppressed, and neuron behavior reduces to a purely spatial threshold operation: a binary activation is emitted if the immediate pre-synaptic input drives the membrane potential past the firing threshold $\vartheta$ (see Section~\ref{sec:background}, Eq.~(\ref{eq:t1})). This preserves activation sparsity and computational efficiency while producing discriminative feature representations suitable for post-hoc OoD detection.
 
-The architecture can be shifted toward a more temporally rich spiking regime by increasing the number of simulation time steps during training, thereby enabling the temporal dynamics of LIF neurons to be exploited. To preserve low inference-time power consumption, networks trained with multiple time steps can still be used with single-step propagation during feature extraction.
+To further exploit the performance-efficiency trade-off, models can be trained with multiple time steps to engage full LIF temporal dynamics, then evaluated under single-step inference ($T=1$) during feature extraction. This training-inference asymmetry allows the feature manifold to be shaped by richer temporal learning while keeping deployment cost minimal.
 
-In this work, the given backbone architectures are combined with spiking activation layers. Depending on the underlying backbone, the resulting models are referred to as Spike-ConvNet or Spike-ResNet architectures. In all cases, LIF activations are employed with parameters $\beta=0.95$, threshold $=0.25$, and reset $=0$. Residual blocks in Spike-ResNet architectures consist of multiple convolutional layers followed by BatchNorm2d and LIF activations. Skip connections are applied to spiking feature maps using element-wise addition, after which outputs are clamped to a maximum value of 1. Downsampling is performed using convolutional layers with a stride of 2, followed by LIF activation, thereby preserving spiking characteristics across network stages. The key architectural characteristics of all implemented backbones are summarised in Table~\ref{tab:network-backbones}.
+In this work, the given backbone architectures are combined with spiking activation layers. Depending on the underlying backbone, the resulting models are referred to as either Spike-ConvNet or Spike-ResNet architectures. In all cases, LIF activations are employed with parameters $\beta=0.95$, threshold $\vartheta=0.25$, and reset $=0$. Residual blocks in Spike-ResNet architectures consist of multiple convolutional layers followed by BatchNorm2d and LIF activations. Skip connections are applied to spiking feature maps using element-wise addition, after which the outputs are clamped to a maximum value of 1. Downsampling is performed using convolutional layers with a stride of 2, followed by LIF activation, thereby preserving spiking characteristics across network stages. The key architectural characteristics of all implemented backbones are summarized in Table~\ref{tab:network-backbones}.
 
 Population coding is implemented by expanding the final linear layer to size $C\times E$ (where $C$ is the number of output classes and $E$ is the expansion factor): neurons from the penultimate layer are fully connected to all $C\times E$ neurons in the final layer. The per-class response is then computed by aggregating $E$ outputs for each class, which increases only the number of final-layer parameters while leaving the convolutional backbone unchanged.
 
@@ -349,83 +376,23 @@ Population coding is implemented by expanding the final linear layer to size $C\
 \section{Methodology}
 \label{sec:methodology}
 
-\subsection{Population coding}
-\label{sec:population-coding}
-
-Population coding is optionally applied at the output layer by assigning each class to a population of output neurons rather than a single output unit. For a given expansion value, the final-layer output vector is partitioned into class-wise populations, and a class-level response is obtained by aggregating the activity within each population. The aggregation rule is matched to the loss function: summed spike counts are used for spike-count objectives, whereas mean-valued membrane potentials are used for membrane-based objectives. The loss is then applied to these aggregated class-level responses.
-
-Through this mechanism, training is configured so that the population corresponding to the target class exhibits stronger collective activity, while populations associated with other classes remain suppressed. This distributed representation can reshape the learned feature space, potentially improving intra-class compactness and inter-class separation.
-
-
 \subsection{Training Procedure}
-All backbones were trained under identical experimental conditions. The loss functions, preprocessing and augmentation choices, population-coding setup, and optimisation details used in the experiments are summarised below. The first three approaches are also used for spike-like models operating with a single simulation time step ($T=1$). In this regime, the networks retain hard-quantised spiking activations while effectively operating in a single-step inference mode.
+All backbones were trained under identical experimental conditions. The loss functions, preprocessing, augmentation, and optimization details are summarized below. When population coding is used, final-layer outputs are partitioned into class-wise sub-populations before the loss is applied: summed spike counts are used for spike-count objectives (MSE, CL), while mean membrane potentials are used for membrane-based objectives (CE).
 
 \begin{itemize}
-\item \textbf{SNN + MSE (spike-pattern-based mean-square error):} Optimisation is performed on the final-layer spike pattern. Spike counts are accumulated over the simulation window, and the mean-squared error with respect to the target representation is minimised. No per-channel normalisation is applied for this objective, and data augmentation is restricted to geometric transformations (random horizontal flip and random crop).
+\item \textbf{SNN + MSE (spike-pattern-based mean-square error):} Optimization is performed on the final-layer spike pattern. Spike counts are accumulated over the simulation window, and the mean-squared error with respect to the target representation is minimized. No per-channel normalization of input image is applied for this objective, and data augmentation is restricted to geometric transformations (random horizontal flip and random crop).
 
-\item \textbf{SNN + CL (spike-count-based):} Optimisation is performed directly on integer spike-count targets. As with MSE-based training, no per-channel normalisation is applied, and augmentation is restricted to geometric transformations.
+\item \textbf{SNN + CL (spike count-loss):} Optimization is performed directly on integer spike-count targets. As with MSE-based training, no per-channel normalization is applied, and augmentation is restricted to geometric transformations.
 
-\item \textbf{SNN + CE (membrane-potential-based):} Optimisation is performed on the continuous membrane potentials of the final layer. Standard per-channel mean--standard deviation normalisation is applied, together with both geometric and photometric augmentations.
+\item \textbf{SNN + CE (membrane-potential-based cross-entropy):} Optimization is performed on the continuous membrane potentials of the final layer. Considering that the target is not spike count, the standard per-channel mean-standard deviation normalization is applied, together with both geometric and photometric augmentations.
 
-\item \textbf{CNN + CE:} Identical backbones are trained as regular convolutional neural networks using cross-entropy loss on output logits to provide a conventional CNN baseline for comparison. Standard normalisation and both geometric and photometric augmentations are applied.
+\item \textbf{CNN + CE:} Identical backbones are trained as regular convolutional neural networks using cross-entropy loss on output logits to provide a conventional CNN baseline for comparison. Standard normalization and both geometric and photometric augmentations are applied.
 \end{itemize}
 
-When population coding is used, final-layer outputs are reshaped into class-wise populations and aggregated before the loss is applied (see Subsection~\ref{sec:population-coding}). Optimisation was carried out using the Adam optimiser with standard parameters and a weight decay of $10^{-4}$. A cyclical learning rate schedule (OneCycleLR) with an initial learning rate of $2\cdot10^{-4}$ was used to improve convergence over 400 training epochs. All models were trained with a batch size of 64.
+When population coding is used, final-layer outputs are reshaped into class-wise populations and aggregated before the loss is applied (see Subsection~\ref{sec:population-coding}). Optimization was carried out using the Adam optimizer with standard parameters and a weight decay of $10^{-4}$. A cyclical learning rate schedule (OneCycleLR) with an initial learning rate of $2\cdot10^{-4}$ was used to improve convergence over 400 training epochs. All models were trained with a batch size of 64.
 
-\subsection{Feature Extraction for OoD Detection}
-Feature vectors are extracted from either the penultimate or final layers and may consist of binary spike patterns or continuous membrane potentials, depending on the evaluation protocol. All OoD methods considered here are applied post-hoc on these pre-trained feature representations (i.e., no additional training is performed for detection). Two broad families of post-hoc approaches are used in the experiments:
-
-\begin{itemize}
-    \item \textbf{Scoring-based methods:} Anomaly scores are computed from a single feature vector per sample using heuristics or calibrated transforms, for example, Maximum Softmax Probability (MSP)~\cite{hendrycks2017baseline}, Energy-based detection~\cite{liu2020energy}, Virtual Logit Matching (ViM)~\cite{wang2022vim}, and ASH~\cite{djurisic2022ash}. These methods can be applied to spike-pattern features (penultimate and/or final-layer activations) or dense features (membrane potentials).
-    \item \textbf{Distance-based methods:} Anomaly scores are derived from distances in feature space to in-distribution references (class prototypes or neighbours); examples include Nearest Class Mean (NCM)~\cite{huo2025ncm} and $k$-Nearest Neighbours (kNN)~\cite{sun2022knn}. In spiking networks, either binary spike patterns or membrane potentials can be used as feature vectors to compute these distances.
-\end{itemize}
-
-Fig.~\ref{fig:feature-extraction-pipeline-narrow} illustrates the experimental pipeline: feature extraction is separated from OoD scoring, and all detectors are applied post-hoc to pre-trained feature vectors. Distance-based detectors (e.g., NCM, kNN) typically operate on penultimate-layer features to compute prototype or neighbour distances, while scoring-based detectors (e.g., MSP, Energy, ViM, ASH) use final-layer (and/or penultimate-layer) logits or transformed features to compute anomaly scores. When population coding is used, final-layer outputs are reshaped and aggregated per class before scoring.
-
-\subsection{Evaluation Metrics}
-Performance of feature extraction and OoD detection is quantified using:
-\begin{itemize}
-    \item \textbf{AUROC:} Measures the probability that a randomly chosen ID sample receives a higher confidence score than a randomly chosen OoD sample. Higher AUROC indicates better discriminative capability.
-    \item \textbf{FPR95:} Represents the fraction of OoD samples incorrectly classified as ID when the true positive rate for ID samples is 95\%. Lower FPR95 indicates more reliable OoD detection.
-\end{itemize}
-
-\Figure[t!](topskip=0pt, botskip=0pt, midskip=0pt){figure1.eps}
-{ \textbf{Input images are processed by the spiking backbone to produce features, optionally enhanced via population coding. The resulting features are then used for post-hoc or distance-based OoD detection. Dashed arrows indicate optional paths.}\label{fig:feature-extraction-pipeline-narrow}}
-
-
-\section{Experimental results}
-\label{sec:results}
-
-\begin{table*}[tbp]
-\caption{Inference-time computational complexity comparison between CNN and spike-like backbones (single-step inference, $T = 1$). Population-coding variants are reported for $C=5,10,25,50$.}
-\begin{center}
-\small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{l c c c c c c}
-\toprule
-\textbf{Backbone} & \textbf{CNN (MACs)} & \textbf{Spike-like (base)} & \textbf{Spike-like ($C=5$)} & \textbf{Spike-like ($C=10$)} & \textbf{Spike-like ($C=25$)} & \textbf{Spike-like ($C=50$)} \\
-\midrule
-ConvNet  & 9.7~M    & 1.18~M / 3.93~M   & --- & --- & --- & --- \\
-ResNet10 & 254.5~M  & 83.09~M / 2.88~M  & --- & --- & --- & --- \\
-ResNet18 & 557.2~M  & 178.69~M / 3.72~M & --- & --- & --- & --- \\
-\bottomrule
-\end{tabular}
-\label{tab:computation-comparison}
-\end{center}
-\end{table*}
-
-\subsection{Inference-Time Computational Analysis}
-As discussed in Sec.~\ref{sec:related}, CNN complexity is commonly reported using floating-point operation (FLOP) counts, typically expressed as the number of multiply--accumulate (MAC) operations that dominate convolutional inference. Hardware-agnostic estimates of these costs are provided by architecture-level tools such as \texttt{ptflops}~\cite{ptflops}. By contrast, spiking networks perform event-driven computation: synaptic operations occur only when spikes are emitted, so cost is more naturally expressed in synaptic operations (SynOps) or spike-triggered accumulations. In the spike-like models studied here, activations are binary and temporal integration is suppressed, which reduces arithmetic complexity.
-
-To enable a practical comparison, inference-time operation counts are computed for each spike-like network and its CNN counterpart while keeping the backbone architecture identical. In a CNN, a MAC (multiply-and-accumulate) operation is required for each convolutional output element. For spike-like networks processing static RGB inputs, MACs are required at the input/first layer (to process real-valued pixel intensities); in deeper layers, binary activations allow multiplications to be replaced by accumulate-only (AC) operations. Floating-point ops are still involved in normalisation and some auxiliary layers, while the dominant inference work in spike-like models is shifted toward integer additions. Although the energy per operation is dependent on CMOS technology and implementation details~\cite{lemaire2023estimation}, a hardware-agnostic proxy for relative compute cost is provided by aggregating MAC and AC counts.
-
-These estimates for RGB inputs of size $32\times32$ (e.g., CIFAR) are summarised in Table~\ref{tab:computation-comparison}. Convolutional, normalisation, and activation operations are accounted for in the values following the conventions in~\cite{ptflops, lemaire2023estimation}. Evaluated at a single time step, spike-like networks show large reductions in floating-point MAC counts, with most remaining compute expressed as ACs. As noted above, the term 'spike-like' refers to single-step spiking models implemented on CNN backbones (CNN + LIF), and all reported spike-like operation counts are computed for single-step inference. The CNN column lists MAC counts for full-precision inference, while the spike-like column separates ACs (deeper layers) and remaining MACs (e.g., first layer and auxiliary ops).
-
-\subsection{Experimental setup}
-
-OpenOOD protocols~\cite{yang2022openood} are followed in the experiments. Table~\ref{tab:ood-datasets} lists the near- and far-OoD datasets used for each in-distribution (ID) benchmark. All reported results show AUROC averaged over five independent training runs.
-
-Unless explicitly stated otherwise, performance tables in this section use colour-coded cells to support visual comparison: greener shades indicate better performance and redder shades indicate weaker performance. This visual convention is applied consistently to both AUROC and FPR95 entries.
+\subsection{Datasets and Evaluation Protocol}
+OpenOOD protocols~\cite{yang2022openood} are followed in the experiments. Table~\ref{tab:ood-datasets} lists the near- and far-OoD datasets used for each in-distribution (ID) benchmark. All reported results show AUROC averaged over five independent training runs. To test the hypothesis that larger ID class counts benefit from larger population expansions, a spectrum of expansion rates is evaluated: CIFAR-10: $E \in \{1, 5, 10, 25, 50\}$ and CIFAR-100: $E \in \{25, 50, 100, 250, 500, 1000\}$.
 
 \begin{table}[tbp]
 \caption{Near- and far-OoD datasets used for each in-distribution (ID) benchmark.}
@@ -444,14 +411,62 @@ CIFAR-100 & CIFAR-10, tImage200 & MNIST, SVHN, Textures, Places365 \\
 \end{center}
 \end{table}
 
-To test the hypothesis that larger ID class counts benefit from larger population expansions, a spectrum of expansion values tailored to each dataset is evaluated: CIFAR-10: [1, 5, 10, 25, 50]; CIFAR-100: [25, 50, 100, 250, 500, 1000].
+\subsection{Post-Hoc OoD Detection Methods}
+All detectors are applied post-hoc to pre-trained feature representations without additional training. Feature vectors are extracted from either the penultimate layer (membrane potentials or spike patterns) or the final layer (logits), depending on the method. For scoring-based methods, only dense membrane-potential features are used to ensure a fair comparison with CNN baselines. All thresholds are set at the score value corresponding to 95\% true-positive rate on the joint ID/OoD validation set, following the standard FPR@TPR95 protocol.
+
+Six scoring-based methods operate on final-layer logits: \textbf{MSP}~\cite{hendrycks2017baseline} and \textbf{MLS} require no hyperparameters; \textbf{Energy (ENGY)}~\cite{liu2020energy} uses temperature $T=1.0$; \textbf{ODIN}~\cite{liang2018enhancing} uses $T=1000$ with input perturbation magnitude $\varepsilon=0.0014$; \textbf{VIM}~\cite{wang2022vim} uses residual-energy weighting coefficient $\alpha=0.1$; \textbf{ASH}~\cite{djurisic2022ash} retains the top $p=25\%$ of activations and zeroes the rest. The single distance-based method used is \textbf{kNN}~\cite{sun2022knn}, which operates on penultimate-layer features and uses $k=10$ nearest neighbours.
+
+Fig.~\ref{fig:feature-extraction-pipeline-narrow} illustrates the experimental pipeline. When population coding is used, final-layer outputs are reshaped and aggregated per class before scoring.
+
+\subsection{Evaluation Metrics}
+Performance of feature extraction and OoD detection is quantified using:
+\begin{itemize}
+    \item \textbf{AUROC:} Measures the probability that a randomly chosen ID sample receives a higher confidence score than a randomly chosen OoD sample. Higher AUROC indicates better discriminative capability.
+    \item \textbf{FPR95:} Represents the fraction of OoD samples incorrectly classified as ID when the true positive rate for ID samples is 95\%. Lower FPR95 indicates more reliable OoD detection.
+\end{itemize}
+
+\Figure[t!](topskip=0pt, botskip=0pt, midskip=0pt){figure.eps}
+{ \textbf{Input images are processed by the spiking backbone to produce features, optionally enhanced via population coding. The resulting features are then used for post-hoc or distance-based OoD detection. Dashed arrows indicate optional paths.}\label{fig:feature-extraction-pipeline-narrow}}
+
+
+\section{Experimental results}
+\label{sec:results}
+
+\begin{table*}[tbp]
+\caption{Inference-time computational complexity comparison between CNN and spike-like backbones (single-step inference, $T = 1$). Population-coding variants are reported for $C=5,10,25,50$. The CNN column reports total MAC (multiply--accumulate) counts. Spike-like columns report values in the format \textit{ACs / MACs}, where ACs (accumulate-only operations) arise from binary activations in deeper layers and MACs correspond to the first layer and auxiliary floating-point operations.}
+\begin{center}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l c c c c c c}
+\toprule
+\textbf{Backbone} & \textbf{CNN (MACs)} & \textbf{Spike-like (base)} & \textbf{Spike-like ($C=5$)} & \textbf{Spike-like ($C=10$)} & \textbf{Spike-like ($C=25$)} & \textbf{Spike-like ($C=50$)} \\
+\midrule
+ConvNet  & 9.7~M    & 0.82~M / 3.89~M   & 1.06~M / 3.89~M & 1.07~M / 3.89~M & 1.11~M / 3.89~M & 1.14~M / 3.89~M \\
+ResNet10 & 254.5~M  & 69.80~M / 2.51~M  & 72.49~M / 2.51~M & 75.11~M / 2.51~M & 83.03~M / 2.51~M & 84.03~M / 2.51~M \\
+ResNet18 & 557.2~M  & 172.48~M / 3.02~M & 178.24~M / 3.02~M & 181.59~M / 3.02~M & 182.11~M / 3.02~M & 183.76~M / 3.02~M \\
+\bottomrule
+\end{tabular}
+\label{tab:computation-comparison}
+\end{center}
+\end{table*}
+
+\subsection{Inference-Time Computational Analysis}
+As discussed in Sec.~\ref{sec:related}, CNN complexity is commonly reported using floating-point operation (FLOP) counts, typically expressed as the number of multiply--accumulate (MAC) operations that dominate convolutional inference. Hardware-agnostic estimates of these costs are provided by the architecture-level tool \texttt{ptflops}~\cite{ptflops}. By contrast, spiking networks perform event-driven computation: synaptic operations occur only when spikes are emitted, so cost is more naturally expressed in synaptic operations (SynOps) or spike-triggered accumulations. In the spike-like models studied here, activations are binary and temporal integration is suppressed, which reduces arithmetic complexity.
+
+To enable a practical comparison, inference-time operation counts are computed for each spike-like network and its CNN counterpart while keeping the backbone architecture identical. In a CNN, a MAC operation is required for each convolutional output element. For spike-like networks processing static RGB inputs, MACs are required at the input/first layer (to process real-valued pixel intensities); in deeper layers, binary activations allow multiplications to be replaced by accumulate-only (AC) operations. Floating-point operations are still involved in normalization and some auxiliary layers, while the dominant inference work in spike-like models is shifted toward integer additions. Although the energy per operation is dependent on CMOS technology and implementation details~\cite{lemaire2023estimation}, a hardware-agnostic proxy for relative compute cost is provided by aggregating MAC and AC counts.
+
+MAC and AC counts for CNN and spike-like models on RGB inputs of size $32\times32$ are summarized in Table~\ref{tab:computation-comparison}, following the counting conventions of~\cite{ptflops, lemaire2023estimation}.
+
+As shown in Table~\ref{tab:computation-comparison}, the MAC counts of spike-like networks are reduced by approximately $184\times$ (ResNet-18), $101\times$ (ResNet-10), and $2.5\times$ (ConvNet) relative to their CNN counterparts at the base expansion ($E=1$). The comparatively modest reduction for ConvNet reflects the dominance of the first real-valued layer, whose MACs are not eliminated by binary activations. The number of ACs grows moderately with the population-coding expansion rate $E$: for ResNet-18, the AC count increases from 172.48~M at $E=1$ to 183.76~M at $E=50$, a relative increase of approximately 6.5\%. A similar trend is observed for ResNet-10 (69.80~M to 84.03~M, $\approx$20\%) and ConvNet (0.82~M to 1.14~M, $\approx$39\%). The MAC component, by contrast, remains constant across all expansion values, as population coding affects only the final output layer. These results confirm that the computational advantage of spike-like inference is largely preserved even at larger expansion factors, with only a modest increase in AC cost.
+
+Unless explicitly stated otherwise, performance tables use color-coded cells: greener shades indicate better performance and redder shades indicate weaker performance, applied consistently to both AUROC and FPR95 entries.
 
 \subsection{Experiments with CIFAR-10}
 
 \subsubsection*{Penultimate features with nearest neighbors}
 
 \begin{table*}[!htb]
-\caption{AUROC and FPR95 for OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like models trained with MSE, CE, and CL objectives, and for a CNN baseline trained with CE, across three backbones and both near- and far-OoD datasets.}
+\caption{AUROC and FPR95 for OoD detection using kNN on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like models trained with MSE, CE, and CL objectives, and for a CNN baseline trained with CE, across three backbones and both near- and far-OoD datasets.}
 \begin{center}
 
 \centering
@@ -520,18 +535,18 @@ To test the hypothesis that larger ID class counts benefit from larger populatio
 \end{center}
 \end{table*}
 
-CIFAR-10 is used as the ID dataset in this experiment to evaluate spike-like models trained with a single simulation time step. Feature vectors are extracted from the penultimate layer, and OoD detection is performed using a kNN distance-based detector. Each backbone model is evaluated across different population-coding expansions and the three training objectives described in Section~\ref{sec:methodology} (spike-count MSE, membrane-potential CE, and spike-count CL). For CNN baselines, dense penultimate-layer features are extracted from analogous backbones trained with CE to ensure a fair comparison.
+Each backbone model is evaluated across population-coding expansions and the three training objectives described in Section~\ref{sec:methodology} (spike-count MSE, membrane-potential CE, and spike-count CL). For CNN baselines, dense penultimate-layer features are extracted from analogous backbones trained with CE to ensure a fair comparison.
 
-Both AUROC (upper sub-row) and FPR95 (lower sub-row) for near-OoD and far-OoD across three training objectives, three backbones, and five population-coding expansions $(1, 5, 10, 25, 50)$ are reported in Table~\ref{tab:cifar10-experiment-1}. Color coding is metric-aware: better values (higher AUROC, lower FPR95) are indicated by darker green, while progressively weaker performance is indicated by yellow/orange/red. The best value per backbone within Far-OoD and Near-OoD groups is indicated by bold entries.
+Both AUROC (upper sub-row) and FPR95 (lower sub-row) across three training objectives, three backbones, and five population-coding expansions $E \in \{1,5,10,25,50\}$ are reported in Table~\ref{tab:cifar10-experiment-1}. The best value per backbone within Far-OoD and Near-OoD groups is indicated by bold entries.
 
-Empirically, stronger kNN separation is yielded by MSE- and CL-trained models when membrane-potential vectors are used, whereas better performance is achieved by CE-trained models with spike-pattern features; the AUROC rows in Table~\ref{tab:cifar10-experiment-1} reflect this pairing. Nearest-neighbour distances are computed directly on these features without additional detector training. Although population coding is applied at the output layer, its effect on OoD detection is assessed through its influence on learned penultimate representations.
+Empirically, stronger kNN separation is yielded by MSE- and CL-trained models when membrane-potential vectors are used, whereas better performance is achieved by CE-trained models with spike-pattern features; the AUROC rows in Table~\ref{tab:cifar10-experiment-1} reflect this pairing. Although population coding is applied at the output layer, its effect on OoD detection is assessed through its influence on learned penultimate representations.
 
 
 \subsubsection*{Final-layer features with scoring-based post-hoc methods}
 
 
 \begin{table*}[!htb]
-\caption{AUROC and FPR95 for scoring-based post-hoc OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like residual models trained with the MSE objective, across near- and far-OoD datasets. Only membrane-potential features are reported; spike-pattern features yielded substantially lower AUROC across all evaluated methods. The \textbf{CNN} column reports the single baseline value for the corresponding conventional CNN backbone (no population coding). FPR95 values are reserved for a later update and are shown here as placeholders.}
+\caption{AUROC and FPR95 for scoring-based post-hoc OoD detection on CIFAR-10 (in-distribution) as a function of population-coding expansion. Results are shown for spike-like residual models trained with the MSE objective, across near- and far-OoD datasets. Only membrane-potential features are reported; spike-pattern features yielded substantially lower AUROC across all evaluated methods. The \textbf{CNN} column reports the single baseline value for the corresponding conventional CNN backbone (no population coding).}
 \begin{center}
 
 \centering
@@ -547,7 +562,7 @@ Empirically, stronger kNN separation is yielded by MSE- and CL-trained models wh
 \multicolumn{2}{c}{} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\textbf{CNN}} & \multicolumn{1}{c}{\cellcolor{white}} & \multicolumn{1}{c}{\textbf{1}} & \multicolumn{1}{c}{\textbf{5}} & \multicolumn{1}{c}{\textbf{10}} & \multicolumn{1}{c}{\textbf{25}} & \multicolumn{1}{c}{\textbf{50}} & \multicolumn{1}{c}{\textbf{CNN}} \\
 
 \multirow{2}{*}{\modelname{spike-Resnet10 ASH}}    & \aurocname & \lowcell{69.94} & \midcell{86.97} & \greenAcell{88.12} & \vhighcell{90.37} & \greenBcell{89.22} & \greenBcell{89.01} & & \lowcell{56.16} & \midcell{80.85} & \midcell{82.99} & \midcell{85.39} & \midcell{81.47} & \midcell{83.72} \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{52.50} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{66.02} \\
+                                            & \fprname   & \fprredcell{73.11} & \fprredcell{50.38} & \fprredcell{54.96} & \fprlowcell{43.37} & \fprlowcell{36.10} & \fprredcell{52.50} & & \fprredcell{97.82} & \fprredcell{67.15} & \fprredcell{68.36} & \fprredcell{61.12} & \fprredcell{55.87} & \fprredcell{66.02} \\
 \hline
 
 \multirow{2}{*}{\modelname{spike-Resnet10 MSP}}    & \aurocname & \lowcell{73.07} & \midcell{85.83} & \highmidcell{87.66} & \greenBcell{89.39} & \greenBcell{89.89} & \highmidcell{87.66} & & \lowcell{74.13} & \midcell{79.92} & \midcell{82.69} & \midcell{84.59} & \midcell{83.26} & \midcell{84.63} \\
@@ -569,7 +584,7 @@ Empirically, stronger kNN separation is yielded by MSE- and CL-trained models wh
                                             \hline
 
 \multirow{2}{*}{\modelname{spike-Resnet18 ASH}}    & \aurocname & \lowcell{73.21} & \midcell{85.70} & \topcell{92.10} & \topcell{92.92} & \topcell{93.90} & \topcell{92.87} & & \lowcell{61.05} & \midcell{86.91} & \greenAcell{88.45} & \greenBcell{89.60} & \greenBcell{89.56} & \greenBcell{89.40} \\
-                                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprlowcell{36.80} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprlowcell{48.80} \\
+                                            & \fprname   & \fprredcell{62.58} & \fprlowcell{35.62} & \fprlowcell{33.66} & \fprlowcell{30.92} & \fprlowcell{25.65} & \fprlowcell{36.80} & & \fprredcell{84.81} & \fprredcell{54.71} & \fprredcell{51.85} & \fprlowcell{49.59} & \fprlowcell{43.45} & \fprlowcell{48.80} \\
 \hline
 \multirow{2}{*}{\modelname{spike-Resnet18 MSP}}    & \aurocname & \lowcell{75.92} & \vhighcell{91.75} & \topcell{92.63} & \topcell{92.67} & \topcell{92.38} & \vhighcell{91.74} & & \lowcell{70.55} & \midcell{86.48} & \greenAcell{88.14} & \greenAcell{88.00} & \highmidcell{87.15} & \greenBcell{89.43} \\
                                             & \fprname   & \fprredcell{84.27} & \fprlowcell{39.41} & \fprlowcell{38.35} & \fprlowcell{41.10} & \fprlowcell{39.71} & \fprredcell{52.07} & & \fprredcell{87.64} & \fprredcell{59.17} & \fprredcell{57.52} & \fprredcell{61.60} & \fprredcell{61.65} & \fprredcell{59.38} \\
@@ -591,11 +606,11 @@ Empirically, stronger kNN separation is yielded by MSE- and CL-trained models wh
 \end{center}
 \end{table*}
 
-This experiment evaluates scoring-based OoD detection methods applied to membrane-potential features extracted from spike-like residual networks trained with the MSE objective and operating at a single simulation time step. The evaluated methods include Maximum Softmax Probability (MSP), Energy, Maximum Logit Score (MLS), ASH, and Virtual Logit Matching (ViM). All methods are applied without additional detector training. In contrast to the previous experiment, where distance-based kNN detection was performed on penultimate-layer features, here post-hoc anomaly scores are computed from final-layer representations (with the exception of ViM, which uses both penultimate and final layer features). Population-coding expansions are varied to assess whether distributed output representations influence the separability of final-layer features and the effectiveness of scoring-based OoD detection.
+This experiment evaluates scoring-based OoD detection methods applied to membrane-potential features extracted from spike-like residual networks trained with the MSE objective and operating at a single simulation time step. The evaluated methods include Maximum Softmax Probability (MSP), Energy, Maximum Logit Score (MLS), ASH, and Virtual Logit Matching (VIM). In contrast to the previous experiment, where distance-based kNN detection was performed on penultimate-layer features, here post-hoc anomaly scores are computed from final-layer representations (with the exception of VIM, which uses both penultimate and final layer features). Population-coding expansions are varied to assess whether distributed output representations influence the separability of final-layer features and the effectiveness of scoring-based OoD detection.
 
-For the spike-ConvNet backbone, the resulting anomaly scores are uninformative regardless of the training objective, and its results are therefore omitted. Furthermore, substantially lower AUROC is yielded by spike-pattern features compared to membrane-potential features across all evaluated methods, so only membrane-potential feature results are reported. For the CNN backbone, population-coded scoring results are not reported because they were consistently worse than the corresponding non-population baseline.
+For the spike-ConvNet backbone, the resulting OoD scores are uninformative regardless of the training objective, and its results are therefore omitted. Furthermore, substantially lower AUROC is yielded by spike-pattern features compared to membrane-potential features across all evaluated methods, so only membrane-potential feature results are reported. For the CNN backbone, population-coded scoring results are not reported because they were consistently worse than the corresponding non-population baseline.
 
-Results for the spike-ResNet10 and spike-ResNet18 backbones are summarised in Table~\ref{tab:cifar10-experiment-2}. Several consistent observations are evident. First, AUROC values comparable to, and in some settings higher than, those of the CNN baseline for scoring-based post-hoc detection are achieved by the proposed spike-like models. Second, AUROC is generally improved by increasing the population-coding expansion, indicating that distributed output representations are beneficial for final-layer scoring. Third, the strongest method overall in this setup is ViM, which leverages both penultimate- and final-layer information and reaches the highest AUROC values across the reported configurations. Finally, although AUROC trends are strong, many FPR95 values remain relatively high, indicating room for further improvement in operating-point performance.
+Results for the spike-ResNet10 and spike-ResNet18 backbones are summarized in Table~\ref{tab:cifar10-experiment-2}. Several consistent observations are evident. First, AUROC values comparable to, and in some settings higher than, those of the CNN baseline for scoring-based post-hoc detection are achieved by the proposed spike-like models. Second, AUROC is generally improved by increasing the population-coding expansion, indicating that distributed output representations are beneficial for final-layer scoring. Third, the strongest method overall in this setup is VIM, which leverages both penultimate- and final-layer information and reaches the highest AUROC values across the reported configurations. Finally, although AUROC trends are strong, many FPR95 values remain relatively high, indicating room for further improvement in operating-point performance.
 
 These results demonstrate that effective application of standard post-hoc OoD scoring methods is enabled by single-step spike-like models trained with the MSE objective, particularly when dense membrane-potential features are combined with population coding.
 
@@ -631,16 +646,16 @@ These results demonstrate that effective application of standard post-hoc OoD sc
 \hline
 \hline
 
-\multirow{2}{*}{ViM $T=1$} & \aurocname & \greenAcell{88.39} & \topcell{92.00} & \peakcell{96.10} & \highcell{95.26} & \peakcell{95.57} & & \midcell{82.20} & \highmidcell{87.99} & \topcell{93.01} & \topcell{93.87} & \vhighcell{91.69} \\
+\multirow{2}{*}{VIM $T=1$} & \aurocname & \greenAcell{88.39} & \topcell{92.00} & \peakcell{96.10} & \highcell{95.26} & \peakcell{95.57} & & \midcell{82.20} & \highmidcell{87.99} & \topcell{93.01} & \topcell{93.87} & \vhighcell{91.69} \\
                            & \fprname   & \fprlowcell{45.83} & \fprredcell{58.59} & \fprredcell{62.25} & \fprredcell{68.11} & \fprredcell{77.54} & & \fprlowcell{28.01} & \fprlowcell{42.10} & \fprlowcell{44.90} & \fprlowcell{48.18} & \fprredcell{55.88} \\
 \hline
-\multirow{2}{*}{ViM $T=2$} & \aurocname & \lowcell{54.05} & \midcell{82.16} & \greenBcell{89.94} & \highcell{95.46} & \highcell{95.94} & & \lowcell{53.51} & \lowcell{76.02} & \midcell{84.21} & \vhighcell{91.42} & \topcell{92.58} \\
+\multirow{2}{*}{VIM $T=2$} & \aurocname & \lowcell{54.05} & \midcell{82.16} & \greenBcell{89.94} & \highcell{95.46} & \highcell{95.94} & & \lowcell{53.51} & \lowcell{76.02} & \midcell{84.21} & \vhighcell{91.42} & \topcell{92.58} \\
                            & \fprname   & \fprvhighcell{8.61} & \fprlowcell{37.25} & \fprredcell{50.77} & \fprredcell{77.36} & \fprredcell{82.68} & & \fprvhighcell{8.34} & \fprmidcell{23.00} & \fprlowcell{30.52} & \fprredcell{56.40} & \fprredcell{65.53} \\
 \hline
-\multirow{2}{*}{ViM $T=4$} & \aurocname & \lowcell{53.11} & \midcell{85.14} & \vhighcell{90.17} & \topcell{92.45} & \topcell{93.36} & & \lowcell{51.24} & \midcell{77.46} & \midcell{83.67} & \midcell{86.23} & \greenAcell{88.79} \\
+\multirow{2}{*}{VIM $T=4$} & \aurocname & \lowcell{53.11} & \midcell{85.14} & \vhighcell{90.17} & \topcell{92.45} & \topcell{93.36} & & \lowcell{51.24} & \midcell{77.46} & \midcell{83.67} & \midcell{86.23} & \greenAcell{88.79} \\
                            & \fprname   & \fprvhighcell{7.68} & \fprlowcell{37.29} & \fprredcell{51.41} & \fprredcell{68.49} & \fprredcell{68.58} & & \fprtopcell{4.60} & \fprmidcell{16.35} & \fprmidcell{27.12} & \fprlowcell{44.97} & \fprlowcell{48.80} \\
 \hline
-\multirow{2}{*}{ViM $T=8$} & \aurocname & \midcell{81.78} & {---} & \vhighcell{91.10} & \highcell{94.85} & \peakcell{98.65} & & \lowcell{67.11} & {---} & \midcell{85.77} & \topcell{92.80} & \highcell{94.59} \\
+\multirow{2}{*}{VIM $T=8$} & \aurocname & \midcell{81.78} & {---} & \vhighcell{91.10} & \highcell{94.85} & \peakcell{98.65} & & \lowcell{67.11} & {---} & \midcell{85.77} & \topcell{92.80} & \highcell{94.59} \\
                            & \fprname   & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} & \fprredcell{---} \\
 
 \end{tabular}
@@ -649,13 +664,13 @@ These results demonstrate that effective application of standard post-hoc OoD sc
 \end{table*}
 
 
-This experiment extends the first CIFAR-10 experiment into an ablation study: the spike-ResNet18 backbone is trained with the MSE objective across four training-step budgets $T \in \{1, 2, 4, 8\}$, while inference is kept at a single time step in all cases. Restricting inference to $T=1$ preserves the low-compute, energy-efficient profile of spike-like models regardless of how many steps are used during training. The effect of training depth is evaluated with both kNN (on penultimate-layer membrane-potential features) and ViM (standard ViM setup), and both sets of results are summarised in Table~\ref{tab:cifar10-experiment-3}.
+This experiment extends the first CIFAR-10 experiment: the spike-ResNet18 backbone is trained with the MSE objective across four training-step budgets $T \in \{1, 2, 4, 8\}$, while inference is kept at a single time step in all cases. The effect of training depth is evaluated with both kNN (on penultimate-layer membrane-potential features) and VIM, and both sets of results are summarized in Table~\ref{tab:cifar10-experiment-3}.
 
-Two distinct regimes emerge from the colour patterns in the tables. Without population coding ($E=1$), increasing the number of training steps does not consistently improve OoD performance and, in several cases, substantially degrades it. This indicates that temporal integration during training restructures the internal representations in a way that is poorly suited to single-step feature extraction when the output layer is unexpanded. With sufficient population coding ($E \geq 25$), the picture changes markedly: multi-step training then yields clearly stronger OoD separation than single-step training, with the improvement visible as a shift from lighter to darker greens across the corresponding columns. The benefit of multi-step training, therefore, depends on the presence of an adequately expanded output layer to relay the richer gradient signal back to the penultimate layer.
+Two distinct regimes emerge from the color patterns in the tables. Without population coding ($E=1$), increasing the number of training steps does not consistently improve OoD performance and, in several cases, substantially degrades it. This indicates that temporal integration during training restructures the internal representations in a way that is poorly suited to single-step feature extraction when the output layer is unexpanded. With sufficient population coding ($E \geq 25$), the picture changes markedly: multi-step training then yields clearly stronger OoD separation than single-step training. The benefit of multi-step training, therefore, depends on the presence of an adequately expanded output layer to relay the richer gradient signal back to the penultimate layer.
 
-Population coding plays a dual role here. In addition to amplifying the effect of multi-step training, it independently improves OoD performance even at $T=1$, as already observed in the preceding experiments. The two mechanisms are therefore complementary: population coding stabilises and enhances the penultimate-layer feature structure, while multi-step training further refines it when population coding provides a sufficient training signal.
+Population coding plays a dual role here. In addition to amplifying the effect of multi-step training, it independently improves OoD performance even at $T=1$, as already observed in the preceding experiments. The two mechanisms are therefore complementary: population coding stabilizes and enhances the penultimate-layer feature structure, while multi-step training further refines it when population coding provides a sufficient training signal.
 
-A further observation concerns the relative merit of detection strategies. The kNN detector applied to penultimate-layer membrane-potential features achieves performance comparable to, and in several configurations exceeding, the best scoring-based method (ViM) evaluated on final-layer features. This is notable because kNN operates directly on raw penultimate features without any calibration or transformation, suggesting that well-structured penultimate representations alone can be sufficient for competitive OoD detection.
+A further observation concerns the relative merit of detection strategies. The kNN detector applied to penultimate-layer membrane-potential features achieves performance comparable to, and in several configurations exceeding, the best scoring-based method (VIM) evaluated on penultimate- and final-layer features. This is notable because kNN operates directly on raw penultimate features without any calibration or transformation, suggesting that well-structured penultimate representations alone can be sufficient for competitive OoD detection.
     
 \subsubsection*{Comparison with the state of the art}
 
@@ -694,16 +709,16 @@ A further observation concerns the relative merit of detection strategies. The k
 \end{center}
 \end{table*}
 
-The table~\ref{tab:openood-cifar10} gives the comparison of the best-performing proposed method with state-of-the-art results given in the literature. The spike-like ResNet18 models trained with the MSE objective achieve competitive performance on the OpenOOD CIFAR-10 benchmark while operating at a fraction of the computational cost relative to conventional CNN baselines. Two configurations are highlighted, illustrating different points on the AUROC-FPR95 trade-off surface. The first (single-step training and inference, $T=1$, $E=5$) prioritises simplicity and pure inference efficiency: it achieves Near-OoD AUROC of 93.91 and Far-OoD AUROC of 96.63, positioning the method between the 3rd and 4th ranked SOTA entries and exceeding PixMix-based baselines in Far-OoD performance. The Far-OoD AUROC of 96.63 is particularly notable, matching or exceeding most SOTA methods on that metric and demonstrating that spike-like networks can yield highly discriminative penultimate-layer representations when combined with MSE training and appropriate population coding. The second configuration employs multi-step training with single-step inference ($T=2$, $E=50$), which optimises the AUROC-FPR95 trade-off: it achieves near-peak AUROC values (97.64 Near-OoD, 98.86 Far-OoD) with substantially lower FPR95 (12.34 Near-OoD, 5.41 Far-OoD), outperforming all listed SOTA baselines on both metrics. Critically, both configurations maintain single-step inference, preserving the computational and energy-efficiency profile documented in Sec.~\ref{sec:related}, in contrast to methods that employ augmentation pipelines or multiple training passes. This efficiency gain, combined with the demonstrated AUROC-FPR95 performance, positions spike-like OoD detection as a compelling alternative for resource-constrained deployment scenarios where detection performance can be systematically tuned through multi-step training depth and population coding expansion.
+Table~\ref{tab:openood-cifar10} compares the best-performing proposed configurations against the state of the art. The spike-like ResNet18 models trained with the MSE objective achieve competitive performance on the OpenOOD CIFAR-10 benchmark while operating at a fraction of the computational cost relative to conventional CNN baselines. Two configurations are highlighted, illustrating different points on the AUROC-FPR95 trade-off surface. The first (single-step training and inference, $T=1$, $E=5$) prioritises simplicity and pure inference efficiency: it achieves Near-OoD AUROC of 93.91 and Far-OoD AUROC of 96.63, positioning the method between the 3rd and 4th ranked SOTA entries and exceeding PixMix-based baselines in Far-OoD performance. The Far-OoD AUROC of 96.63 is particularly notable, matching or exceeding most SOTA methods on that metric and demonstrating that spike-like networks can yield highly discriminative penultimate-layer representations when combined with MSE training and appropriate population coding. The second configuration employs multi-step training with single-step inference ($T=2$, $E=50$), which optimises the AUROC-FPR95 trade-off: it achieves near-peak AUROC values (97.64 Near-OoD, 98.86 Far-OoD) with substantially lower FPR95 (12.34 Near-OoD, 5.41 Far-OoD), outperforming all listed SOTA baselines on both metrics. Critically, both configurations maintain single-step inference, preserving the computational and energy-efficiency profile documented in Sec.~\ref{sec:related}, in contrast to methods that employ augmentation pipelines or multiple training passes. This efficiency gain, combined with the demonstrated AUROC-FPR95 performance, positions spike-like OoD detection as a compelling alternative for resource-constrained deployment scenarios where detection performance can be systematically tuned through multi-step training depth and population coding expansion.
 
 \subsection{Experiments with CIFAR-100}
 
 CIFAR-100 is a substantially harder in-distribution benchmark than CIFAR-10; thus, only the spike-ResNet18 backbone is evaluated, as the shallower spike-ConvNet and spike-ResNet10 architectures lack sufficient representational capacity for this task. Population-coding expansions used are $(25, 50, 100, 250, 500, 1000)$, reflecting the larger class count. Smaller values were also tested, but yielded worse results and are omitted. The same three-part structure is followed in the CIFAR-100 experiments as in the CIFAR-10 experiments. The base single-step ($T=1$) results for the distance-based kNN detector and the scoring-based post-hoc methods are discussed first; afterwards, the effect of multi-step training is evaluated.
 
-\subsubsection*{Penultimate features with nearest neighbours}
+\subsubsection*{Penultimate features with nearest neighbors}
 
 \begin{table*}[!htb]
-\caption{AUROC and FPR95 for OoD detection on CIFAR-100 (in-distribution) at a single simulation time step ($T=1$), as a function of population-coding expansion $E$. The first two rows report the distance-based kNN detector on penultimate-layer membrane-potential features; the remaining rows report scoring-based post-hoc methods (ASH, MSP, ODIN, Energy, MLS, ViM) on probability features of spike-ResNet18 trained with the MSE objective. Membrane-potential and spike-pattern features yielded lower AUROC for the scoring-based methods and are omitted. Results are averaged over five independent runs.}
+\caption{AUROC and FPR95 for OoD detection on CIFAR-100 (in-distribution) at a single simulation time step ($T=1$), as a function of population-coding expansion $E$. The first two rows report the distance-based kNN detector on penultimate-layer membrane-potential features; the remaining rows report scoring-based post-hoc methods (ASH, MSP, ODIN, Energy, MLS, VIM) on final-layer membrane-potential features of spike-ResNet18 trained with the MSE objective. Penultimate-layer membrane-potential and spike-pattern features yielded lower AUROC for the scoring-based methods and are omitted. Results are averaged over five independent runs.}
 \begin{center}
 \centering
 \small
@@ -743,20 +758,20 @@ CIFAR-100 is a substantially harder in-distribution benchmark than CIFAR-10; thu
 \end{center}
 \end{table*}
 
-CIFAR-100 is used as the ID dataset in this experiment, and the spike-ResNet18 backbone trained with the MSE objective at a single simulation time step is evaluated. As in the corresponding CIFAR-10 experiment, feature vectors are extracted from the penultimate layer, and OoD detection is performed with a kNN distance-based detector applied directly to membrane-potential features, without any additional detector training. These kNN results across the six population-coding expansions are reported in the first row of Table~\ref{tab:cifar100-experiment-2}.
+kNN results on penultimate-layer membrane-potential features across the six population-coding expansions are reported in the first two rows of Table~\ref{tab:cifar100-experiment-2}.
 
 An increase in kNN AUROC is observed with expansion for both OoD cases, reaching 88.78\% (Far-OoD) and 83.16\% (Near-OoD) at $E=1000$. FPR95 is reduced in parallel to 44.24\% (Far-OoD) and 61.15\% (Near-OoD). Population coding is therefore even more decisive on CIFAR-100 than on CIFAR-10: a strongly expanded output layer is required by the harder 100-class problem before the penultimate representation becomes discriminative. Throughout, Near-OoD remains harder than Far-OoD, as expected for semantically similar OoD sets, and the trend is not strictly monotonic at intermediate expansions, indicating that the distance-based detector is sensitive to how the population code is allocated.
 
 \subsubsection*{Final-layer features with scoring-based post-hoc methods}
 
-Scoring-based post-hoc detection results at $T=1$ are reported in the remaining rows of Table~\ref{tab:cifar100-experiment-2}, using the same six methods evaluated for CIFAR-10 (ASH, MSP, ODIN, Energy, MLS, ViM). As in the CIFAR-10 experiment, all methods are applied without additional detector training. Membrane-potential and spike-pattern features yielded consistently poor AUROC for these scoring methods on the harder benchmark, so only probability features are reported.
+Scoring-based post-hoc detection results at $T=1$ are reported in the remaining rows of Table~\ref{tab:cifar100-experiment-2}, using the same six methods evaluated for CIFAR-10 (ASH, MSP, ODIN, Energy, MLS, VIM). Penultimate-layer membrane-potential and spike-pattern features yielded consistently poor AUROC for these scoring methods on the harder benchmark, so only final-layer membrane-potential features are reported.
 
-MSP and ODIN are found to underperform across the board, with AUROC below 84\% and high FPR95 across all expansions, offering little benefit over the kNN baseline. ASH and Energy are observed to behave almost identically from $E=50$ onward, both reaching the 86--87\% Far-OoD AUROC range with FPR95 around 46--48\%. As in the CIFAR-10 experiment, ViM is the strongest method overall, with AUROC rising monotonically to 93.39\% (Far-OoD) and 88.89\% (Near-OoD) at $E=1000$. Its FPR95, however, rises steeply with expansion (16.56\% to 73.10\% Far-OoD), exposing a trade-off between ranking-based separation and operating-point reliability; this balance is inverted by MLS, which holds Near-OoD FPR95 below 25\% across all expansions while remaining AUROC-competitive. Relative to these scoring methods, the simple kNN baseline is found to remain competitive at large expansion, matching the best Far-OoD AUROC (88.78\%) without any post-hoc calibration or transformation.
+MSP and ODIN are found to underperform across the board, with AUROC below 84\% and high FPR95 across all expansions, offering little benefit over the kNN baseline. ASH and Energy are observed to behave almost identically from $E=50$ onward, both reaching the 86--87\% Far-OoD AUROC range with FPR95 around 46--48\%. As in the CIFAR-10 experiment, VIM is the strongest method overall, with AUROC rising monotonically to 93.39\% (Far-OoD) and 88.89\% (Near-OoD) at $E=1000$. Its FPR95, however, rises steeply with expansion (16.56\% to 73.10\% Far-OoD), exposing a trade-off between ranking-based separation and operating-point reliability; this balance is inverted by MLS, which holds Near-OoD FPR95 below 25\% across all expansions while remaining AUROC-competitive. Relative to these scoring methods, the simple kNN baseline is found to remain competitive at large expansion, matching the best Far-OoD AUROC (88.78\%) without any post-hoc calibration or transformation.
 
 \subsubsection*{Effect of multi-step training on single-step OoD detection}
 
 \begin{table*}[!htb]
-\caption{AUROC and FPR95 for kNN- and ViM-based OoD detection on spike-ResNet18 trained with the MSE objective, as a function of training time steps $T$ and population-coding expansion $E$, evaluated on CIFAR-100. kNN operates on penultimate-layer membrane-potential features and ViM on probability features. Inference is restricted to a single time step in all cases. Results are averaged over five independent runs.}
+\caption{AUROC and FPR95 for kNN- and VIM-based OoD detection on spike-ResNet18 trained with the MSE objective, as a function of training time steps $T$ and population-coding expansion $E$, evaluated on CIFAR-100. kNN operates on penultimate-layer membrane-potential features and VIM on final-layer membrane-potential features. Inference is restricted to a single time step in all cases. Results are averaged over five independent runs.}
 \begin{center}
 \centering
 \small
@@ -783,31 +798,31 @@ MSP and ODIN are found to underperform across the board, with AUROC below 84\% a
                             & \fprname   & \fprredcell{91.95} & \fprredcell{87.01} & \fprredcell{84.39} & \fprmidcell{61.12} & \fprredcell{84.78} & \fprredcell{88.66} & & \fprredcell{93.61} & \fprredcell{89.59} & \fprredcell{87.95} & \fprlowcell{76.21} & \fprredcell{85.26} & \fprredcell{92.44} \\
 \hline
 \hline
-\multirow{2}{*}{ViM $T=1$} & \aurocname & \lowcell{56.08} & \greenAcell{76.46} & \greenBcell{82.24} & \highcell{88.96} & \peakcell{92.49} & \peakcell{\textbf{93.39}} & & \lowcell{59.69} & \highmidcell{74.04} & \greenAcell{78.74} & \greenBcell{81.21} & \vhighcell{85.53} & \highcell{\textbf{88.89}} \\
+\multirow{2}{*}{VIM $T=1$} & \aurocname & \lowcell{56.08} & \greenAcell{76.46} & \greenBcell{82.24} & \highcell{88.96} & \peakcell{92.49} & \peakcell{\textbf{93.39}} & & \lowcell{59.69} & \highmidcell{74.04} & \greenAcell{78.74} & \greenBcell{81.21} & \vhighcell{85.53} & \highcell{\textbf{88.89}} \\
                             & \fprname   & \fprtopcell{16.56} & \fprvhighcell{28.46} & \fprgreenBcell{35.73} & \fprmidcell{58.05} & \fprlowcell{70.67} & \fprlowcell{73.10} & & \fprhighcell{13.24} & \fprvhighcell{22.72} & \fprvhighcell{27.64} & \fprgreenBcell{33.89} & \fprgreenAcell{46.19} & \fprhighmidcell{57.12} \\
 \hline
-\multirow{2}{*}{ViM $T=2$} & \aurocname & \redcell{38.35} & \greenAcell{77.67} & \vhighcell{84.09} & \highcell{88.36} & \peakcell{\textbf{94.10}} & \vhighcell{83.56} & & \lowcell{50.55} & \highmidcell{74.92} & \greenAcell{78.26} & \greenBcell{81.26} & \highcell{88.07} & \vhighcell{83.26} \\
+\multirow{2}{*}{VIM $T=2$} & \aurocname & \redcell{38.35} & \greenAcell{77.67} & \vhighcell{84.09} & \highcell{88.36} & \peakcell{\textbf{94.10}} & \vhighcell{83.56} & & \lowcell{50.55} & \highmidcell{74.92} & \greenAcell{78.26} & \greenBcell{81.26} & \highcell{88.07} & \vhighcell{83.26} \\
                             & \fprname   & \fprpeakcell{4.06} & \fprvhighcell{29.28} & \fprgreenAcell{42.71} & \fprhighmidcell{57.64} & \fprlowcell{75.86} & \fprgreenAcell{43.15} & & \fprpeakcell{5.77} & \fprtopcell{21.58} & \fprvhighcell{25.83} & \fprgreenBcell{33.81} & \fprhighmidcell{53.80} & \fprgreenAcell{42.25} \\
 \hline
-\multirow{2}{*}{ViM $T=4$} & \aurocname & \lowcell{54.02} & \greenAcell{79.91} & \greenBcell{82.60} & \highcell{89.41} & \peakcell{93.28} & \greenBcell{81.38} & & \lowcell{57.40} & \highmidcell{75.18} & \highmidcell{75.83} & \greenBcell{82.59} & \highcell{88.13} & \highmidcell{73.49} \\
+\multirow{2}{*}{VIM $T=4$} & \aurocname & \lowcell{54.02} & \greenAcell{79.91} & \greenBcell{82.60} & \highcell{89.41} & \peakcell{93.28} & \greenBcell{81.38} & & \lowcell{57.40} & \highmidcell{75.18} & \highmidcell{75.83} & \greenBcell{82.59} & \highcell{88.13} & \highmidcell{73.49} \\
                             & \fprname   & \fprpeakcell{5.64} & \fprgreenBcell{35.38} & \fprgreenAcell{40.90} & \fprmidcell{59.34} & \fprlowcell{74.18} & \fprgreenBcell{39.09} & & \fprpeakcell{6.65} & \fprtopcell{21.62} & \fprvhighcell{22.24} & \fprgreenBcell{36.81} & \fprhighmidcell{56.08} & \fprtopcell{21.91} \\
 \hline
-\multirow{2}{*}{ViM $T=8$} & \aurocname & \midcell{63.92} & \greenAcell{78.82} & \greenBcell{82.69} & \highcell{90.79} & \highmidcell{74.70} & \redcell{41.63} & & \midcell{62.79} & \highmidcell{73.55} & \highmidcell{75.83} & \greenBcell{82.91} & \midcell{69.72} & \lowcell{52.93} \\
+\multirow{2}{*}{VIM $T=8$} & \aurocname & \midcell{63.92} & \greenAcell{78.82} & \greenBcell{82.69} & \highcell{90.79} & \highmidcell{74.70} & \redcell{41.63} & & \midcell{62.79} & \highmidcell{73.55} & \highmidcell{75.83} & \greenBcell{82.91} & \midcell{69.72} & \lowcell{52.93} \\
                             & \fprname   & \fprhighcell{14.81} & \fprgreenBcell{33.02} & \fprgreenAcell{42.46} & \fprmidcell{62.92} & \fprvhighcell{24.05} & \fprpeakcell{5.76} & & \fprhighcell{10.60} & \fprtopcell{19.11} & \fprvhighcell{22.77} & \fprgreenBcell{38.34} & \fprhighcell{14.04} & \fprpeakcell{6.67} \\
 \end{tabular}
 \label{tab:cifar100-experiment-3}
 \end{center}
 \end{table*}
 
-As in the CIFAR-10 case, the base experiment is extended by training the spike-ResNet18 with the MSE objective across four training-step configurations $T \in \{1, 2, 4, 8\}$, while inference is kept at a single time step in all cases, preserving the low-compute, energy-efficient inference. The effect of training depth is evaluated using both the kNN detector and ViM, as these were the best-performing options, and both sets of results are summarised in Table~\ref{tab:cifar100-experiment-3}. The two detectors respond differently to training depth. For kNN, the clear benefit of multi-step training seen on CIFAR-10 does not transfer: no consistent gain is yielded by additional steps and, from $T \geq 4$, both metrics are degraded considerably.
+As in the CIFAR-10 case, the base experiment is extended by training the spike-ResNet18 with the MSE objective across four training-step configurations $T \in \{1, 2, 4, 8\}$, while inference is kept at a single time step in all cases. The effect of training depth is evaluated using both the kNN detector and VIM, as these were the best-performing options, and both sets of results are summarized in Table~\ref{tab:cifar100-experiment-3}. The two detectors respond differently to training depth. For kNN, the clear benefit of multi-step training seen on CIFAR-10 does not transfer: no consistent gain is yielded by additional steps and, from $T \geq 4$, both metrics are degraded considerably.
 
-ViM is more robust. Its best Far-OoD AUROC is reached at $T=2$ and $T=4$ (94.10\% and 93.28\% at $E=500$), marginally exceeding the $T=1$ baseline, and exceptionally low FPR95 values are yielded by small expansions (down to 4.06\% at $T=2$) at the cost of AUROC. Performance again degrades sharply at $T=8$. Overall, the interaction between population coding, training depth, and detector type is more complex than on CIFAR-10, and no single configuration dominates all metrics.
+VIM is more robust. Its best Far-OoD AUROC is reached at $T=2$ and $T=4$ (94.10\% and 93.28\% at $E=500$), marginally exceeding the $T=1$ baseline, and exceptionally low FPR95 values are yielded by small expansions (down to 4.06\% at $T=2$) at the cost of AUROC. Performance again degrades sharply at $T=8$. Overall, the interaction between population coding, training depth, and detector type is more complex than on CIFAR-10, and no single configuration dominates all metrics.
 
 \subsubsection*{Comparison with the state of the art}
 
 
 \begin{table*}[!htb]
-\caption{Top-5 entries on the OpenOOD~v1.5 CIFAR-100 leaderboard (ResNet-18, $\approx$77\% ID accuracy), ranked by Near-OoD AUROC and filtered to methods with both AUROC and FPR95 available in the OpenOOD spreadsheet tab (gid=2104599404). Near-OoD: CIFAR-10, TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365.}
+\caption{Top-5 entries on the OpenOOD~v1.5 CIFAR-100 leaderboard (ResNet-18, $\approx$77\% ID accuracy), ranked by Near-OoD AUROC and filtered to methods with both AUROC and FPR95 available. Near-OoD: CIFAR-10, TinyImageNet. Far-OoD: MNIST, SVHN, Textures, Places365.}
 \begin{center}
 \small
 \begin{tabular}{p{6.2cm}c|c|c}
@@ -844,22 +859,20 @@ ViM is more robust. Its best Far-OoD AUROC is reached at $T=2$ and $T=4$ (94.10\
 \end{center}
 \end{table*}
 
-The top CNN baselines on the OpenOOD CIFAR-100 leaderboard are matched or exceeded by the spike-ResNet18 results in Table~\ref{tab:openood-cifar100}. A Near-OoD AUROC of 88.89\% is attained by the best overall configuration — ViM applied to probability features at $T=1$ and $E=1000$ — exceeding the best reported CNN result (OE/MSP, 88.30\%), together with a Far-OoD AUROC of 93.39\%, well above every listed baseline, all at substantially reduced arithmetic complexity. Far-OoD AUROC is pushed further to 94.10\% by two training time steps with $E=500$, while Near-OoD remains at 88.07\%. These results demonstrate that state-of-the-art OoD performance on this challenging 100-class benchmark can be reached through single-step spike-like inference, given sufficiently large population coding and an appropriate post-hoc scoring method.
+The top CNN baselines on the OpenOOD CIFAR-100 leaderboard are matched or exceeded by the spike-ResNet18 results in Table~\ref{tab:openood-cifar100}. A Near-OoD AUROC of 88.89\% is attained by the best overall configuration — VIM applied to final-layer membrane-potential features at $T=1$ and $E=1000$ — exceeding the best reported CNN result (OE/MSP, 88.30\%), together with a Far-OoD AUROC of 93.39\%, well above every listed baseline, all at substantially reduced arithmetic complexity. Far-OoD AUROC is pushed further to 94.10\% by two training time steps with $E=500$, while Near-OoD remains at 88.07\%. These results demonstrate that state-of-the-art OoD performance on this challenging 100-class benchmark can be reached through single-step spike-like inference, given sufficiently large population coding and an appropriate post-hoc scoring method.
 
 \section{Conclusions}
 \label{sec:conclusions}
 
-Spike-like models for energy-efficient out-of-distribution detection have been proposed in this paper. The proposed solution is based on standard convolutional backbones with leaky integrate-and-fire activations constrained to single-step inference. By replacing dense floating-point activations with binary spiking activations, arithmetic complexity is substantially reduced relative to conventional CNN-based OoD methods, while compatibility with standard post-hoc detection pipelines is retained. The primary motivation is to achieve OoD performance comparable to or better than CNN baselines reported in OpenOOD, at reduced computational cost.
+This paper presented a spike-like OoD detection framework built on standard convolutional backbones with leaky integrate-and-fire activations constrained to single-step ($T=1$) inference. The approach reduces floating-point MAC operations by one to two orders of magnitude relative to CNN baselines, with remaining compute expressed as energy-efficient integer accumulations, while retaining full compatibility with standard post-hoc detection pipelines. Four contributions emerge from the systematic experimental evaluation on the OpenOOD CIFAR-10 and CIFAR-100 benchmarks.
 
-Three training objectives (MSE, CE, and CL), three backbone architectures (spike-ConvNet, spike-ResNet10, spike-ResNet18), and a range of population-coding expansion values were systematically examined in experiments on CIFAR-10. Distance-based detection — kNN applied to penultimate-layer membrane-potential features — was evaluated in the first experimental stage. Well-structured membrane-potential representations are consistently produced by spike-like models trained with the MSE objective, and with sufficient population coding, their kNN AUROC is shown to match or exceed that of conventional CNN baselines. Substantially weaker feature representations across all settings are yielded by the CL objective, by contrast.
+\textit{First}, it was demonstrated that MSE-trained spike-like models with single-step inference yield well-structured penultimate-layer membrane-potential representations suitable for distance-based OoD detection. With kNN applied to these features, AUROC values matching or exceeding CNN baselines are achieved under SOTA-competitive conditions at substantially reduced arithmetic cost, answering the core question of whether single-step spike-like networks can provide discriminative representations for post-hoc detection.
 
-Scoring-based post-hoc methods on final-layer membrane-potential features were evaluated in the second stage, also using single-step training. These methods — including MSP, Energy, ODIN, MLS, ASH, and ViM — likewise benefit from population coding, with AUROC values improving progressively as the expansion increases. The highest overall performance is achieved by ViM, which incorporates both penultimate- and final-layer information. Notably, the simpler kNN detector on raw penultimate features is found to remain competitive with the best scoring-based results, without requiring any post-hoc calibration or transformation.
+\textit{Second}, standard post-hoc scoring methods — MSP, Energy, ODIN, MLS, ASH, and VIM — transfer effectively to spike-like final-layer membrane-potential features. Population coding consistently improves AUROC across all scoring methods as the expansion increases. VIM achieves the highest AUROC overall, while the simpler kNN detector on raw penultimate features remains competitive without any post-hoc calibration, demonstrating that well-structured spike-like representations alone are sufficient for competitive OoD detection.
 
-The ablation was extended in the third stage to multi-step training while retaining single-step inference, preserving the low-power deployment profile. It was demonstrated that additional training time steps can further improve OoD separability, but only when population coding provides a sufficiently expanded output layer. Without adequate expansion, multi-step training disrupts rather than improves the penultimate-layer feature structure. With it, training depth and population coding are shown to interact synergistically, jointly shaping more discriminative representations.
+\textit{Third}, multi-step training with single-step inference is shown to further improve OoD separability, but only when population coding provides a sufficiently expanded output layer. Without adequate expansion, multi-step training disrupts rather than improves the penultimate-layer feature structure. With sufficient expansion, training depth and population coding interact constructively, jointly shaping more discriminative representations. This training–inference asymmetry enables higher performance without sacrificing inference efficiency.
 
-Throughout all experiments, population coding is identified as the single most consistent performance enabler: distance-based and scoring-based detection are independently improved by it, and it is a prerequisite for multi-step training to be beneficial. The broader hypothesis that population coding can partially substitute for temporal training depth is supported by these findings, establishing it as a practical tool for obtaining competitive, energy-efficient OoD detection from spike-like models operating under single-step inference constraints.
-
-
+\textit{Fourth}, population coding is identified as the single most consistent performance enabler across all experimental settings and both benchmarks. It independently improves distance-based and scoring-based detection, and is established as a prerequisite for multi-step training gains under single-step inference. On CIFAR-10, the best single-step configuration reaches Near-OoD AUROC of 93.91\% and Far-OoD AUROC of 96.63\%; multi-step training with single-step inference ($T{=}2$, $E{=}50$) further improves this to 97.64\% and 98.86\%, outperforming all listed SOTA baselines on both metrics. On the more challenging CIFAR-100 benchmark, Near-OoD AUROC of 88.89\% and Far-OoD AUROC of 93.39\% are achieved, exceeding the best CNN result reported on the OpenOOD leaderboard, at substantially reduced computational cost.
 
 \section*{Acknowledgment}
 ...
