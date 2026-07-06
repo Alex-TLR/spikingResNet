@@ -56,7 +56,7 @@ experiment:
   seeds: [42, 1987, 1991, 2020, 2024]
   
   # Expansion factors to evaluate (1 = standard, >1 = population coding)
-  expansions: [1]
+  expansions: [50]
   
   # ResNet architectures to train (ResNet-4, ResNet-10, ResNet-18)
   resnet_models: [18]
