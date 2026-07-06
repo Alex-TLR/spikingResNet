@@ -13,8 +13,8 @@ import time
 import traceback
 from snntorch import backprop
 import gc
-#from syops import get_model_complexity_info as syops_get_model_complexity_info
-#from ptflops import get_model_complexity_info
+from syops import get_model_complexity_info as syops_get_model_complexity_info
+from ptflops import get_model_complexity_info
 
 # _seed_ = 1984
 import random
@@ -220,7 +220,7 @@ def training(config):
     elif config.model_type == 'spike':
 
         weightPath = 'weights/spike/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+ '_L_'+str(config.loss)+ '_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
-        # print(f"Weight path: {weightPath}")
+        print(f"Weight path: {weightPath}")
         if (Utils.does_file_exists(weightPath)):
 
             # Keeps accuracy and loss for both training and validation in each epoch
@@ -287,13 +287,13 @@ def training(config):
                 print("Model Not defined")
                 return -1
             
-            # radi samo na spikingjelly modelima 
-            #ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
-            #                                print_per_layer_stat=True, verbose=True)
+            # Computational load
+            ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
+                                           print_per_layer_stat=True, verbose=True)
             # print('{:<30}  {:<8}'.format('Computational complexity ACs:', acs))
             # print('{:<30}  {:<8}'.format('Computational complexity MACs:', macs))
-            #print(f"ops: {ops}")
-            #print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+            print(f"ops: {ops}")
+            print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
             # nummm = accumulate_leaky_layer_outputs(model)
             # print(f"Total Leaky layer output size: {nummm}")
