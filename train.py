@@ -13,8 +13,8 @@ import time
 import traceback
 from snntorch import backprop
 import gc
-from syops import get_model_complexity_info as syops_get_model_complexity_info
-from ptflops import get_model_complexity_info
+#from syops import get_model_complexity_info as syops_get_model_complexity_info
+#from ptflops import get_model_complexity_info
 
 # _seed_ = 1984
 import random
@@ -288,12 +288,12 @@ def training(config):
                 return -1
             
             # Computational load
-            ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
-                                           print_per_layer_stat=True, verbose=True)
+            #ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
+            #                               print_per_layer_stat=True, verbose=True)
             # print('{:<30}  {:<8}'.format('Computational complexity ACs:', acs))
             # print('{:<30}  {:<8}'.format('Computational complexity MACs:', macs))
-            print(f"ops: {ops}")
-            print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+            #print(f"ops: {ops}")
+            #print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
             # nummm = accumulate_leaky_layer_outputs(model)
             # print(f"Total Leaky layer output size: {nummm}")
