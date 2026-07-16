@@ -116,7 +116,7 @@ def training(config):
     lr = config.learning_rate
 
     # Get image size based on dataset
-    if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
+    if config.dataset_ID in ['CIFAR10', 'CIFAR100', 'tImage200']:
         feature_size = 32
     elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
         feature_size = 28

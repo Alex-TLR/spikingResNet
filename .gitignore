@@ -14,6 +14,7 @@ results
 features
 figures
 tsne
+docs
 *.out
 *.log
 *.pth

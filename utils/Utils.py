@@ -355,8 +355,25 @@ class Utils():
         elif database_name == 'tImage200':
             name = 'tImage200'
             Name = 'TinyImageNet'
-            transformData_train = transformData_rgb_32
-            transformData_test = transformData_rgb_32
+            if auto_aug:
+                transformData_train = transforms.Compose([
+                    transforms.Resize((32, 32)),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0, 0, 0), (1, 1, 1)),
+                ])
+            else:
+                transformData_train = transforms.Compose([
+                    transforms.Resize((32, 32)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0, 0, 0), (1, 1, 1)),
+                ])
+            transformData_test = transforms.Compose([
+                transforms.Resize((32, 32)),
+                transforms.ToTensor(),
+                transforms.Normalize((0, 0, 0), (1, 1, 1)),
+            ])
             train_dir = os.path.join('data', name, 'train')
             test_dir = os.path.join('data', name, 'test')
             dataset_train = ImageFolder(root=train_dir, transform=transformData_train)

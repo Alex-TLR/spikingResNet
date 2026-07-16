@@ -5,7 +5,7 @@ This repository contains the code accompanying the paper:
 > **Out-of-Distribution Detection with Spike-Like Networks: Population Coding, Training Depth, and Single-Step Feature Representations**  
 > A. Avramović, S. Gajić, V. Jovanović, V. Risojević, D. Sluga
 
-Spike-like models replace standard ReLU activations with leaky isntegrate-and-fire (LIF) neurons on conventional ResNet backbones, operating at a single inference time step to achieve binary spike activations and substantially reduced arithmetic complexity, while remaining competitive with full-precision CNN baselines on OpenOOD benchmarks.
+Spike-like models replace standard ReLU activations with leaky integrate-and-fire (LIF) neurons on conventional ResNet backbones, operating at a single inference time step to achieve binary spike activations and substantially reduced arithmetic complexity, while remaining competitive with full-precision CNN baselines on OpenOOD benchmarks.
 
 Key results on CIFAR-10 (ResNet-18, single-step inference):
 - **93.91% / 96.63% AUROC** (Near-OoD / Far-OoD) with `T=1`, `E=5` — competitive with OpenOOD top-5
@@ -19,6 +19,7 @@ On CIFAR-100 (ResNet-18): **88.89% / 93.39% AUROC**, exceeding the top CNN entry
 
 - [Project Structure](#project-structure)
 - [Requirements](#requirements)
+- [Pre-trained Weights](#pre-trained-weights)
 - [Datasets](#datasets)
 - [Configuration Reference](#configuration-reference)
 - [Training](#training)
@@ -26,6 +27,7 @@ On CIFAR-100 (ResNet-18): **88.89% / 93.39% AUROC**, exceeding the top CNN entry
 - [Experiment Modes](#experiment-modes)
 - [Running on a SLURM Cluster](#running-on-a-slurm-cluster)
 - [Outputs](#outputs)
+- [Citation](#citation)
 
 ---
 
@@ -74,6 +76,16 @@ pip install torch torchvision snntorch pyyaml numpy scikit-learn
 ```
 
 A CUDA-capable GPU is strongly recommended. The code falls back to CPU automatically if no GPU is available.
+
+---
+
+## Pre-trained Weights
+
+Pre-trained model weights are available on Hugging Face:
+
+> **[https://huggingface.co/dsluga/spikingresnet](https://huggingface.co/dsluga/spikingresnet)**
+
+Download the desired `.pth` files and place them under `weights/spike/` or `weights/conv/` according to the model type before running evaluation.
 
 ---
 
@@ -254,4 +266,12 @@ experiment:
 | `weights/spike/` or `weights/conv/` | Saved model checkpoints (`.pth`) |
 | `features/spike/` or `features/conv/` | Extracted feature vectors (`.npz`) |
 | `results/` | JSON files with AUROC / FPR95 per method, backbone, expansion, and seed |
+
+---
+
+## Citation
+
+The paper is currently under revision. Citation details will be updated upon publication. In the meantime, if you use this code, please credit the authors:
+
+> A. Avramović, S. Gajić, V. Jovanović, V. Risojević, D. Sluga — *Out-of-Distribution Detection with Spike-Like Networks: Population Coding, Training Depth, and Single-Step Feature Representations*
 
