@@ -26,6 +26,22 @@ import matplotlib.pyplot as plt
 import json
 from scipy.special import logsumexp
 
+
+def _json_default(obj):
+    """JSON serialization helper that converts numpy scalars/arrays to Python natives."""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        # preserve NaN/Inf as null to keep valid JSON
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
 class Metrics():
 
     def __init__(self, name):
@@ -476,67 +492,86 @@ class Metrics():
         return test_labels, test_predictions, test_distances
     
     @staticmethod
-    def MD(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes, number_features):
+    def MD(ID_feat_train, ID_tags_train, ID_feat_test, OOD_feat_test, number_classes):
         '''
-        Mahalanobis distance of ID and OOD feature vectors, based on the centroids
-        of the training data. Mahalanobis distance is calculated as the
-        squared distance between the feature vector and the class centroid,
-        normalized by the covariance matrix of the training data. The distance
-        is calculated for each class, and the minimum distance is used for
-        classification. If the minimum distance is larger than the threshold,
-        the feature vector is classified as OOD, otherwise it is classified as ID.
+        Mahalanobis Distance (MD) OoD detection, following Lee et al. (NeurIPS 2018):
+        "A Simple Unified Framework for Detecting Out-of-Distribution Samples and
+        Adversarial Attacks."
+
+        For each test sample x, the score is the negative minimum squared Mahalanobis
+        distance to any class centroid:
+
+            score(x) = -min_c [ (x - mu_c)^T * Sigma^{-1} * (x - mu_c) ]
+
+        Higher score = closer to a known class = more likely ID.
+        A single tied (pooled) covariance Sigma is estimated from all class-centered
+        training samples, following the original paper.
+
+        Implementation notes:
+            - Cholesky factorization of Sigma^{-1} = L @ L^T is used instead of
+              np.linalg.inv + cdist(metric='mahalanobis'), which internally computes
+              a square root that is immediately squared back — pure wasted computation.
+              With L in hand: MD²(x, mu_c) = ||L^T (x - mu_c)||² = sum((diff @ L)², axis=-1)
+            - Regularization is scale-aware: lambda = 1e-5 * trace(Sigma) / d, so it
+              adapts to the magnitude of the features rather than using a fixed constant.
+            - All pairwise distances are computed in a single batched matrix operation
+              via broadcasting, avoiding any Python-level loops over samples or classes.
 
         Inputs:
-            ID_feat_train:  matrix with train features, it is used to 
-                            normalize feature vectors
-            ID_tags_train:  an array with train labels, gives the label 
-                            of each training feature
-            ID_feat_test:   matrix with ID test features
-            OOD_feat_test:  matrix with OOD test features
-            number_classes: (int) number of classes
+            ID_feat_train:  (N_train, d) matrix of ID training features (penultimate layer)
+            ID_tags_train:  (N_train,)   integer class labels for each training sample
+            ID_feat_test:   (N_ID, d)    ID test features
+            OOD_feat_test:  (N_OOD, d)  OOD test features
+            number_classes: (int)        number of known classes C
 
         Outputs:
-            test_labels:
-            test_predictions:    an array of predicted labels
-            test_distances:
+            test_labels:      (N_ID + N_OOD,) ground-truth binary labels (1=ID, 0=OOD)
+            test_predictions: (N_ID + N_OOD,) predicted binary labels at TPR=95% threshold
+            test_distances:   (N_ID + N_OOD,) MD scores (higher = more likely ID)
         '''
 
         start_time = time.time()
-        ID_labels = np.ones((len(ID_feat_test)))
-        OOD_labels = np.zeros((len(OOD_feat_test)))
+        ID_labels = np.ones(len(ID_feat_test))
+        OOD_labels = np.zeros(len(OOD_feat_test))
         test_labels = np.concatenate((ID_labels, OOD_labels))
 
-        # Find a mean feature vector for each class
+        d = ID_feat_train.shape[1]
+
+        # Per-class means (C, d)
         mean_vectors = np.stack([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
-        #centroids = np.array([ID_feat_train[ID_tags_train == c].mean(axis=0) for c in range(number_classes)])
 
-        # Center training data by class mean
+        # Pooled class-centered covariance (tied covariance as in Lee et al. 2018)
         centered = ID_feat_train - mean_vectors[ID_tags_train]
+        cov = np.cov(centered, rowvar=False, bias=False)
 
-        # Covariance matrix and regularization
-        cov = np.cov(centered, rowvar=False, bias=False) + 0.001 * np.eye(number_features)
+        # Scale-aware regularization: adapts to feature magnitude unlike a fixed constant
+        cov += (1e-5 * np.trace(cov) / d) * np.eye(d)
+
+        # Cholesky factorization of precision matrix: Sigma^{-1} = L @ L^T
+        # MD²(x, mu) = (x-mu)^T Sigma^{-1} (x-mu) = ||L^T (x-mu)||² = sum((diff @ L)²)
+        # This avoids the redundant sqrt inside cdist(metric='mahalanobis') then **2
         cov_inv = np.linalg.inv(cov)
+        L = np.linalg.cholesky(cov_inv)  # lower triangular
 
-        # Compute all Mahalanobis distances in a vectorized way
-        # MDK shape: (len(ID_feat_test), num_classes)
-        ID_MDK = cdist(ID_feat_test, mean_vectors, metric='mahalanobis', VI=cov_inv) ** 2
-        OOD_MDK = cdist(OOD_feat_test, mean_vectors, metric='mahalanobis', VI=cov_inv) ** 2
+        # Vectorized pairwise distances via broadcasting: (N, C, d) -> (N, C)
+        ID_diff  = ID_feat_test[:, None, :]  - mean_vectors[None, :, :]   # (N_ID,  C, d)
+        OOD_diff = OOD_feat_test[:, None, :] - mean_vectors[None, :, :]   # (N_OOD, C, d)
 
-        ID_distances = -np.min(ID_MDK, axis=1)
+        ID_MDK  = np.sum((ID_diff  @ L) ** 2, axis=-1)   # (N_ID,  C)
+        OOD_MDK = np.sum((OOD_diff @ L) ** 2, axis=-1)   # (N_OOD, C)
+
+        # Score = negative minimum distance (higher = closer to a known class = ID)
+        ID_distances  = -np.min(ID_MDK,  axis=1)
         OOD_distances = -np.min(OOD_MDK, axis=1)
         test_distances = np.concatenate((ID_distances, OOD_distances))
 
-        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop = False)
-        threshold = threshold_tpr95
+        _, threshold_tpr95 = Utils.find_threshold(test_labels, test_distances, 1, drop=False)
 
-        ID_predictions = (ID_distances > threshold).astype(np.int32)
-        OOD_predictions = (OOD_distances > threshold).astype(np.int32)
-
+        ID_predictions  = (ID_distances  > threshold_tpr95).astype(np.int32)
+        OOD_predictions = (OOD_distances > threshold_tpr95).astype(np.int32)
         test_predictions = np.concatenate((ID_predictions, OOD_predictions))
-        end_time = time.time()  # Record end time
-        execution_time = end_time - start_time  # Calculate execution time
-        print(f"MD Execution time: {execution_time:.4f} seconds.")
 
+        print(f"MD Execution time: {time.time() - start_time:.4f} seconds.")
         return test_labels, test_predictions, test_distances
     
     @staticmethod
@@ -1103,8 +1138,7 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
             elif method == 'MD':
                 # print(f"MD on {namesOOD[i]}")
                 number_classes = ID_prob_train.shape[1]
-                number_features = ID_features_train.shape[1]
-                test_labels, test_predictions, test_distances = Metrics.MD(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_classes, number_features)
+                test_labels, test_predictions, test_distances = Metrics.MD(ID_features_train, ID_tags_train, ID_features_test, OOD_features_test, number_classes)
                 auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
 
                 # print(f"True positive rate: {tpr95:.2f}, False positive rate {fpr95:.2f}")
@@ -1687,7 +1721,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                 data_out['results'][str(rm)][ft] = [{'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'} for _ in expansions]
         try:
             with open(datafile, 'w') as jf:
-                json.dump(data_out, jf, indent=2)
+                json.dump(data_out, jf, indent=2, default=_json_default)
         except Exception as e:
             print(f"Warning: failed to write initial EX1 JSON skeleton: {e}")
 
@@ -2013,7 +2047,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                                 pass
                         data_out['seed_results'][str(resnet_model)][ft][str(idx)][str(seed)] = entry
                     with open(datafile, 'w') as jf:
-                        json.dump(data_out, jf, indent=2)
+                        json.dump(data_out, jf, indent=2, default=_json_default)
                 except Exception as e:
                     print(f"Warning: failed to persist EX1 per-seed checkpoint for ResNet{resnet_model} E={expansion} S={seed}: {e}")
 
@@ -2049,30 +2083,42 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
 
                 # If feature extraction/test failed (missing_any) or we have no valid values, mark as not trained
                 if missing_any or arr_near.size == 0 or arr_far.size == 0 or (np.all(np.isnan(arr_near)) and np.all(np.isnan(arr_far))):
-                    results[resnet_model][ft][idx] = {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'}
+                    results[resnet_model][ft][idx] = {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained',
+                                                      'near_std': 'not trained', 'far_std': 'not trained', 'near_fpr_std': 'not trained', 'far_fpr_std': 'not trained'}
                 else:
-                    # compute nan-aware means; if one side is all-NaN, keep that side as 'not trained'
+                    # compute nan-aware means and stds; if one side is all-NaN, keep that side as 'not trained'
                     if np.all(np.isnan(arr_near)):
                         avg_near = 'not trained'
+                        std_near = 'not trained'
                     else:
                         avg_near = float(np.nanmean(arr_near))
+                        std_near = float(np.nanstd(arr_near))
 
                     if np.all(np.isnan(arr_far)):
                         avg_far = 'not trained'
+                        std_far = 'not trained'
                     else:
                         avg_far = float(np.nanmean(arr_far))
+                        std_far = float(np.nanstd(arr_far))
 
                     if np.all(np.isnan(arr_near_fpr)):
                         avg_near_fpr = 'not trained'
+                        std_near_fpr = 'not trained'
                     else:
                         avg_near_fpr = float(np.nanmean(arr_near_fpr))
+                        std_near_fpr = float(np.nanstd(arr_near_fpr))
 
                     if np.all(np.isnan(arr_far_fpr)):
                         avg_far_fpr = 'not trained'
+                        std_far_fpr = 'not trained'
                     else:
                         avg_far_fpr = float(np.nanmean(arr_far_fpr))
+                        std_far_fpr = float(np.nanstd(arr_far_fpr))
 
-                    results[resnet_model][ft][idx] = {'near': avg_near, 'far': avg_far, 'near_fpr': avg_near_fpr, 'far_fpr': avg_far_fpr}
+                    results[resnet_model][ft][idx] = {
+                        'near': avg_near, 'far': avg_far, 'near_fpr': avg_near_fpr, 'far_fpr': avg_far_fpr,
+                        'near_std': std_near, 'far_std': std_far, 'near_fpr_std': std_near_fpr, 'far_fpr_std': std_far_fpr,
+                    }
                     print(f"Results updated for ResNet{resnet_model} expansion {expansion}: {results[resnet_model][ft][idx]}")
 
             # Persist progress back to the JSON file so runs can be resumed
@@ -2086,10 +2132,12 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                             return v if isinstance(v, str) else float(v)
                         serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far']),
                                             'near_fpr': conv(entry.get('near_fpr', 'not trained')),
-                                            'far_fpr': conv(entry.get('far_fpr', 'not trained'))} if isinstance(entry, dict) else {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained'})
-                    data_out['results'][str(resnet_model)][ft] = serial_list
-                with open(datafile, 'w') as jf:
-                    json.dump(data_out, jf, indent=2)
+                                        'far_fpr': conv(entry.get('far_fpr', 'not trained')),
+                                        'near_std': conv(entry.get('near_std', 'not trained')),
+                                        'far_std': conv(entry.get('far_std', 'not trained')),
+                                        'near_fpr_std': conv(entry.get('near_fpr_std', 'not trained')),
+                                        'far_fpr_std': conv(entry.get('far_fpr_std', 'not trained'))} if isinstance(entry, dict) else {'near': 'not trained', 'far': 'not trained', 'near_fpr': 'not trained', 'far_fpr': 'not trained', 'near_std': 'not trained', 'far_std': 'not trained', 'near_fpr_std': 'not trained', 'far_fpr_std': 'not trained'})
+                    json.dump(data_out, jf, indent=2, default=_json_default)
             except Exception as e:
                 print(f"Warning: failed to persist EX1 JSON after ResNet{resnet_model} E={expansion}: {e}")
 
@@ -2121,42 +2169,50 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         for resnet_model in resnet_models:
             f.write(f"ResNet Model: {resnet_model}\n")
             f.write(f"Near OOD sets: {near_list}\n")
-            f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
-            f.write(f"{'-'*60}\n")
+            f.write(f"{'Expansion':<12}{'Spike pattern':<28}{'Voltage membrane':<28}\n")
+            f.write(f"{'-'*68}\n")
             for idx, expansion in enumerate(expansions):
-                sp_val = None
-                volt_val = None
+                sp_val = sp_std = volt_val = volt_std = None
 
                 # Check if 'features' exist in results
                 if 'features' in results[resnet_model]:
                     entry = results[resnet_model]['features'][idx]
                     sp_val = entry['near']
+                    sp_std = entry.get('near_std')
                 # Handle 'voltages'
                 if 'voltages' in results[resnet_model]:
-                    volt_val = results[resnet_model]['voltages'][idx]['near']
+                    entry = results[resnet_model]['voltages'][idx]
+                    volt_val = entry['near']
+                    volt_std = entry.get('near_std')
 
-                def fmt(v):
-                    return f"{v:>6.2f}" if isinstance(v, float) else f"{v:<20}"
+                def fmt(v, s=None):
+                    if not isinstance(v, float):
+                        return f"{v:<28}"
+                    if isinstance(s, float):
+                        return f"{v:>6.2f} ±{s:>5.2f}"
+                    return f"{v:>6.2f}"
 
-                f.write(f"{expansion:<12}{(fmt(sp_val) if sp_val is not None else 'N/A'):<20}{(fmt(volt_val) if volt_val is not None else 'N/A'):<20}\n")
+                f.write(f"{expansion:<12}{(fmt(sp_val, sp_std) if sp_val is not None else 'N/A'):<28}{(fmt(volt_val, volt_std) if volt_val is not None else 'N/A'):<28}\n")
             f.write(f"\n")
 
             f.write(f"Far OOD sets: {far_list}\n")
-            f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
-            f.write(f"{'-'*60}\n")
+            f.write(f"{'Expansion':<12}{'Spike pattern':<28}{'Voltage membrane':<28}\n")
+            f.write(f"{'-'*68}\n")
             for idx, expansion in enumerate(expansions):
-                sp_val = None
-                volt_val = None
+                sp_val = sp_std = volt_val = volt_std = None
 
                 # Check if 'features' exist in results
                 if 'features' in results[resnet_model]:
                     entry = results[resnet_model]['features'][idx]
                     sp_val = entry['far']
+                    sp_std = entry.get('far_std')
                 # Handle 'voltages'
                 if 'voltages' in results[resnet_model]:
-                    volt_val = results[resnet_model]['voltages'][idx]['far']
+                    entry = results[resnet_model]['voltages'][idx]
+                    volt_val = entry['far']
+                    volt_std = entry.get('far_std')
 
-                f.write(f"{expansion:<12}{(fmt(sp_val) if sp_val is not None else 'N/A'):<20}{(fmt(volt_val) if volt_val is not None else 'N/A'):<20}\n")
+                f.write(f"{expansion:<12}{(fmt(sp_val, sp_std) if sp_val is not None else 'N/A'):<28}{(fmt(volt_val, volt_std) if volt_val is not None else 'N/A'):<28}\n")
 
             f.write(f"{'='*60}\n\n")
 
@@ -2185,39 +2241,45 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         f.write(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"\n")
 
-        def fmt_fpr(v):
-            return f"{v:>6.2f}" if isinstance(v, float) else f"{v:<20}"
+        def fmt_fpr(v, s=None):
+            if not isinstance(v, float):
+                return f"{v:<28}"
+            if isinstance(s, float):
+                return f"{v:>6.2f} ±{s:>5.2f}"
+            return f"{v:>6.2f}"
 
         for resnet_model in resnet_models:
             f.write(f"ResNet Model: {resnet_model}\n")
             f.write(f"Near OOD sets: {near_list}\n")
-            f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
-            f.write(f"{'-'*60}\n")
+            f.write(f"{'Expansion':<12}{'Spike pattern':<28}{'Voltage membrane':<28}\n")
+            f.write(f"{'-'*68}\n")
             for idx, expansion in enumerate(expansions):
-                sp_val = None
-                volt_val = None
+                sp_val = sp_std = volt_val = volt_std = None
                 if 'features' in results[resnet_model]:
                     entry = results[resnet_model]['features'][idx]
                     sp_val = entry.get('near_fpr', 'not trained') if isinstance(entry, dict) else 'not trained'
+                    sp_std = entry.get('near_fpr_std') if isinstance(entry, dict) else None
                 if 'voltages' in results[resnet_model]:
                     entry = results[resnet_model]['voltages'][idx]
                     volt_val = entry.get('near_fpr', 'not trained') if isinstance(entry, dict) else 'not trained'
-                f.write(f"{expansion:<12}{(fmt_fpr(sp_val) if sp_val is not None else 'N/A'):<20}{(fmt_fpr(volt_val) if volt_val is not None else 'N/A'):<20}\n")
+                    volt_std = entry.get('near_fpr_std') if isinstance(entry, dict) else None
+                f.write(f"{expansion:<12}{(fmt_fpr(sp_val, sp_std) if sp_val is not None else 'N/A'):<28}{(fmt_fpr(volt_val, volt_std) if volt_val is not None else 'N/A'):<28}\n")
             f.write(f"\n")
 
             f.write(f"Far OOD sets: {far_list}\n")
-            f.write(f"{'Expansion':<12}{'Spike pattern':<20}{'Voltage membrane':<20}\n")
-            f.write(f"{'-'*60}\n")
+            f.write(f"{'Expansion':<12}{'Spike pattern':<28}{'Voltage membrane':<28}\n")
+            f.write(f"{'-'*68}\n")
             for idx, expansion in enumerate(expansions):
-                sp_val = None
-                volt_val = None
+                sp_val = sp_std = volt_val = volt_std = None
                 if 'features' in results[resnet_model]:
                     entry = results[resnet_model]['features'][idx]
                     sp_val = entry.get('far_fpr', 'not trained') if isinstance(entry, dict) else 'not trained'
+                    sp_std = entry.get('far_fpr_std') if isinstance(entry, dict) else None
                 if 'voltages' in results[resnet_model]:
                     entry = results[resnet_model]['voltages'][idx]
                     volt_val = entry.get('far_fpr', 'not trained') if isinstance(entry, dict) else 'not trained'
-                f.write(f"{expansion:<12}{(fmt_fpr(sp_val) if sp_val is not None else 'N/A'):<20}{(fmt_fpr(volt_val) if volt_val is not None else 'N/A'):<20}\n")
+                    volt_std = entry.get('far_fpr_std') if isinstance(entry, dict) else None
+                f.write(f"{expansion:<12}{(fmt_fpr(sp_val, sp_std) if sp_val is not None else 'N/A'):<28}{(fmt_fpr(volt_val, volt_std) if volt_val is not None else 'N/A'):<28}\n")
 
             f.write(f"{'='*60}\n\n")
 
@@ -2239,7 +2301,11 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
                     return v if isinstance(v, str) else float(v)
                 serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far']),
                                     'near_fpr': conv(entry.get('near_fpr', 'not trained')),
-                                    'far_fpr': conv(entry.get('far_fpr', 'not trained'))})
+                                    'far_fpr': conv(entry.get('far_fpr', 'not trained')),
+                                    'near_std': conv(entry.get('near_std', 'not trained')),
+                                    'far_std': conv(entry.get('far_std', 'not trained')),
+                                    'near_fpr_std': conv(entry.get('near_fpr_std', 'not trained')),
+                                    'far_fpr_std': conv(entry.get('far_fpr_std', 'not trained'))})
             data_out['results'][str(rm)][ft] = serial_list
 
     if config.model_type == 'spike':
@@ -2248,7 +2314,7 @@ def statistics_exp_1(config, seeds, expansions, resnet_models):
         datafile = os.path.join(out_dir, f'EX1_{config.dataset_ID}_A_{config.auto_aug}_L_{config.loss}_conv_data.json')
     try:
         with open(datafile, 'w') as jf:
-            json.dump(data_out, jf, indent=2)
+            json.dump(data_out, jf, indent=2, default=_json_default)
     except Exception as e:
         print(f"Warning: failed to write plotting data JSON: {e}")
 
@@ -2387,7 +2453,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                 ]
         try:
             with open(datafile, 'w') as jf:
-                json.dump(data_out, jf, indent=2)
+                json.dump(data_out, jf, indent=2, default=_json_default)
         except Exception as e:
             print(f"Warning: failed to write initial EX2 JSON skeleton: {e}")
 
@@ -2618,7 +2684,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                                 }
                         data_out['seed_results'][str(resnet_model)][ft][str(idx)][str(seed)] = entry
                     with open(datafile, 'w') as jf:
-                        json.dump(data_out, jf, indent=2)
+                        json.dump(data_out, jf, indent=2, default=_json_default)
                 except Exception as e:
                     print(f"Warning: failed to persist EX2 per-seed checkpoint for ResNet{resnet_model} E={expansion} S={seed}: {e}")
 
@@ -2642,7 +2708,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                     }
                     continue
 
-                # All seeds present: stack and average across seeds (nan-aware) per method
+                # All seeds present: stack and average/std across seeds (nan-aware) per method
                 def avg_over_seeds(seed_list):
                     try:
                         stacked = np.stack([np.array(x, dtype=float) for x in seed_list], axis=0)
@@ -2652,15 +2718,30 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                         print(f"[exp2] Error averaging seeds for ft={ft}: {e}")
                         return 'not trained'
 
+                def std_over_seeds(seed_list):
+                    try:
+                        stacked = np.stack([np.array(x, dtype=float) for x in seed_list], axis=0)
+                        std_methods = np.nanstd(stacked, axis=0)
+                        return [float(x) for x in std_methods]
+                    except Exception as e:
+                        print(f"[exp2] Error computing std for ft={ft}: {e}")
+                        return 'not trained'
+
                 avg_near = avg_over_seeds(seed_near)
+                std_near = std_over_seeds(seed_near)
                 avg_far = avg_over_seeds(seed_far)
+                std_far = std_over_seeds(seed_far)
                 all_near_fpr_ok = (len(seed_near_fpr) == len(seeds)) and all(v is not None for v in seed_near_fpr)
                 all_far_fpr_ok = (len(seed_far_fpr) == len(seeds)) and all(v is not None for v in seed_far_fpr)
                 avg_near_fpr = avg_over_seeds(seed_near_fpr) if all_near_fpr_ok else 'not trained'
+                std_near_fpr = std_over_seeds(seed_near_fpr) if all_near_fpr_ok else 'not trained'
                 avg_far_fpr = avg_over_seeds(seed_far_fpr) if all_far_fpr_ok else 'not trained'
+                std_far_fpr = std_over_seeds(seed_far_fpr) if all_far_fpr_ok else 'not trained'
                 results[resnet_model][ft][idx] = {
                     'near': avg_near, 'far': avg_far,
                     'near_fpr': avg_near_fpr, 'far_fpr': avg_far_fpr,
+                    'near_std': std_near, 'far_std': std_far,
+                    'near_fpr_std': std_near_fpr, 'far_fpr_std': std_far_fpr,
                 }
 
             # Persist progress back to EX2 JSON after each expansion so runs are resumable
@@ -2682,10 +2763,14 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                                 return v
                         serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far']),
                                             'near_fpr': conv(entry.get('near_fpr', 'not trained')),
-                                            'far_fpr': conv(entry.get('far_fpr', 'not trained'))})
+                                            'far_fpr': conv(entry.get('far_fpr', 'not trained')),
+                                            'near_std': conv(entry.get('near_std', 'not trained')),
+                                            'far_std': conv(entry.get('far_std', 'not trained')),
+                                            'near_fpr_std': conv(entry.get('near_fpr_std', 'not trained')),
+                                            'far_fpr_std': conv(entry.get('far_fpr_std', 'not trained'))})
                     data_out['results'][str(resnet_model)][ft] = serial_list
                 with open(datafile, 'w') as jf:
-                    json.dump(data_out, jf, indent=2)
+                    json.dump(data_out, jf, indent=2, default=_json_default)
             except Exception as e:
                 print(f"Warning: failed to persist EX2 JSON after ResNet{resnet_model} E={expansion}: {e}")
 
@@ -2719,25 +2804,26 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
             # For each feature type, print a table with expansions as rows and methods as columns (Near)
             for ft in feature_types:
                 f.write(f"\nFeature Type (NEAR): {ft}\n")
-                # Header: Expansion then each method
-                header = 'Expansion'.ljust(12) + ''.join([f"{m:>10s}" for m in methods]) + '\n'
+                # Header: Expansion then each method (mean±std per column, 15 chars wide)
+                header = 'Expansion'.ljust(12) + ''.join([f"{m:>15s}" for m in methods]) + '\n'
                 f.write(header)
-                f.write('-' * (12 + 10 * len(methods)) + '\n')
+                f.write('-' * (12 + 15 * len(methods)) + '\n')
                 for idx, expansion in enumerate(expansions):
                     entry = results[resnet_model][ft][idx]
                     val = entry['near'] if isinstance(entry, dict) else entry
+                    std_val = entry.get('near_std') if isinstance(entry, dict) else None
                     if isinstance(val, str):
-                        # not trained
                         row = f"{expansion:<12}{val}\n"
                     elif val is None:
-                        cols = ''.join([f"{'missing':>10s}" for _ in methods])
+                        cols = ''.join([f"{'missing':>15s}" for _ in methods])
                         row = f"{expansion:<12}{cols}\n"
                     else:
-                        # val should be a list of per-method floats
                         try:
-                            cols = ''.join([f"{(v if v is not None else float('nan')):10.2f}" for v in val])
+                            if isinstance(std_val, list) and len(std_val) == len(val):
+                                cols = ''.join([f"{(v if v is not None else float('nan')):6.2f}±{(s if s is not None else float('nan')):5.2f} " for v, s in zip(val, std_val)])
+                            else:
+                                cols = ''.join([f"{(v if v is not None else float('nan')):15.2f}" for v in val])
                         except Exception:
-                            # fallback to a simple string
                             cols = ' '.join([str(v) for v in val])
                         row = f"{expansion:<12}{cols}\n"
                     f.write(row)
@@ -2748,20 +2834,24 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
             # For each feature type, print a table with expansions as rows and methods as columns (Far)
             for ft in feature_types:
                 f.write(f"\nFeature Type (FAR): {ft}\n")
-                header = 'Expansion'.ljust(12) + ''.join([f"{m:>10s}" for m in methods]) + '\n'
+                header = 'Expansion'.ljust(12) + ''.join([f"{m:>15s}" for m in methods]) + '\n'
                 f.write(header)
-                f.write('-' * (12 + 10 * len(methods)) + '\n')
+                f.write('-' * (12 + 15 * len(methods)) + '\n')
                 for idx, expansion in enumerate(expansions):
                     entry = results[resnet_model][ft][idx]
                     val = entry['far'] if isinstance(entry, dict) else entry
+                    std_val = entry.get('far_std') if isinstance(entry, dict) else None
                     if isinstance(val, str):
                         row = f"{expansion:<12}{val}\n"
                     elif val is None:
-                        cols = ''.join([f"{'missing':>10s}" for _ in methods])
+                        cols = ''.join([f"{'missing':>15s}" for _ in methods])
                         row = f"{expansion:<12}{cols}\n"
                     else:
                         try:
-                            cols = ''.join([f"{(v if v is not None else float('nan')):10.2f}" for v in val])
+                            if isinstance(std_val, list) and len(std_val) == len(val):
+                                cols = ''.join([f"{(v if v is not None else float('nan')):6.2f}±{(s if s is not None else float('nan')):5.2f} " for v, s in zip(val, std_val)])
+                            else:
+                                cols = ''.join([f"{(v if v is not None else float('nan')):15.2f}" for v in val])
                         except Exception:
                             cols = ' '.join([str(v) for v in val])
                         row = f"{expansion:<12}{cols}\n"
@@ -2796,7 +2886,11 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
                         return v
                 serial_list.append({'near': conv(entry['near']), 'far': conv(entry['far']),
                                     'near_fpr': conv(entry.get('near_fpr', 'not trained')),
-                                    'far_fpr': conv(entry.get('far_fpr', 'not trained'))})
+                                    'far_fpr': conv(entry.get('far_fpr', 'not trained')),
+                                    'near_std': conv(entry.get('near_std', 'not trained')),
+                                    'far_std': conv(entry.get('far_std', 'not trained')),
+                                    'near_fpr_std': conv(entry.get('near_fpr_std', 'not trained')),
+                                    'far_fpr_std': conv(entry.get('far_fpr_std', 'not trained'))})
             data_out['results'][str(rm)][ft] = serial_list
 
     if config.model_type == 'spike':
@@ -2805,7 +2899,7 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
         datafile = os.path.join(out_dir, f'EX2_{config.dataset_ID}_L_{config.loss}_A_{config.auto_aug}_conv.json')
     try:
         with open(datafile, 'w') as jf:
-            json.dump(data_out, jf, indent=2)
+            json.dump(data_out, jf, indent=2, default=_json_default)
     except Exception as e:
         print(f"Warning: failed to write EX2 plotting data JSON: {e}")
 
@@ -2882,18 +2976,23 @@ def statistics_exp_2(config, seeds, expansions, resnet_models):
         f.write(f"\n")
 
         def _write_fpr_table(f, resnet_model, ft, ood_label, key):
+            std_key = key + '_std'
             f.write(f"\nFeature Type ({ood_label}): {ft}\n")
-            header = 'Expansion'.ljust(12) + ''.join([f"{m:>10s}" for m in methods]) + '\n'
+            header = 'Expansion'.ljust(12) + ''.join([f"{m:>15s}" for m in methods]) + '\n'
             f.write(header)
-            f.write('-' * (12 + 10 * len(methods)) + '\n')
+            f.write('-' * (12 + 15 * len(methods)) + '\n')
             for idx, expansion in enumerate(expansions):
                 entry = results[resnet_model][ft][idx]
                 val = entry.get(key) if isinstance(entry, dict) else None
+                std_val = entry.get(std_key) if isinstance(entry, dict) else None
                 if val is None or (isinstance(val, str) and val == 'not trained'):
                     row = f"{expansion:<12}{str(val or 'not trained')}\n"
                 else:
                     try:
-                        cols = ''.join([f"{(v if v is not None else float('nan')):10.2f}" for v in val])
+                        if isinstance(std_val, list) and len(std_val) == len(val):
+                            cols = ''.join([f"{(v if v is not None else float('nan')):6.2f}±{(s if s is not None else float('nan')):5.2f} " for v, s in zip(val, std_val)])
+                        else:
+                            cols = ''.join([f"{(v if v is not None else float('nan')):15.2f}" for v in val])
                     except Exception:
                         cols = ' '.join([str(v) for v in val])
                     row = f"{expansion:<12}{cols}\n"
@@ -3002,7 +3101,7 @@ def statistics_exp_3(config, seeds, expansions, resnet_models):
                 data_out['results'][str(rm)][alias] = [_empty_entry() for _ in expansions]
         try:
             with open(datafile, 'w') as jf:
-                json.dump(data_out, jf, indent=2)
+                json.dump(data_out, jf, indent=2, default=_json_default)
         except Exception as e:
             print(f"Warning: failed to write initial EX3 JSON skeleton: {e}")
 
@@ -3216,7 +3315,7 @@ def statistics_exp_3(config, seeds, expansions, resnet_models):
                         data_out['seed_results'][str(resnet_model)][alias][str(idx)][str(seed)] = alias_entry
 
                     with open(datafile, 'w') as jf:
-                        json.dump(data_out, jf, indent=2)
+                        json.dump(data_out, jf, indent=2, default=_json_default)
                 except Exception as e:
                     print(f"Warning: failed to persist EX3 per-seed checkpoint for ResNet{resnet_model} E={expansion} S={seed}: {e}")
                 finally:
@@ -3256,6 +3355,10 @@ def statistics_exp_3(config, seeds, expansions, resnet_models):
                         'far': float(np.nanmean(arr_far)),
                         'near_fpr': float(np.nanmean(arr_near_fpr)),
                         'far_fpr': float(np.nanmean(arr_far_fpr)),
+                        'near_std': float(np.nanstd(arr_near)),
+                        'far_std': float(np.nanstd(arr_far)),
+                        'near_fpr_std': float(np.nanstd(arr_near_fpr)),
+                        'far_fpr_std': float(np.nanstd(arr_far_fpr)),
                     }
 
             try:
@@ -3271,6 +3374,10 @@ def statistics_exp_3(config, seeds, expansions, resnet_models):
                             'far': entry['far'] if isinstance(entry['far'], str) else float(entry['far']),
                             'near_fpr': entry['near_fpr'] if isinstance(entry['near_fpr'], str) else float(entry['near_fpr']),
                             'far_fpr': entry['far_fpr'] if isinstance(entry['far_fpr'], str) else float(entry['far_fpr']),
+                            'near_std': entry.get('near_std', 'not trained') if isinstance(entry.get('near_std', 'not trained'), str) else float(entry.get('near_std', 0.0)),
+                            'far_std': entry.get('far_std', 'not trained') if isinstance(entry.get('far_std', 'not trained'), str) else float(entry.get('far_std', 0.0)),
+                            'near_fpr_std': entry.get('near_fpr_std', 'not trained') if isinstance(entry.get('near_fpr_std', 'not trained'), str) else float(entry.get('near_fpr_std', 0.0)),
+                            'far_fpr_std': entry.get('far_fpr_std', 'not trained') if isinstance(entry.get('far_fpr_std', 'not trained'), str) else float(entry.get('far_fpr_std', 0.0)),
                         })
                     data_out['results'][str(resnet_model)][ft] = serial_list
 
@@ -3279,7 +3386,7 @@ def statistics_exp_3(config, seeds, expansions, resnet_models):
                     data_out['results'][str(resnet_model)][alias] = list(data_out['results'][str(resnet_model)].get(branch, []))
                     results[resnet_model][alias] = list(results[resnet_model].get(branch, []))
                 with open(datafile, 'w') as jf:
-                    json.dump(data_out, jf, indent=2)
+                    json.dump(data_out, jf, indent=2, default=_json_default)
             except Exception as e:
                 print(f"Warning: failed to persist EX3 JSON after ResNet{resnet_model} E={expansion}: {e}")
 
@@ -3310,25 +3417,35 @@ def statistics_exp_3(config, seeds, expansions, resnet_models):
         for resnet_model in resnet_models:
             f.write(f"ResNet Model: {resnet_model}\n")
             f.write(f"Near OOD sets: {near_list}\n")
-            f.write(f"{'Expansion':<12}{'KNN(voltages)':<20}{'VIM(probs)':<20}\n")
-            f.write(f"{'-'*60}\n")
+            f.write(f"{'Expansion':<12}{'KNN(voltages)':<28}{'VIM(probs)':<28}\n")
+            f.write(f"{'-'*68}\n")
             for idx, expansion in enumerate(expansions):
-                knn_near = results[resnet_model]['voltages'][idx]['near']
-                vim_near = results[resnet_model]['probs'][idx]['near']
-                knn_str = f"{knn_near:>6.2f}" if isinstance(knn_near, float) else f"{knn_near:<20}"
-                vim_str = f"{vim_near:>6.2f}" if isinstance(vim_near, float) else f"{vim_near:<20}"
-                f.write(f"{expansion:<12}{knn_str:<20}{vim_str:<20}\n")
+                knn_entry = results[resnet_model]['voltages'][idx]
+                vim_entry = results[resnet_model]['probs'][idx]
+                knn_near = knn_entry['near']
+                vim_near = vim_entry['near']
+                knn_near_std = knn_entry.get('near_std')
+                vim_near_std = vim_entry.get('near_std')
+                def _fmt3(v, s=None):
+                    if not isinstance(v, float):
+                        return f"{v:<28}"
+                    if isinstance(s, float):
+                        return f"{v:>6.2f} ±{s:>5.2f}"
+                    return f"{v:>6.2f}"
+                f.write(f"{expansion:<12}{_fmt3(knn_near, knn_near_std):<28}{_fmt3(vim_near, vim_near_std):<28}\n")
 
             f.write("\n")
             f.write(f"Far OOD sets: {far_list}\n")
-            f.write(f"{'Expansion':<12}{'KNN(voltages)':<20}{'VIM(probs)':<20}\n")
-            f.write(f"{'-'*60}\n")
+            f.write(f"{'Expansion':<12}{'KNN(voltages)':<28}{'VIM(probs)':<28}\n")
+            f.write(f"{'-'*68}\n")
             for idx, expansion in enumerate(expansions):
-                knn_far = results[resnet_model]['voltages'][idx]['far']
-                vim_far = results[resnet_model]['probs'][idx]['far']
-                knn_str = f"{knn_far:>6.2f}" if isinstance(knn_far, float) else f"{knn_far:<20}"
-                vim_str = f"{vim_far:>6.2f}" if isinstance(vim_far, float) else f"{vim_far:<20}"
-                f.write(f"{expansion:<12}{knn_str:<20}{vim_str:<20}\n")
+                knn_entry = results[resnet_model]['voltages'][idx]
+                vim_entry = results[resnet_model]['probs'][idx]
+                knn_far = knn_entry['far']
+                vim_far = vim_entry['far']
+                knn_far_std = knn_entry.get('far_std')
+                vim_far_std = vim_entry.get('far_std')
+                f.write(f"{expansion:<12}{_fmt3(knn_far, knn_far_std):<28}{_fmt3(vim_far, vim_far_std):<28}\n")
 
             f.write(f"{'='*60}\n\n")
 
@@ -3352,25 +3469,29 @@ def statistics_exp_3(config, seeds, expansions, resnet_models):
         for resnet_model in resnet_models:
             f.write(f"ResNet Model: {resnet_model}\n")
             f.write(f"Near OOD sets: {near_list}\n")
-            f.write(f"{'Expansion':<12}{'KNN(voltages)':<20}{'VIM(probs)':<20}\n")
-            f.write(f"{'-'*60}\n")
+            f.write(f"{'Expansion':<12}{'KNN(voltages)':<28}{'VIM(probs)':<28}\n")
+            f.write(f"{'-'*68}\n")
             for idx, expansion in enumerate(expansions):
-                knn_near = results[resnet_model]['voltages'][idx]['near_fpr']
-                vim_near = results[resnet_model]['probs'][idx]['near_fpr']
-                knn_str = f"{knn_near:>6.2f}" if isinstance(knn_near, float) else f"{knn_near:<20}"
-                vim_str = f"{vim_near:>6.2f}" if isinstance(vim_near, float) else f"{vim_near:<20}"
-                f.write(f"{expansion:<12}{knn_str:<20}{vim_str:<20}\n")
+                knn_entry = results[resnet_model]['voltages'][idx]
+                vim_entry = results[resnet_model]['probs'][idx]
+                knn_near = knn_entry['near_fpr']
+                vim_near = vim_entry['near_fpr']
+                knn_near_std = knn_entry.get('near_fpr_std')
+                vim_near_std = vim_entry.get('near_fpr_std')
+                f.write(f"{expansion:<12}{_fmt3(knn_near, knn_near_std):<28}{_fmt3(vim_near, vim_near_std):<28}\n")
 
             f.write("\n")
             f.write(f"Far OOD sets: {far_list}\n")
-            f.write(f"{'Expansion':<12}{'KNN(voltages)':<20}{'VIM(probs)':<20}\n")
-            f.write(f"{'-'*60}\n")
+            f.write(f"{'Expansion':<12}{'KNN(voltages)':<28}{'VIM(probs)':<28}\n")
+            f.write(f"{'-'*68}\n")
             for idx, expansion in enumerate(expansions):
-                knn_far = results[resnet_model]['voltages'][idx]['far_fpr']
-                vim_far = results[resnet_model]['probs'][idx]['far_fpr']
-                knn_str = f"{knn_far:>6.2f}" if isinstance(knn_far, float) else f"{knn_far:<20}"
-                vim_str = f"{vim_far:>6.2f}" if isinstance(vim_far, float) else f"{vim_far:<20}"
-                f.write(f"{expansion:<12}{knn_str:<20}{vim_str:<20}\n")
+                knn_entry = results[resnet_model]['voltages'][idx]
+                vim_entry = results[resnet_model]['probs'][idx]
+                knn_far = knn_entry['far_fpr']
+                vim_far = vim_entry['far_fpr']
+                knn_far_std = knn_entry.get('far_fpr_std')
+                vim_far_std = vim_entry.get('far_fpr_std')
+                f.write(f"{expansion:<12}{_fmt3(knn_far, knn_far_std):<28}{_fmt3(vim_far, vim_far_std):<28}\n")
 
             f.write(f"{'='*60}\n\n")
 
