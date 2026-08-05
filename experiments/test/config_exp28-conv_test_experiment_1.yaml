@@ -3,14 +3,14 @@
 
 # Dataset Parameters
 dataset:
-  id: 'CIFAR10'
-  features: ['CIFAR10', 'CIFAR100', 'tImage200']
+  id: 'CIFAR100'
+  features: ['CIFAR100', 'CIFAR10', 'tImage200']
 
 # Model Parameters (base - will be overridden by experiment sweeps)
 model:
-  type: 'spike'
-  num_classes: 10
-  num_time_steps_train: 8
+  type: 'conv'
+  num_classes: 100
+  num_time_steps_train: 1
   num_time_steps_extract: 1
 
 # Training Parameters
@@ -20,8 +20,8 @@ training:
   auto_aug: true
   pretrained: false
   epochs: 400
-  loss: 'mse_count_loss'
-  fit: 'spike'
+  loss: 'cross_entropy'
+  fit: 'membrane'
 
 # Test Mode and Type
 mode: 'test'
@@ -34,7 +34,7 @@ num_workers: 4
 # Optimizer Parameters
 optimizer:
   name: 'adam'
-  learning_rate: 2.0e-4
+  learning_rate: 5.0e-4
   momentum: 0.9
   weight_decay: 1.0e-4
 
@@ -44,19 +44,19 @@ scheduler:
   step_size: null
 
 # Gradient Clipping
-gradient_clipping: 0.1
+gradient_clipping: 1.0
 
 # Experiment Sweep Parameters
 experiment:
-  case: '12'
+  case: '28'
   methods: ['KNN']  # OOD detection method for experiment 1
   seeds: [42, 1987, 1991, 2020, 2024]
-  expansions: [1, 5, 10, 25, 50]
+  expansions: [1]
   resnet_models: [18]
   override_feature_extraction: true
   
   # Near-OOD datasets (similar to in-distribution)
-  near_ood: ['CIFAR10', 'CIFAR100', 'tImage200']
+  near_ood: ['CIFAR100','CIFAR10', 'tImage200']
   
   # Far-OOD datasets (very different from in-distribution)
-  far_ood: ['CIFAR10', 'MNIST', 'SVHN', 'Textures', 'Places365']
+  far_ood: ['CIFAR100', 'MNIST', 'SVHN', 'Textures', 'Places365']

@@ -21,8 +21,8 @@ training:
   auto_aug: true
   pretrained: false
   epochs: 400  # Set to 400 if auto_aug is True, otherwise 200
-  loss: 'mse_count_loss'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
-  fit: 'spike'  # Options: 'membrane', 'spike'
+  loss: 'cross_entropy'  # Options: 'count_loss', 'cross_entropy', 'mse_count_loss'
+  fit: 'membrane'  # Options: 'membrane', 'spike'
 
 # Optimizer Parameters
 optimizer:
@@ -56,7 +56,7 @@ experiment:
   seeds: [42, 1987, 1991, 2020, 2024]
   
   # Expansion factors to evaluate (1 = standard, >1 = population coding)
-  expansions: [25, 50, 100, 250]
+  expansions: [1]
   
   # ResNet architectures to train (ResNet-4, ResNet-10, ResNet-18)
   resnet_models: [18]
