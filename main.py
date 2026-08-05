@@ -83,6 +83,7 @@ if __name__ == "__main__":
 
         elif config.test_type == 'population':
             # Test with different extraction time steps
+            acc_spk, acc_mem = None, None
             if config.loss != 'mse_count_loss':
                 training(config)
                 acc_spk, acc_mem = test_accuracy(config)

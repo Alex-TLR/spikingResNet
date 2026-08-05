@@ -1,0 +1,60 @@
+# Configuration for spike-ResNet18 training on TinyImageNet-200 (tImage200)
+# In-distribution dataset: tImage200 (200 classes, 64x64 images resized to 32x32)
+# Loss: MSE (spike-count-based)
+# Backbone: spike-ResNet18
+# Mirrors the CIFAR-100 experimental setup from the paper.
+
+# Dataset Parameters
+dataset:
+  id: 'tImage200'
+  features: ['tImage200', 'CIFAR10', 'CIFAR100', 'MNIST', 'SVHN', 'Textures', 'Places365']
+
+# Model Parameters (Base Configuration)
+model:
+  type: 'spike'                  # 'spike' or 'conv'
+  num_classes: 200               # TinyImageNet-200 has 200 classes
+  num_time_steps_train: 1        # Single-step inference (T=1)
+  num_time_steps_extract: 1
+
+# Training Parameters
+training:
+  batch_size: 64
+  full_train: true               # Use all training data (no val split held out)
+  auto_aug: true                 # Geometric augmentation (RandomCrop + HorizontalFlip)
+  pretrained: false
+  epochs: 400                    # 400 epochs with OneCycleLR
+  loss: 'mse_count_loss'         # MSE on spike counts
+  fit: 'spike'                   # No channel normalisation; identity normalisation
+
+# Optimizer Parameters
+optimizer:
+  name: 'adam'
+  learning_rate: 2.0e-4
+  momentum: 0.9
+  weight_decay: 1.0e-4
+
+# Learning Rate Scheduler
+scheduler:
+  name: 'onecycle'
+  step_size: null
+
+# Gradient Clipping
+gradient_clipping: 1.0
+
+# Device and Parallel Processing
+device: 'cuda'
+num_workers: 4
+
+# Run mode
+mode: 'train'
+
+# Experiment Sweep Parameters
+# Expansions mirror the CIFAR-100 setup in the paper:
+# E in {25, 50, 100, 250, 500, 1000} – larger expansions are needed for 200 classes.
+experiment:
+  case: '30'                      # Experiment case identifier (adjust as needed)
+  methods: null
+  seeds: [42, 1987, 1991, 2020, 2024]
+  expansions: [25, 50, 100, 250, 500, 1000]
+  resnet_models: [10, 18]            # spike-ResNet18 only
+  override_feature_extraction: false
