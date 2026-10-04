@@ -12,7 +12,7 @@ model:
   type: 'spike'
   num_classes: 100
   num_time_steps_train: 1
-  num_time_steps_extract: 1
+  num_time_steps_extract: 8
 
 # Training Parameters
 training:
@@ -21,7 +21,7 @@ training:
   auto_aug: true
   pretrained: false
   epochs: 400
-  loss: 'count_loss'
+  loss: 'mse_count_loss'
   fit: 'spike'
 
 # Test Mode and Type
@@ -54,14 +54,14 @@ experiment:
   # '5' - cross_entropy_aug
   # '7' - conv 
   # '9' - mse_count_loss_aug with 2 time steps
-  # '11' - ce_count_loss_aug
-  case: '11'
+  # '11' - mse_count_loss_aug with 4 time steps
+  case: '12'
   methods: null
   # Test across these seeds
   seeds: [42]
   
   # Test across these expansion factors
-  expansions: [1, 5, 10, 25, 50]
+  expansions: [1, 5, 10, 25, 50, 100]
   
   # Test across these ResNet architectures
   resnet_models: [4, 10, 18]

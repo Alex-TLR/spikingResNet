@@ -3,14 +3,14 @@
 
 # Dataset Parameters
 dataset:
-  id: 'CIFAR10'
+  id: 'CIFAR100'
   features: ['CIFAR10', 'CIFAR100', 'tImage200']
 
 # Model Parameters
 model:
   type: 'spike'
-  resnet_model: 18
-  num_classes: 10
+  resnet_model: 4
+  num_classes: 100
   expansion: 1
   num_time_steps_train: 1
   num_time_steps_extract: 1
@@ -47,7 +47,7 @@ scheduler:
   step_size: null
 
 # Gradient Clipping
-gradient_clipping: 0.1
+gradient_clipping: 1
 
 # No experiment sweeps for single run mode
 experiment:
@@ -63,4 +63,4 @@ experiment:
   seeds: [42, 1987, 1991, 2020, 2024]
   
   # Expansion factors to evaluate (1 = standard, >1 = population coding)
-  expansions: [1, 5, 10, 25, 50]
+  expansions: [100]

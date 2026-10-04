@@ -5,13 +5,15 @@ import time
 import os
 from utils.Utils import Utils
 from metrics.Metrics import Metrics
-from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet20Model, SpikeResNet, spike_resnet10, spike_resnet18, spike_resnet34, spike_resnet50, spike_resnet101, spike_resnet152
+# from models.spikeresnet import SpikeResNet10Model, SpikeResNet18Model  # kept for rollback
 from models.plain import spikeLinearNet1
 from models.resnet import convNN4, ResNet10, ResNet18, newResNet10Model, newResNet18Model
 import torch 
-import snntorch.functional as SF 
 from snntorch import utils
 import gc
+from utils.experiment_paths import weight_path
+from utils.snn_loss import cross_entropy_scores, resolve_ce_options
 
 
 def accuracy(output, target, topk=(1,)):
@@ -31,9 +33,14 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def test_accuracy(config):
+def test_accuracy(config, return_configured_accuracy=False):
     '''
-    check accuracy of trained model on ID test data
+    Check accuracy of a trained model on ID test data.
+
+    Spiking models always report spike-count and temporal-mean membrane
+    accuracy. When ``return_configured_accuracy`` is true, they additionally
+    report accuracy using the same source, temporal mode, and population
+    reduction as a configured cross-entropy objective.
     '''
 
     # Load database
@@ -53,7 +60,7 @@ def test_accuracy(config):
     # device = torch.device("cpu")
 
     # Get image size based on dataset
-    if config.dataset_ID in ['CIFAR10', 'CIFAR100']:
+    if config.dataset_ID in ['CIFAR10', 'CIFAR100', 'tImage200']:
         feature_size = 32
     elif config.dataset_ID in ['MNIST', 'FMNIST', 'KMNIST']:
         feature_size = 28
@@ -80,7 +87,7 @@ def test_accuracy(config):
             return -1
 
         # Load weights
-        weightsName = 'weights/conv/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion) + '_L_'+str(config.loss)+ '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
+        weightsName = str(weight_path(config))
         if not os.path.exists(weightsName):
             print(f"Weights file not found: {weightsName}")
             return -1
@@ -140,26 +147,39 @@ def test_accuracy(config):
                                       numberOfClasses=config.num_classes, 
                                       beta=beta, 
                                       threshold=threshold)
-        elif config.resnet_model == 10:
-            model = SpikeResNet10Model(numberOfChannels=channels, 
-                                        numberOfClasses=config.num_classes, 
-                                        beta=beta, 
-                                        threshold=threshold, 
-                                        numberOfSteps=config.num_time_steps_train, 
-                                        expansion=config.expansion)
-        elif config.resnet_model == 18:
-            model = SpikeResNet18Model(numberOfChannels=channels, 
-                                       numberOfClasses=config.num_classes, 
-                                       beta=beta, 
-                                       threshold=threshold, 
-                                       numberOfSteps=config.num_time_steps_train, 
-                                       expansion=config.expansion)
+        # elif config.resnet_model == 10:
+        #     model = SpikeResNet10Model(numberOfChannels=channels,
+        #                                numberOfClasses=config.num_classes,
+        #                                beta=beta, threshold=threshold,
+        #                                numberOfSteps=config.num_time_steps_train,
+        #                                expansion=config.expansion)
+        # elif config.resnet_model == 18:
+        #     model = SpikeResNet18Model(numberOfChannels=channels,
+        #                                numberOfClasses=config.num_classes,
+        #                                beta=beta, threshold=threshold,
+        #                                numberOfSteps=config.num_time_steps_train,
+        #                                expansion=config.expansion)
+        elif config.resnet_model in (10, 18, 34, 50, 101, 152):
+            _factory = {
+                10:  spike_resnet10,
+                18:  spike_resnet18,
+                34:  spike_resnet34,
+                50:  spike_resnet50,
+                101: spike_resnet101,
+                152: spike_resnet152,
+            }[config.resnet_model]
+            model = _factory(numberOfChannels=channels,
+                             numberOfClasses=config.num_classes,
+                             beta=beta,
+                             threshold=threshold,
+                             numberOfSteps=config.num_time_steps_train,
+                             expansion=config.expansion)
         elif config.resnet_model == 20:
-            model = SpikeResNet20Model(numberOfChannels=channels, 
-                                       numberOfClasses=config.num_classes, 
-                                       beta=beta, 
-                                       threshold=threshold, 
-                                       numberOfSteps=config.num_time_steps_train, 
+            model = SpikeResNet20Model(numberOfChannels=channels,
+                                       numberOfClasses=config.num_classes,
+                                       beta=beta,
+                                       threshold=threshold,
+                                       numberOfSteps=config.num_time_steps_train,
                                        expansion=config.expansion)
         elif config.resnet_model == 21:
             model = spikeLinearNet1(numberOfChannels=channels, numberOfClasses=config.num_classes, beta=beta, threshold=threshold)
@@ -171,7 +191,7 @@ def test_accuracy(config):
         model = model.to(device)
         torch.cuda.empty_cache()
 
-        weightsName = 'weights/spike/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
+        weightsName = str(weight_path(config))
         if not os.path.exists(weightsName):
             # try alternate filename without the loss token (legacy name)
             wN = 'weights/spike/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
@@ -186,7 +206,8 @@ def test_accuracy(config):
                 print(f"Weights file not found: {weightsName}")
                 return -1, -1
         # print(f"weightsName: {weightsName}")
-        model.load_state_dict(torch.load(weightsName, weights_only=False))
+        raw_sd = torch.load(weightsName, weights_only=False)
+        model.load_state_dict(SpikeResNet.remap_legacy_state_dict(raw_sd))
         model = model.to(device)
 
         # print("Check test images.")
@@ -197,10 +218,20 @@ def test_accuracy(config):
         
         total_correct_spikes = 0
         total_correct_membrane = 0
+        total_correct_configured = 0
         total_samples = 0
-        population_code = False
-        if config.expansion > 1:
-            population_code = True
+        uses_cross_entropy = config.loss == "cross_entropy"
+        if uses_cross_entropy:
+            ce_source, ce_mode, population_reduction = resolve_ce_options(
+                getattr(config, "ce_source", None),
+                getattr(config, "ce_mode", None),
+                getattr(config, "population_reduction", None),
+                config.fit,
+            )
+        else:
+            ce_source = "spikes"
+            ce_mode = "spike_count"
+            population_reduction = "sum"
         with torch.no_grad():
             for batch, labels in test_loader:
                 testLen += len(batch)
@@ -213,7 +244,12 @@ def test_accuracy(config):
                 # model.mem4 = final_membranes['mem4'].to(device)
                 # model.mem5 = final_membranes['mem5'].to(device)
                 # Generate predictions/ forward pass
-                spikes, _, membrane, _ = model(batch, config.num_time_steps_extract)
+                outputs = model(
+                    batch,
+                    config.num_time_steps_extract,
+                    return_logits_trace=uses_cross_entropy and ce_source == "logits",
+                )
+                spikes, _, membrane, _ = outputs[:4]
                 # print(f"spikes.max: {spikes.max()}")
                 # l_spikes = loss_fn(spikes, labels)
                 # testLossSpikes.append(l_spikes.item())
@@ -224,20 +260,43 @@ def test_accuracy(config):
                 # On spikes
                 # print(f"spikes.shape: {spikes.shape}, labels.shape: {labels.shape}")
                 batch_size = batch.size(0)
-                acc = SF.accuracy_rate(spikes, labels, population_code=population_code, num_classes=model.numberOfClasses) 
-                acc *= batch_size
-                total_correct_spikes += acc
+                spike_scores = cross_entropy_scores(
+                    spikes,
+                    mode="spike_count",
+                    num_classes=model.numberOfClasses,
+                    population_reduction="sum",
+                )
+                total_correct_spikes += (
+                    spike_scores.argmax(dim=1) == labels
+                ).sum().item()
 
                 # On membrane
-                mem = membrane.mean(0)
-                acc_rate_mem = SF.accuracy_rate(
-                    mem.unsqueeze(0),  # Add time dimension [1, B, classes*expansion]
-                    labels, 
-                    population_code=population_code, 
-                    num_classes=model.numberOfClasses
+                membrane_scores = cross_entropy_scores(
+                    membrane,
+                    mode="temporal_mean",
+                    num_classes=model.numberOfClasses,
+                    population_reduction="sum",
                 )
-                batch_correct_mem = (acc_rate_mem * mem.size(0)).item()
-                total_correct_membrane += batch_correct_mem
+                total_correct_membrane += (
+                    membrane_scores.argmax(dim=1) == labels
+                ).sum().item()
+
+                traces = {"spikes": spikes, "membranes": membrane}
+                if uses_cross_entropy and ce_source == "logits":
+                    if len(outputs) != 5:
+                        raise ValueError(
+                            f"{type(model).__name__} did not return requested logits."
+                        )
+                    traces["logits"] = outputs[4]
+                configured_scores = cross_entropy_scores(
+                    traces[ce_source],
+                    mode=ce_mode,
+                    num_classes=model.numberOfClasses,
+                    population_reduction=population_reduction,
+                )
+                total_correct_configured += (
+                    configured_scores.argmax(dim=1) == labels
+                ).sum().item()
 
                 total_samples += batch_size
                 
@@ -247,10 +306,13 @@ def test_accuracy(config):
         print("\nDone.")
         acc_membrane = total_correct_membrane / total_samples * 100
         acc_spikes = total_correct_spikes / total_samples * 100
+        acc_configured = total_correct_configured / total_samples * 100
 
         del model 
         del train_loader, test_loader
         gc.collect()
         torch.cuda.empty_cache()
+        if return_configured_accuracy:
+            return acc_spikes, acc_membrane, acc_configured
         return acc_spikes, acc_membrane
 

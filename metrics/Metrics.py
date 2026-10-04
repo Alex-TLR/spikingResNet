@@ -16,12 +16,10 @@ import numpy as np
 from scipy.spatial.distance import cdist
 from datetime import datetime
 from train import training
-import gc
 import os
 from torchvision import datasets, transforms
 from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model
 from models.plain import spikeLinearNet1
-import os
 import matplotlib.pyplot as plt
 import json
 from scipy.special import logsumexp
@@ -300,8 +298,6 @@ class Metrics():
             test_predictions:      Predictions based on threshold
             test_distances:        Detection scores (higher for ID)
         '''
-        from scipy.special import logsumexp
-        
         start_time = time.time()
         ID_labels = np.ones((len(ID_penultimate_test)))
         OOD_labels = np.zeros((len(OOD_penultimate_test)))
@@ -337,71 +333,6 @@ class Metrics():
 
         return test_labels, test_predictions, test_distances
     
-    @staticmethod
-    def ASH_Old(ID_feat_test, OOD_feat_test, keep_ratio=0.25):
-        """
-        ASH (Activation Sparsity Hypothesis) for OoD detection, based on Chun et al. (ICLR 2022).
-        Uses penultimate layer features, sparsifies top-k activations, normalizes to preserve mass,
-        and scores as -log(sum). Threshold at 95th percentile of ID scores; predict ID if score < threshold.
-        """
-        
-        start_time = time.time()
-        
-        # Process ID features
-        k = max(1, int(ID_feat_test.shape[1] * keep_ratio))
-        ID_top_k_threshold = np.partition(ID_feat_test, -k, axis=1)[:, -k]
-        ID_suppressed_features = np.where(ID_feat_test >= ID_top_k_threshold[:, None], ID_feat_test, 0.0)
-        ID_suppressed_features = np.where(ID_suppressed_features < 0.0, 0.0, ID_suppressed_features)
-        
-        ID_row_sums = ID_suppressed_features.sum(axis=1, keepdims=True)
-        zero_rows = (ID_row_sums == 0).flatten()
-        if np.any(zero_rows):
-            ID_suppressed_features[zero_rows, :] = 1e-12
-            ID_row_sums = ID_suppressed_features.sum(axis=1, keepdims=True)
-        
-        ID_orig_pos_sum = np.where(ID_feat_test > 0.0, ID_feat_test, 0.0).sum(axis=1, keepdims=True)
-        ID_scale = np.where(ID_orig_pos_sum > 0.0, (ID_orig_pos_sum + 1e-12) / (ID_row_sums + 1e-12), 1.0)
-        ID_normalized_features = ID_suppressed_features * ID_scale
-        ID_normalized_features = np.nan_to_num(ID_normalized_features, nan=1e-12, posinf=1e12, neginf=1e-12)
-        ID_ash_scores = -np.log(np.sum(ID_normalized_features, axis=1) + 1e-12)
-        
-        # Process OOD features (identical to ID)
-        k = max(1, int(OOD_feat_test.shape[1] * keep_ratio))
-        OOD_top_k_threshold = np.partition(OOD_feat_test, -k, axis=1)[:, -k]
-        OOD_suppressed_features = np.where(OOD_feat_test >= OOD_top_k_threshold[:, None], OOD_feat_test, 0.0)
-        OOD_suppressed_features = np.where(OOD_suppressed_features < 0.0, 0.0, OOD_suppressed_features)
-        
-        OOD_row_sums = OOD_suppressed_features.sum(axis=1, keepdims=True)
-        zero_rows_o = (OOD_row_sums == 0).flatten()
-        if np.any(zero_rows_o):
-            OOD_suppressed_features[zero_rows_o, :] = 1e-12
-            OOD_row_sums = OOD_suppressed_features.sum(axis=1, keepdims=True)
-        
-        OOD_orig_pos_sum = np.where(OOD_feat_test > 0.0, OOD_feat_test, 0.0).sum(axis=1, keepdims=True)
-        OOD_scale = np.where(OOD_orig_pos_sum > 0.0, (OOD_orig_pos_sum + 1e-12) / (OOD_row_sums + 1e-12), 1.0)
-        OOD_normalized_features = OOD_suppressed_features * OOD_scale
-        OOD_normalized_features = np.nan_to_num(OOD_normalized_features, nan=1e-12, posinf=1e12, neginf=1e-12)
-        OOD_ash_scores = -np.log(np.sum(OOD_normalized_features, axis=1) + 1e-12)
-        
-        # Combine and negate scores for consistency (higher = ID)
-        test_labels = np.concatenate((np.ones(len(ID_feat_test)), np.zeros(len(OOD_feat_test))))
-        test_scores = np.concatenate((-ID_ash_scores, -OOD_ash_scores))
-        
-        # Threshold: 5th percentile of negated ID scores (higher = ID)
-        if len(ID_ash_scores) > 0:
-            threshold = np.percentile(-ID_ash_scores, 5)
-        else:
-            threshold = 0.0  # Fallback
-        
-        # Predictions: ID (1) if score > threshold, OOD (0) if <=
-        test_predictions = (test_scores > threshold).astype(int)
-        
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print(f"ASH Execution time: {execution_time:.4f} seconds.")
-        
-        return test_labels, test_predictions, test_scores
-
     @staticmethod
     def ASH(ID_logits_test, OOD_logits_test, keep_ratio=0.25):
         """
@@ -693,7 +624,7 @@ class Metrics():
         clusters = np.zeros((number_classes * number_clusters_per_class, ID_feat_train.shape[1]))
         # Find clusters for each class
         for c in range(number_classes):
-            clusters[c: c + number_clusters_per_class] = k_means(ID_feat_train[ID_tags_train == c], number_clusters_per_class)[0]
+            clusters[c * number_clusters_per_class: (c + 1) * number_clusters_per_class] = k_means(ID_feat_train[ID_tags_train == c], number_clusters_per_class)[0]
 
         ID_distances = cdist(ID_feat_test, clusters, metric='euclidean')
         ID_distances = -np.min(ID_distances, axis=1)
@@ -709,7 +640,7 @@ class Metrics():
         test_predictions = np.concatenate((ID_predictions, OOD_predictions))
         end_time = time.time()  # Record end time
         execution_time = end_time - start_time  # Calculate execution time
-        print(f"FKM Execution time: {execution_time:.4f} seconds.")
+        print(f"CKM Execution time: {execution_time:.4f} seconds.")
 
         return test_labels, test_predictions, test_distances
     
@@ -717,32 +648,16 @@ class Metrics():
     @staticmethod
     def SD(train_X, train_Y, test_X, threshold, num_classes):
         '''
-        Spike distance
+        Spike distance (Minkowski p=100, approximates Chebyshev / max-norm)
         '''
         centroids_X = np.array([train_X[train_Y == c].mean(axis=0) for c in range(num_classes)])
-        predictions = np.zeros(len(test_X))
-        distances = np.zeros(len(test_X))
         p = 100
-        epsilon = 1e-10
 
-        for i in range(len(test_X)):
-            dist = np.zeros(num_classes)
-            for j in range(num_classes):
-                # dist[j] = np.sqrt(np.sum((centroids_X[j] - test_X[i])**2)) # euclidian
-                # dist[j] = np.sum(np.abs(centroids_X[j] - test_X[i])) # Manhattan
-                # dist[j] = 1 - np.dot(centroids_X[j], test_X[i]) / (np.linalg.norm(centroids_X[j]) * np.linalg.norm(test_X[i])) # cosine
-                dist[j] = np.power(np.sum(np.abs(centroids_X[j] - test_X[i])**p), 1/p) # minkovwski
-                # dist[j] = np.max(np.abs(centroids_X[j] - test_X[i])) #cebisevljev
-                # dist[j] = np.sum((centroids_X[j] + epsilon) * np.log((centroids_X[j] + epsilon) / (test_X[i] + epsilon))) # Kullback-Leibler
-                # dist[j] = np.sum(np.abs(centroids_X[j] - test_X[i])) / np.sum(centroids_X[j] + test_X[i]) # Bray-Curtis Dissimilarity
-            distances[i] = -dist.min()
+        # vectorised: (N, C, d) → per-class Minkowski distances → (N,)
+        diff = np.abs(test_X[:, None, :] - centroids_X[None, :, :])
+        distances = -np.min(np.sum(diff ** p, axis=2) ** (1.0 / p), axis=1)
 
-        # print(f"distances: {distances.shape}")
-        # distances = (distances - distances.min()) / (distances.max() - distances.min())
-            
-        for i in range(len(test_X)):    
-            predictions[i] = 1 if distances[i] > threshold else 0
-
+        predictions = (distances > threshold).astype(np.float64)
         return predictions, distances
     
 
@@ -763,79 +678,30 @@ class Metrics():
             distances:      an array of output features, 1-D 
         '''
 
-        # neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
-        # neigh.fit(train_X, train_Y)
-
-        # # predictions = neigh.predict(test_X)
-        # neigh_dist, neigh_ind = neigh.kneighbors(test_X, return_distance = True)
-        # print(f"neigh_dist: {neigh_dist.shape}, neigh_ind: {neigh_ind.shape}")
-
-        # predictions = np.full(test_X.shape[0], fill_value=-1)  # Default prediction as -1 (for rejected matches)
-        # distances = np.zeros(test_X.shape[0])
-
-        # # distances = []
-        # # m = []
-        # for i in range(len(neigh_dist)):
-        #     differing_neighbor_index = None
-        #     for j in range(len(neigh_dist[i])):
-        #         if(train_Y[neigh_ind[i][j]] != train_Y[neigh_ind[i][0]]):
-        #             differing_neighbor_index = j
-        #             break
-
-        # for i in range(test_X.shape[0]):
-        #     if number_neighbors > 1 and neigh_dist[i, 1] > 0:  # Avoid division by zero
-        #         ratio = neigh_dist[i, 0] / neigh_dist[i, 1]  # NNDR computation
-        #         if ratio < threshold:  # Accept match if ratio is below threshold
-        #             predictions[i] = train_Y[neigh_ind[i, 0]]  # Assign the nearest neighbor's label
-        #     else:
-        #         predictions[i] = train_Y[neigh_ind[i, 0]]  # If only 1 neighbor, assign it directly
-
-
-        # # for i in range(len(neigh_dist)):
-        # #     distances.append(-neigh_dist[i][0]/neigh_dist[i][m[i]])
-
-        # if differing_neighbor_index is None:
-        #     distances[i] = -10000  # No differing class found
-        # else:
-        #     distances[i] = -neigh_dist[i][0] / neigh_dist[i][differing_neighbor_index]
-
-        # if(distances[i] > threshold):
-        #     predictions[i] = 1
-        # else:
-        #     predictions[i] = 0
-
-        # return predictions, distances
-
-        br = 0
-        distances = []
-        m = []
-        neigh = KNeighborsClassifier(n_neighbors = number_neighbors, metric = 'euclidean')
+        neigh = KNeighborsClassifier(n_neighbors=number_neighbors, metric='euclidean')
         neigh.fit(train_X, train_Y)
 
         prediction = neigh.predict(test_X)
-        neigh_dist, neigh_ind = neigh.kneighbors(test_X, return_distance = True)
-        print(type(neigh_dist[0][0]))
+        neigh_dist, neigh_ind = neigh.kneighbors(test_X, return_distance=True)
+
+        # find first neighbor with a different class; fallback to last neighbor if all same class
+        m = []
         for i in range(len(neigh_dist)):
+            found = False
             for j in range(len(neigh_dist[i])):
-                if(train_Y[neigh_ind[i][j]] != train_Y[neigh_ind[i][0]]):
+                if train_Y[neigh_ind[i][j]] != train_Y[neigh_ind[i][0]]:
                     m.append(j)
+                    found = True
                     break
+            if not found:
+                m.append(len(neigh_dist[i]) - 1)
 
+        distances = []
         for i in range(len(neigh_dist)):
-            if(neigh_dist[i][m[i]]==0):
-                print("NaN")
-                print(i)
-                print(neigh_dist[i][0])
-                print(neigh_dist[i])
-                br=br+1
-                neigh_dist[i][m[i]] = 1e-20
-            distances.append(-neigh_dist[i][0]/neigh_dist[i][m[i]])
+            denom = neigh_dist[i][m[i]] if neigh_dist[i][m[i]] != 0 else 1e-20
+            distances.append(-neigh_dist[i][0] / denom)
+            prediction[i] = 1 if distances[i] > threshold else 0
 
-            if(distances[i] > threshold):
-                prediction[i] = 1
-            else:
-                prediction[i] = 0
-        print(br)
         return prediction, distances
 
     
@@ -859,6 +725,8 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
         suffixID = '-on_cifar100'
     elif nameID == 'SVHN':
         suffixID = '-on_svhn'
+    elif nameID == 'tImage200':
+        suffixID = '-on_timage200'
     else:
         raise ValueError("Unknown ID dataset name")
 
@@ -1292,28 +1160,6 @@ def test_metrics(config, case, nameID, methods, features='spikes'):
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"NNDR Execution time: {execution_time:.4f} seconds")
-
-            elif method == 'ODIN':
-
-                # ODIN uses the output probabilities from the softmax layer of a neural network. 
-                # These scores represent the model's confidence in its predictions for each class.
-                
-                # ODIN applies temperature scaling to the softmax scores to make the distribution 
-                # sharper or smoother. This is done by dividing the logits (pre-softmax activations)
-                # by a temperature parameter ( T ) before applying the softmax function.
-                
-                # ODIN perturbs the input slightly in the direction that maximizes the 
-                # softmax score for the predicted class. This preprocessing step helps to 
-                # amplify the difference between in-distribution and out-of-distribution samples.
-                    
-                print(f"ODIN on {namesOOD[i]}")
-                test_labels, test_predictions, test_distances = Metrics.ODIN(ID_features_test, OOD_features_test, eps=0.0014, T=1000.0)
-                auroc, aupr, tpr95, fpr95 = Metrics.metrics(test_labels, test_predictions, test_distances)
-
-                print(f"ODIN auroc: {auroc:.2f}, aupr: {aupr:.2f}")
-                stats[i, idx] = auroc
-                stats[i, len(methods) + idx] = aupr
-                stats[i, len(methods)*2 + idx] = fpr95
 
             else:
                 pass

@@ -26,6 +26,7 @@ def print_experiment_info(config, mode_description=""):
     print(f"  Case: {config.case}")
     print(f"  Batch size: {config.batch_size}")
     print(f"  Expansion: {config.expansion}")
+    print(f"  Pooling/readout: {config.pooling}/{config.readout}")
     print(f"  Loss: {config.loss}")
     print(f"  Seed: {config.seed}")
     print(f"  Time steps (train/extract): {config.num_time_steps_train}/{config.num_time_steps_extract}")

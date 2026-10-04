@@ -1,0 +1,50 @@
+# Accuracy test config for tImage200 as in-distribution dataset.
+# Mirrors config_train_tImage200_mse_r18.yaml (case 30, mse_count_loss, ResNet10/18).
+# Uses val/ split (10 000 labelled images) as the test set.
+
+dataset:
+  id: 'tImage200'
+  features: ['tImage200']
+
+model:
+  type: 'spike'
+  num_classes: 200
+  num_time_steps_train: 1
+  num_time_steps_extract: 1
+
+training:
+  batch_size: 64
+  full_train: true
+  auto_aug: true
+  pretrained: false
+  epochs: 400
+  loss: 'mse_count_loss'
+  fit: 'spike'
+
+mode: 'test'
+test_type: 'accuracy'
+
+device: 'cuda'
+num_workers: 4
+
+optimizer:
+  name: 'adam'
+  learning_rate: 2.0e-4
+  momentum: 0.9
+  weight_decay: 1.0e-4
+
+scheduler:
+  name: 'onecycle'
+  step_size: null
+
+gradient_clipping: 1.0
+
+experiment:
+  case: '30'
+  methods: null
+  seeds: [42, 1987, 1991, 2020, 2024]
+  expansions: [25, 50, 100, 250, 500, 1000]
+  resnet_models: [10, 18]
+  override_feature_extraction: false
+  near_ood: null
+  far_ood: null

@@ -218,6 +218,7 @@
 from email import parser
 import yaml
 from pathlib import Path
+from utils.snn_loss import resolve_ce_options
 
 
 def load_config_from_yaml(yaml_path):
@@ -262,6 +263,10 @@ def load_config_from_yaml(yaml_path):
             config.num_classes = model_cfg['num_classes']
         if 'expansion' in model_cfg:
             config.expansion = model_cfg['expansion']
+        if 'pooling' in model_cfg:
+            config.pooling = model_cfg['pooling']
+        if 'readout' in model_cfg:
+            config.readout = model_cfg['readout']
         if 'num_time_steps_train' in model_cfg:
             config.num_time_steps_train = model_cfg['num_time_steps_train']
         if 'num_time_steps_extract' in model_cfg:
@@ -289,6 +294,19 @@ def load_config_from_yaml(yaml_path):
             config.loss = training_cfg['loss']
         if 'fit' in training_cfg:
             config.fit = training_cfg['fit']
+        if 'ce_source' in training_cfg:
+            config.ce_source = training_cfg['ce_source']
+        if 'ce_mode' in training_cfg:
+            config.ce_mode = training_cfg['ce_mode']
+        if 'population_reduction' in training_cfg:
+            config.population_reduction = training_cfg['population_reduction']
+
+        config.ce_source, config.ce_mode, config.population_reduction = resolve_ce_options(
+            config.ce_source,
+            config.ce_mode,
+            config.population_reduction,
+            config.fit,
+        )
     
     # Load mode
     if 'mode' in config_dict:
@@ -364,6 +382,8 @@ class ExperimentConfig:
         self.resnet_model = 18
         self.num_classes = 10
         self.expansion = 1
+        self.pooling = 'max'
+        self.readout = 'lif'
         self.num_time_steps_train = 1
         self.num_time_steps_extract = 1
         self.seed = 42
@@ -376,6 +396,9 @@ class ExperimentConfig:
         self.epochs = 400  # Default for auto_aug=True
         self.loss = 'count_loss'
         self.fit = 'spike'
+        self.ce_source = None
+        self.ce_mode = None
+        self.population_reduction = None
         self.checkpointPeriod = 10
 
         # Pipeline mode

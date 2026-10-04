@@ -15,6 +15,9 @@ features
 figures
 tsne
 docs
+.venv/
+.vscode/
+technical_analysis/
 *.out
 *.log
 *.pth

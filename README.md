@@ -121,7 +121,10 @@ All runs are controlled by YAML files under `experiments/`. Key parameters:
 | `model.expansion` | Population coding expansion factor | `1` = no expansion |
 | `model.num_time_steps_train` | Training time steps T | `1`, `2`, `4`, `8` |
 | `model.num_time_steps_extract` | Inference time steps | `1` for single-step inference |
-| `training.loss` | Loss function | `mse_count_loss` (MSE), `count_loss` (CE spikes), `cross_entropy` (CE membrane) |
+| `training.loss` | Loss function | `mse_count_loss`, `count_loss`, `rate_loss`, `cross_entropy` |
+| `training.ce_source` | Tensor supervised by `cross_entropy` | `logits`, `membranes`, `spikes` |
+| `training.ce_mode` | CE temporal aggregation | `temporal_mean`, `per_timestep`, `final_timestep`, `spike_rate`, `spike_count` |
+| `training.population_reduction` | Class-population aggregation | `mean`, `sum` |
 | `training.auto_aug` | AutoAugment | `true` / `false` |
 | `training.epochs` | Training epochs | 400 (with aug), 200 (without) |
 | `optimizer.name` | Optimiser | `adam`, `sgd` |
@@ -266,6 +269,60 @@ experiment:
 | `weights/spike/` or `weights/conv/` | Saved model checkpoints (`.pth`) |
 | `features/spike/` or `features/conv/` | Extracted feature vectors (`.npz`) |
 | `results/` | JSON files with AUROC / FPR95 per method, backbone, expansion, and seed |
+
+---
+
+## Testing
+
+Run the deterministic CPU unit tests with:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The suite covers CE aggregation and validation, YAML configuration loading,
+model output compatibility, explicit logits, and classifier gradient flow.
+
+### Loss Accuracy Sweep
+
+Compare the four named training losses using a base experiment configuration:
+
+```bash
+python tools/loss_accuracy_sweep.py \
+  --config experiments/loss_accuracy/cifar10.yaml
+```
+
+For each loss, the script checks the corresponding file under
+`weights/spike/loss/`. Missing weights trigger training; existing weights are
+reused. The `experiment.resnet_models`, `experiment.expansions`, and
+`experiment.seeds` YAML arrays define a Cartesian product, and every loss is
+run at every point. Spike and membrane test accuracies are written after each
+individual seed run to a nested JSON data file under `results/`. A TXT report
+with one row per loss/model/expansion reports the mean and population standard
+deviation across completed seeds. Both files share the same base filename. The
+JSON is updated after each individual test; restarting with the same output and
+experiment configuration skips entries already marked `completed`.
+
+For CE runs, the report also includes configured accuracy using the same output
+source and temporal reduction as training. Historical `rate_loss` and
+`count_loss` inputs are stored with explicit names such as
+`ce_spikes_per_timestep_mean` and `ce_spikes_spike_count_sum`; equivalent
+explicit CE variants are run only once.
+
+To additionally test every valid CE source and temporal mode:
+
+```bash
+python tools/loss_accuracy_sweep.py \
+  --config experiments/loss_accuracy/cifar10.yaml \
+  --all-ce \
+  --population-reduction mean
+```
+
+Explicit CE variants use distinct weight tags such as
+`ce_logits_temporal_mean_mean`, preventing checkpoints trained with different
+CE semantics from sharing a filename. Use `--output results/name.json` to set
+the JSON path, `--report results/name.txt` to set the report path, or
+`--fail-fast` to stop after the first failed variant.
 
 ---
 

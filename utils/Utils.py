@@ -52,6 +52,32 @@ class Utils():
                     image = self.transform(image)
                 return image, -1  # Return -1 as the label since test labels are not provided
 
+        class TinyImageNetValDataset(Dataset):
+            """Val split with ground-truth labels derived from val_annotations.txt."""
+            def __init__(self, val_dir, train_dir, transform=None):
+                self.transform = transform
+                # wnid order from ImageFolder(train/) is alphabetical
+                wnids = sorted(os.listdir(train_dir))
+                wnid_to_idx = {wnid: idx for idx, wnid in enumerate(wnids)}
+                ann_path = os.path.join(val_dir, 'val_annotations.txt')
+                self.samples = []
+                with open(ann_path, 'r') as f:
+                    for line in f:
+                        parts = line.strip().split('\t')
+                        fname, wnid = parts[0], parts[1]
+                        img_path = os.path.join(val_dir, 'images', fname)
+                        self.samples.append((img_path, wnid_to_idx[wnid]))
+
+            def __len__(self):
+                return len(self.samples)
+
+            def __getitem__(self, idx):
+                img_path, label = self.samples[idx]
+                image = Image.open(img_path).convert('RGB')
+                if self.transform:
+                    image = self.transform(image)
+                return image, label
+
         transformData_gray_28 = transforms.Compose([transforms.Resize((28, 28)),
                                                     # transforms.RandomCrop(28, padding=4),
                                                     # transforms.RandomHorizontalFlip(),
@@ -318,6 +344,7 @@ class Utils():
             Name =  'CIFAR10'
             transformData_train = get_cifar10_transforms(auto_aug=auto_aug, training=True)
             transformData_test = get_cifar10_transforms(auto_aug=False, training=False)
+            print("Da vidimo", transformData_train, transformData_test)
             command_train = Name + '(root = \'data/' + name + '/\', download=True, train = True, transform = transformData_train)'
             command_test = Name + '(root = \'data/' + name + '/\', download=True, train = False, transform = transformData_test)'
         elif database_name == 'SVHN':
@@ -375,9 +402,9 @@ class Utils():
                 transforms.Normalize((0, 0, 0), (1, 1, 1)),
             ])
             train_dir = os.path.join('data', name, 'train')
-            test_dir = os.path.join('data', name, 'test')
+            val_dir = os.path.join('data', name, 'val')
             dataset_train = ImageFolder(root=train_dir, transform=transformData_train)
-            dataset_test = TinyImageNetTestDataset(root=test_dir, transform=transformData_test)
+            dataset_test = TinyImageNetValDataset(val_dir=val_dir, train_dir=train_dir, transform=transformData_test)
 
         else:
             print("UTILS Wrong database name!")

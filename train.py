@@ -4,7 +4,8 @@ import torch.nn as nn
 import torch 
 from torchsummary import summary
 from models.resnet import ResNet9Model , convNN4, ResNet10, ResNet18, newResNet10Model, newResNet18Model
-from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4,  SpikeResNet9Model, SpikeResNet10Model, SpikeResNet18Model, SpikeResNet20Model  
+from models.spikeresnet import spikeConvNN1, spikeConvNN2, spikeConvNN4, SpikeResNet9Model, SpikeResNet20Model, SpikeResNet, spike_resnet10, spike_resnet18, spike_resnet34, spike_resnet50, spike_resnet101, spike_resnet152
+from models.spikeresnet import SpikeResNet10Model, SpikeResNet18Model  # kept for rollback
 from models.plain import spikeLinearNet1
 import snntorch.functional as SF
 import numpy as np
@@ -13,8 +14,10 @@ import time
 import traceback
 from snntorch import backprop
 import gc
-#from syops import get_model_complexity_info as syops_get_model_complexity_info
-#from ptflops import get_model_complexity_info
+from syops import get_model_complexity_info as syops_get_model_complexity_info
+from ptflops import get_model_complexity_info
+from utils.snn_loss import resolve_ce_options
+from utils.experiment_paths import checkpoint_path, weight_path
 
 # _seed_ = 1984
 import random
@@ -126,7 +129,7 @@ def training(config):
     if config.model_type == 'conv':    
 
         # Define weight path similar to 'spike' case
-        weightPath = 'weights/conv/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion)+ '_L_'+str(config.loss)+ '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '.pth'
+        weightPath = str(weight_path(config))
 
         if (Utils.does_file_exists(weightPath)):
             # Keeps accuracy and loss for both training and validation in each epoch
@@ -172,7 +175,7 @@ def training(config):
             loss_fn = nn.CrossEntropyLoss()
             # Handle checkpointing
             startEpoch = 0
-            weightsName = 'weights/conv/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_' + str(config.num_time_steps_train) + '_E_' + str(config.expansion)+ '_L_'+str(config.loss)+ '_A_' + str(config.auto_aug) + '_S_' + str(config.seed) + '_checkpoint.pth'
+            weightsName = str(checkpoint_path(config))
             if config.pretrained:
                 print("Try to load checkpoint: " + weightsName)
                 try:
@@ -219,7 +222,7 @@ def training(config):
 
     elif config.model_type == 'spike':
 
-        weightPath = 'weights/spike/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+ '_L_'+str(config.loss)+ '_A_'+str(config.auto_aug)+'_S_'+str(config.seed)+'.pth'
+        weightPath = str(weight_path(config))
         print(f"Weight path: {weightPath}")
         if (Utils.does_file_exists(weightPath)):
 
@@ -257,20 +260,34 @@ def training(config):
                                         beta=beta, 
                                         threshold=threshold)
             elif config.resnet_model == 10:
-                model = SpikeResNet10Model(numberOfChannels=channels, 
-                                        numberOfClasses=config.num_classes, 
-                                        beta=beta, 
-                                        threshold=threshold, 
-                                        numberOfSteps=config.num_time_steps_train, 
-                                        expansion=config.expansion)
-                # model.reset_mem(batchSize, device)
+                model = SpikeResNet10Model(numberOfChannels=channels,
+                                          numberOfClasses=config.num_classes,
+                                          beta=beta, threshold=threshold,
+                                          numberOfSteps=config.num_time_steps_train,
+                                          expansion=config.expansion)
             elif config.resnet_model == 18:
-                model = SpikeResNet18Model(numberOfChannels=channels, 
-                                        numberOfClasses=config.num_classes, 
-                                        beta=beta, 
-                                        threshold=threshold, 
-                                        numberOfSteps=config.num_time_steps_train, 
-                                        expansion=config.expansion)
+                model = SpikeResNet18Model(numberOfChannels=channels,
+                                          numberOfClasses=config.num_classes,
+                                          beta=beta, threshold=threshold,
+                                          numberOfSteps=config.num_time_steps_train,
+                                          expansion=config.expansion)
+            elif config.resnet_model in (34, 50, 101, 152):
+                _factory = {
+                    10:  spike_resnet10,
+                    18:  spike_resnet18,
+                    34:  spike_resnet34,
+                    50:  spike_resnet50,
+                    101: spike_resnet101,
+                    152: spike_resnet152,
+                }[config.resnet_model]
+                model = _factory(numberOfChannels=channels,
+                                 numberOfClasses=config.num_classes,
+                                 beta=beta,
+                                 threshold=threshold,
+                                 numberOfSteps=config.num_time_steps_train,
+                                 expansion=config.expansion,
+                                 pooling=config.pooling,
+                                 readout=config.readout)
             elif config.resnet_model == 20:
                 model = SpikeResNet20Model(numberOfChannels=channels, 
                                         numberOfClasses=config.num_classes, 
@@ -288,12 +305,13 @@ def training(config):
                 return -1
             
             # Computational load
-            #ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
-            #                               print_per_layer_stat=True, verbose=True)
+            # ops, params = syops_get_model_complexity_info(model, (3, 32, 32), None, as_strings=True,
+                                        #   print_per_layer_stat=True, verbose=True)
             # print('{:<30}  {:<8}'.format('Computational complexity ACs:', acs))
             # print('{:<30}  {:<8}'.format('Computational complexity MACs:', macs))
-            #print(f"ops: {ops}")
-            #print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+            # print(f"ops: {ops}")
+            # print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+            # return -1
 
             # nummm = accumulate_leaky_layer_outputs(model)
             # print(f"Total Leaky layer output size: {nummm}")
@@ -306,11 +324,17 @@ def training(config):
             pop_code=False
             if config.expansion>1:
                 pop_code=True
+            ce_source, ce_mode, population_reduction = resolve_ce_options(
+                getattr(config, "ce_source", None),
+                getattr(config, "ce_mode", None),
+                getattr(config, "population_reduction", None),
+                config.fit,
+            )
             if config.loss == 'rate_loss':
-                # print(f"For population coding we do not use rate loss.")
-                # return -1
-                loss_fn = SF.ce_rate_loss(population_code=pop_code, num_classes=config.num_classes)
-                loss_name = "ce_rate_loss"
+                loss_fn = nn.CrossEntropyLoss()
+                loss_name = "cross_entropy"
+                ce_source = "spikes"
+                ce_mode = "per_timestep"
             elif config.loss == 'count_loss':
                 # print(f"For population coding we do not use count loss.")
                 # return -1
@@ -346,7 +370,7 @@ def training(config):
             # Training
             startEpoch = 0
             if (config.full_train == True):
-                weightsName = 'weights/spike/exp'+str(config.case)+'/resnet' + str(config.resnet_model) + '_weights_' + config.dataset_ID + '_T_'+str(config.num_time_steps_train)+'_E_'+str(config.expansion)+'_L_'+str(config.loss)+'_A_'+str(config.auto_aug)+'_S_'+str(config.seed) + '_checkpoint_' + '.pth'
+                weightsName = str(checkpoint_path(config))
                 if(config.pretrained == True):
                     print("Try to load checkpoint: "+weightsName)
                     try:
@@ -363,13 +387,12 @@ def training(config):
                         print("No valid checkpoint found. Starting from scratch.")
                     print("Training started")
                     sys.stdout.flush()
-                loss_name=""
                 start_time = time.time()
                 # Regular training fits according to the membrane voltages
                 if config.fit == 'membrane':
-                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointFile=weightsName,checkpointPeriod=config.checkpointPeriod)
+                    H = model.fit_membrane_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointFile=weightsName, checkpointPeriod=config.checkpointPeriod, ce_source=ce_source if loss_name == "cross_entropy" else "membranes", ce_mode=ce_mode if loss_name == "cross_entropy" else "temporal_mean", population_reduction=population_reduction if loss_name == "cross_entropy" else "sum")
                 elif config.fit == 'spike':
-                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointFile=weightsName,checkpointPeriod=config.checkpointPeriod)
+                    H = model.fit_spike_full_train(model, startEpoch, config.epochs, config.resnet_model, config.dataset_ID, sched, optimizer, loss_fn, loss_name, train_loader, config.num_time_steps_train, gClip, device, checkpointFile=weightsName, checkpointPeriod=config.checkpointPeriod, ce_source=ce_source if loss_name == "cross_entropy" else "spikes", ce_mode=ce_mode if loss_name == "cross_entropy" else "spike_rate", population_reduction=population_reduction if loss_name == "cross_entropy" else "sum")
                 end_time = time.time()  # Record end time
                 execution_time = end_time - start_time  # Calculate execution time
                 print(f"Training time: {execution_time:.4f} seconds")

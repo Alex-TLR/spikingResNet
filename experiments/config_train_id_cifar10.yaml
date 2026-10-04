@@ -1,0 +1,48 @@
+dataset:
+  id: 'CIFAR10'
+  features: ['CIFAR10', 'CIFAR100', 'tImage200']
+
+model:
+  type: 'spike'
+  num_classes: 10
+  num_time_steps_train: 4
+  num_time_steps_extract: 4
+  pooling: 'avg'
+  readout: 'linear'
+
+training:
+  batch_size: 128
+  full_train: true
+  auto_aug: true
+  pretrained: false
+  epochs: 300
+  loss: 'cross_entropy'
+  fit: 'membrane'
+  ce_source: 'logits'
+  ce_mode: 'temporal_mean'
+  population_reduction: 'mean'
+
+optimizer:
+  name: 'sgd'
+  learning_rate: 0.1
+  momentum: 0.9
+  weight_decay: 5.0e-4
+
+scheduler:
+  name: 'cosine'
+  step_size: null
+
+gradient_clipping: 1.0
+device: 'cuda'
+num_workers: 4
+mode: 'train'
+
+experiment:
+  case: 'id_cifar10_v1'
+  methods: null
+  seeds: [42]
+  expansions: [1]
+  resnet_models: [18]
+  override_feature_extraction: false
+  near_ood: null
+  far_ood: null
